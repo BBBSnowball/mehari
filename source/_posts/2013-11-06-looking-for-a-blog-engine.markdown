@@ -18,10 +18,12 @@ During my search, I looked at the source of lot of blogs to find out what they a
 
 Another intersting one is Blogger because it was funded by Y Combinator. I really love Paul Graham's books about Lisp. He certainly is a smart guy. So I figured that a project that is supported by his company is worth a look. Well, they've been bought by Google and the site is closed. That certainly was an interesting thing, if Google was so interested in it ;-)
 
-Finally, I found [Ghost](https://ghost.org/). It doesn't have any bells and whistles that we don't need. Even better, it uses Markdown for the posts. I'm using Markdown a lot - for personal notes, for notes in lectures, when I'm writing for the [lessproject wiki](http://lessproject.de/). I don't have to tell you that I immediately liked Ghost. After some struggles with the Node package manager ([solution is here](http://stackoverflow.com/a/18428563)), I have the blog up and running.
+Then, I found [Ghost](https://ghost.org/). It doesn't have any bells and whistles that we don't need. Even better, it uses Markdown for the posts. I'm using Markdown a lot - for personal notes, for notes in lectures, when I'm writing for the [lessproject wiki](http://lessproject.de/). I don't have to tell you that I immediately liked Ghost. After some struggles with the Node package manager ([solution is here](http://stackoverflow.com/a/18428563)), I have the blog up and running.
 
-One of those "bells and whistles" that Ghost does not have (yet) is multi-user support. This means that Sebstian and I will be using the same user account. We will add a signature at the end of each post. Feel free to remind us, if we forget to do that.
+**Update:**
 
-We will try Ghost for a few weeks. If you think "That totally looks like Wordpress", it might be. Look at the bottom of this page. If it doesn't say "Proudly published with Ghost", it probably is a Wordpress blog ;-)
+Ghost only lasted for about three days. Today, a friend told me that he uses [Octopress](http://octopress.org/) for blogging. The workflow is quite different from Ghost: You write the pages on your PC, let Octopress generate the HTML and push it to a web server. This means that we can use Github pages to host the blog. This is a huge advantage because it will last. The Ghost blog is hosted on my private server, so it won't last forever. If anyone uses our software, I don't want them to be stopped (or hindered) by a dead page. The Github pages will live as long as the code repository.
+
+We will use a git to store the Markdown source of our posts. We use a similar workflow for source code and notes. The git will track who writes posts, but this won't show up in the posts. Therefore, we will add a signature at the end of each post. Feel free to remind us, if we forget to do that.
 
 -- Benjamin
