@@ -3,9 +3,9 @@
 # ----------------------- #
 
 url: http://BBBSnowball.github.io/mehari
-title: My Octopress Blog
-subtitle: A blogging framework for hackers.
-author: Your Name
+title: Master Thesis
+subtitle: ---
+author: Benjamin Koch and Sebastian Surmund
 simple_search: http://google.com/search
 description:
 
@@ -63,6 +63,7 @@ default_asides: [asides/recent_posts.html, asides/github.html, asides/delicious.
 # ----------------------- #
 
 # Github repositories
+#TODO
 github_user:
 github_repo_count: 0
 github_show_profile_link: true
