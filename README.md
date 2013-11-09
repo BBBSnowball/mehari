@@ -8,33 +8,44 @@ Get the code
 
 You need `git` to get the code. Please install it: `aptitude install git` or whatever is appropriate for your distribution. On Windows, you should install [`git`](http://git-scm.com/download/win) and [TortoiseGit](http://code.google.com/p/tortoisegit/downloads/list).
 
+Some part of our examples are in a private git. If you do have access to this git, you can `git init` all submodules. If you don't have access to it, don't worry. You don't need it to work with Mehari.
+
 ````
 # master repository
 git clone git@github.com:BBBSnowball/mehari.git mehari
 
-# LLVM and some modules
-git clone git@github.com:BBBSnowball/mehari-llvm.git             mehari/llvm
-git clone git@github.com:BBBSnowball/mehari-llvm-compiler-rt.git mehari/llvm/projects/compiler-rt
-git clone git@github.com:BBBSnowball/mehari-llvm-test-suite.git  mehari/llvm/projects/test-suite
-git clone git@github.com:BBBSnowball/mehari-llvm-clang.git       mehari/llvm/tools/clang
+# clone submodules
+# If you do have access to the private git, add 'private' at the end of this command.
+cd mehari
+git submodule init llvm
+git submodule update
+cd ..
+
+# clone submodules of LLVM
+cd mehari/llvm
+git submodule init
+git submodule update
+cd ../..
+
+# add original origin for LLVM gits
+# (Later, you can use `git fetch llvm && git merge llvm/master` to get upstream updates.)
 ( cd mehari/llvm                      ; git remote add llvm http://llvm.org/git/llvm            )
 ( cd mehari/llvm/projects/compiler-rt ; git remote add llvm http://llvm.org/git/compiler-rt.git )
 ( cd mehari/llvm/projects/test-suite  ; git remote add llvm http://llvm.org/git/test-suite.git  )
 ( cd mehari/llvm/tools/clang          ; git remote add llvm http://llvm.org/git/clang.git       )
-
-# private repository
-# ONLY DO THIS, IF YOU HAVE ACCESS TO THIS REPOSITORY
-# You can go on without this. If you have any problems, please tell us.
-#TODO add private repo
-git clone TODO mehari/private
 ````
 
 
-### Why don't you use submodules? I think this would be easier.
+### Why do you use submodules?
 
-It would be easier, if you always clone all repositories. We don't use a submodule for the private repository because you may not have access to it. We don't want you to be annoyed by error messages. We don't use submodules for the LLVM modules because the LLVM git doesn't do that. I think they want everyone to only clone the modules they need.
+We need more than one git for several reasons:
 
-TODO: I think we will want to track which version in the master repository goes with which version in the modules. If we use submodules, we get this for free. If we don't...
+- The LLVM source code is split into several repositories. We copy that structure, so we can easily merge updates and send patches.
+- We are not allowed to publish part of the examples, so we cannot put them into the public repository.
+
+If you don't want to (or cannot) clone all the submodules, you must be careful not to `git init` them. In that case, git will simply ignore them (tested with git 1.7.9.5 on Ubuntu 12.04). This means you shouldn't run `git init` without any arguments, as this would initialize all submodules. We are very sorry for the inconvenience that may cause. However, there is an important advantage of submodules: Git will track the versions of them, so you always get a consistent state. Without this information, building and testing the program would involve a lot of guesswork.
+
+If you ever `git init` a submodule by accident, please try this procedure: `git stash` to save changes in `.gitmodules` (if there are any), completely remove the submodule (e.g. according to [this guide](http://davidwalsh.name/git-remove-submodule)) but DO NOT COMMIT, `git checkout HEAD .gitmodules` to remove any changes in the `.gitmodules` files, `git stash pop` to restore your changes that were saved by `git stash`.
 
 
 ### Why do you have a private git?
