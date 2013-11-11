@@ -1,3 +1,6 @@
 [submodule "llvm"]
 	path = llvm
 	url = git@github.com:BBBSnowball/mehari-llvm.git
+[submodule "private"]
+	path = private
+	url = git@github.com:pc2/mehari-private
