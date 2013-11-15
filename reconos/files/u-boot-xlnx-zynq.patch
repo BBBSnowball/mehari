@@ -1,0 +1,46 @@
+diff --git a/include/configs/zynq_common.h b/include/configs/zynq_common.h
+index f8ff0ac..853bf97 100644
+--- a/include/configs/zynq_common.h
++++ b/include/configs/zynq_common.h
+@@ -29,8 +29,8 @@
+ #define CONFIG_ZYNQ /* SoC */
+ 
+ /* Default environment */
+-#define CONFIG_IPADDR	10.10.70.102
+-#define CONFIG_SERVERIP	10.10.70.101
++#define CONFIG_IPADDR	192.168.42.2
++#define CONFIG_SERVERIP	192.168.42.1
+ 
+ #define CONFIG_SYS_SDRAM_BASE	0
+ #define CONFIG_SYS_SDRAM_SIZE	PHYS_SDRAM_1_SIZE
+@@ -287,11 +287,8 @@
+ 		"echo Copying ramdisk... && " \
+ 		"nand read 0x2000000 0x620000 ${ramdisk_size} && " \
+ 		"bootm 0x3000000 0x2000000 0x2A00000\0" \
+-	"jtagboot=echo TFTPing Linux to RAM... && " \
+-		"tftp 0x3000000 ${kernel_image} && " \
+-		"tftp 0x2A00000 ${devicetree_image} && " \
+-		"tftp 0x2000000 ${ramdisk_image} && " \
+-		"bootm 0x3000000 0x2000000 0x2A00000\0"
++	"jtagboot=echo Booting Linux... && " \
++		"bootm 0x3000000 - 0x2A00000\0"
+ 
+ /* default boot is according to the bootmode switch settings */
+ #define CONFIG_BOOTCOMMAND		"run $modeboot"
+diff --git a/include/configs/zynq_zed.h b/include/configs/zynq_zed.h
+index e4ba3f0..7b87f71 100644
+--- a/include/configs/zynq_zed.h
++++ b/include/configs/zynq_zed.h
+@@ -26,9 +26,9 @@
+ 
+ #define CONFIG_SYS_NO_FLASH
+ 
+-#define CONFIG_ZYNQ_SDHCI0
+-#define CONFIG_ZYNQ_QSPI
+-#define CONFIG_ZYNQ_BOOT_FREEBSD
++//#define CONFIG_ZYNQ_SDHCI0
++//#define CONFIG_ZYNQ_QSPI
++//#define CONFIG_ZYNQ_BOOT_FREEBSD
+ 
+ #include <configs/zynq_common.h>
+ 
