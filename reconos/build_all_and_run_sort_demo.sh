@@ -209,7 +209,7 @@ if ! (($SKIP_BUILDING_RECONOS)) ; then
 	cd_verbose "$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux"
 	#TODO keep __xps folder in git and use `make -f system.make bits`
 	make_bitfile() {
-		run_xps "run bits"
+		run_xps "system" "run bits"
 	}
 	long_operation make_bitfile
 
@@ -228,6 +228,8 @@ if (($BOOT_ZYNQ)) ; then
 	if ! sudo diff -r "$ROOT/busybox/_install" "$NFS_ROOT" ; then
 		echo "WARNING: NFS root directory $NFS_ROOT contains additional files!" >&2
 	fi
+
+	sudo mkdir -p "$NFS_ROOT/opt/reconos"
 
 	sudo cp "$ROOT/reconos/linux/driver/mreconos.ko"      "$NFS_ROOT/opt/reconos"
 	sudo cp "$ROOT/reconos/linux/scripts/reconos_init.sh" "$NFS_ROOT/opt/reconos"
