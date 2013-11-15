@@ -81,6 +81,10 @@ if ! (($SKIP_BUILDING_RECONOS)) ; then
 	clean_repository reconos
 fi
 
+if (($ONLY_CLEAN)) ; then
+	exit
+fi
+
 
 RECONOS_CONFIG="./reconos/tools/environment/default.sh"
 cp "$FILES/reconos-config.sh" "$RECONOS_CONFIG"
