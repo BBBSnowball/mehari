@@ -1,0 +1,3 @@
+none        /proc       proc    defaults        0 0
+none        /sys        sysfs   defaults        0 0
+none        /tmp        tmpfs   defaults        0 0
