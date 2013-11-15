@@ -4,3 +4,15 @@
 [submodule "private"]
 	path = private
 	url = git@github.com:pc2/mehari-private
+[submodule "reconos/linux-xlnx"]
+	path = reconos/linux-xlnx
+	url = https://github.com/Xilinx/linux-xlnx.git
+[submodule "reconos/u-boot-xlnx"]
+	path = reconos/u-boot-xlnx
+	url = https://github.com/Xilinx/u-boot-xlnx.git
+[submodule "reconos/reconos"]
+	path = reconos/reconos
+	url = git@github.com:pc2/mehari-private.git
+[submodule "reconos/busybox"]
+	path = reconos/busybox
+	url = git://git.busybox.net/busybox
