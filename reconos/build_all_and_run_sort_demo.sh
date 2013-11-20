@@ -6,15 +6,6 @@ set -e
 
 [ -n "$MAKE_PARALLEL_PROCESSES" ] || MAKE_PARALLEL_PROCESSES=4
 
-SKIP_BUILDING_UBOOT=1
-SKIP_BUILDING_KERNEL=1
-SKIP_BUILDING_ROOTFS=1
-SKIP_BUILDING_DROPBEAR=1
-SKIP_BUILDING_RECONOS=1
-#SKIP_UPDATING_ROOTFS=1
-#BOOT_ZYNQ=1
-#DEBUG_SKIP_EXPENSIVE_OPERATIONS=1
-
 [ -n "$HOST_IP" ]  || HOST_IP=192.168.24.17
 [ -n "$BOARD_IP" ] || BOARD_IP=192.168.24.23
 
@@ -25,6 +16,15 @@ SKIP_BUILDING_RECONOS=1
 
 
 ################################################################################
+
+if (($SKIP_BUILDING)) ; then
+	[ -z "$SKIP_BUILDING_UBOOT"    ] && SKIP_BUILDING_UBOOT=1
+	[ -z "$SKIP_BUILDING_KERNEL"   ] && SKIP_BUILDING_KERNEL=1
+	[ -z "$SKIP_BUILDING_ROOTFS"   ] && SKIP_BUILDING_ROOTFS=1
+	[ -z "$SKIP_BUILDING_DROPBEAR" ] && SKIP_BUILDING_DROPBEAR=1
+	[ -z "$SKIP_BUILDING_RECONOS"  ] && SKIP_BUILDING_RECONOS=1
+	[ -z "$SKIP_UPDATING_ROOTFS"   ] && SKIP_UPDATING_ROOTFS=1
+fi
 
 
 cd "$(dirname "$0")"
@@ -105,6 +105,25 @@ echo "export PATH=\"$ROOT/u-boot-xlnx/tools:\$PATH\"" >>"$RECONOS_CONFIG"
 
 if [ -z "$XILINX_VERSION" ] ; then
 	XILINX_VERSION=$(xps -help|sed -n 's/^Xilinx EDK \([0-9]\+\.[0-9]\+\)\b.*$/\1/p')
+fi
+
+if ! (($SKIP_BUILDING_ROOTFS)) ; then
+	# make sure we have the most important libc files
+	if [ -z "$libc_dir" -o ! -d "$libc_dir" ] ; then
+		echo "ERROR: \$libc_dir must be set to the install directory of libc, but it doesn't exist" >&2
+		exit 1
+	fi
+	for file in "usr/bin/getent" "lib/libutil.so.*" "lib/libc.so.*" "lib/ld-linux.so.*" \
+				"lib/libgcc_s.so.*" "lib/libcrypt.so.*" "usr/lib/libnss_files.so" ; do
+		if [ ! -e "$libc_dir"/$file ] ; then
+			echo "ERROR: \$libc_dir must be set to the install directory of libc"              >&2
+			echo "       At least the file '$file' is missing."                                >&2
+			echo "       Please make sure that you install a complete libc (e.g. eglibc)"      >&2
+			echo "       at this location. You have to provide more than the files I ask for!" >&2
+			echo "       \$libc_dir is '$libc_dir'"                                            >&2
+			exit 1
+		fi
+	done
 fi
 
 long_operation() {
@@ -196,30 +215,34 @@ if ! (($SKIP_BUILDING_ROOTFS)) ; then
 
 	sed -i "s/^HOST_IP=.*$/HOST_IP=$HOST_IP/" "$ROOTFS/etc/init.d/rcS"
 
-	echo "root:x:0:0:root:/root:/bin/bash" >"$ROOTFS/etc/passwd"
-	echo "root:x:0:"                       >"$ROOTFS/etc/group"
-	#TODO http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
-	cat >/etc/nsswitch.conf <<'EOF'
-# /etc/nsswitch.conf
-#
-# Example configuration of GNU Name Service Switch functionality.
-# If you have the `glibc-doc-reference' and `info' packages installed, try:
-# `info libc "Name Service Switch"' for information about this file.
+	echo "root:x:0:0:root:/root:/bin/ash" >"$ROOTFS/etc/passwd"
+	echo "root:x:0:"                      >"$ROOTFS/etc/group"
 
-passwd:         compat
-group:          compat
-shadow:         compat
+	# see http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
+	sed 's/^\s*//' > "$ROOTFS/etc/nsswitch.conf" << "EOF"
+		passwd: files
+		group: files
+		shadow: files
 
-hosts:          files dns
-networks:       files
+		hosts: files dns
+		networks: files
 
-protocols:      db files
-services:       db files
-ethers:         db files
-rpc:            db files
-
-netgroup:       nis
+		protocols: files
+		services: files
+		ethers: files
+		rpc: files
 EOF
+	
+	cp /etc/localtime "$ROOTFS/etc/localtime"
+
+	# eglibc doc (see above) suggest that we add `/usr/local/lib` and `/opt/lib`,
+	# but we don't use them
+	touch "$ROOTFS/etc/ld.so.conf"
+
+	# copy libc files
+	for dir in "usr/bin" "lib" "usr/lib" "usr/share" "sbin" "usr/sbin" ; do
+		cp -a "$libc_dir/$dir/." "$ROOTFS/$dir"
+	done
 fi	# not SKIP_BUILDING_ROOTFS
 
 if ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_ROOTFS)) ; then
@@ -235,18 +258,14 @@ if ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_ROOTFS)) ; then
 	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel
 	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel install
 
-	# copy dynamic libraries
-	for libname in libutil libc ld-linux libgcc_s libcrypt ; do
-		for lib in "$libdir"/$libname.so* ; do
-			cp -a "$lib"                  "$ROOTFS/lib"
-			cp -a "$(readlink -f "$lib")" "$ROOTFS/lib"
-		done
-	done
-
 	mkdir -p "$ROOTFS/root/.ssh"
 	if [ -e ~/.ssh/id_rsa.pub -a ! -e "$ROOTFS/root/.ssh/authorized_keys" ] ; then
 		cat ~/.ssh/id_rsa.pub >"$ROOTFS/root/.ssh/authorized_keys"
 		chmod 600 "$ROOTFS/root/.ssh/authorized_keys"
+	fi
+
+	if [ ! -e "$ROOTFS/etc/shells" ] || ! grep -q "^/bin/ash$" "$ROOTFS/etc/shells" ; then
+		echo "/bin/ash" >>"$ROOTFS/etc/shells"
 	fi
 fi
 
@@ -282,7 +301,7 @@ fi	# not SKIP_BUILDING_RECONOS
 
 if ! (($SKIP_UPDATING_ROOTFS)) ; then
 	sudo mkdir -p "$NFS_ROOT"
-	sudo cp -a "$ROOT/busybox/_install/." "$NFS_ROOT"
+	sudo cp -a "$ROOTFS/." "$NFS_ROOT"
 	
 	sudo rm -rf "$NFS_ROOT/opt/reconos"
 
@@ -316,22 +335,54 @@ if (($BOOT_ZYNQ)) ; then
 	run_xmd "fpga -f \"$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux/implementation/system.bit\""
 
 	echo "The board should be booting, now."
+	echo "If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'."
 
-	sleep 10
 
-	if ! ping -c1 "$HOST_IP" >/dev/null ; then
-		echo "ERROR: I cannot ping $HOST_IP, so for some reason your IP got reset."   >&2
-		echo "  Please make sure that you use an ethernet switch (i.e. don't"         >&2
-		echo "  directly connect your PC to the board) or make sure that the IP"      >&2
-		echo "  settings survive a reset of the ethernet connection (i.e. set them"   >&2
-		echo "  in NetworkManager or similar)."                                       >&2
+	# wait for the board to contact us
+	if ! timeout 30 nc -l "$HOST_IP" 12342 ; then
+		echo "ERROR: The board didn't send the 'done' message within 30 seconds."         >&2
+
+		if ! ping -c1 "$HOST_IP" >/dev/null ; then
+			echo "ERROR: I cannot ping $HOST_IP, so for some reason your IP got reset."   >&2
+			echo "  Please make sure that you use an ethernet switch (i.e. don't"         >&2
+			echo "  directly connect your PC to the board) or make sure that the IP"      >&2
+			echo "  settings survive a reset of the ethernet connection (i.e. set them"   >&2
+			echo "  in NetworkManager or similar)."                                       >&2
+			exit 1
+		fi
+		if ! ping -c1 "$BOARD_IP" >/dev/null ; then
+			echo "WARNING: I cannot ping the board ($BOARD_IP). This is a bad sign."      >&2
+		fi
+
 		exit 1
 	fi
-	if ! ping -c1 "$BOARD_IP" >/dev/null ; then
-		echo "WARNING: I cannot ping the board ($BOARD_IP). This is a bad sign."      >&2
-	fi
-	
-	#TODO add to known_hosts (or at least remove old entry)
 fi	# BOOT_ZYNQ
+
+if (($PREPARE_SSH)) || (($SSH_SHELL)) || (($RUN_DEMO)) ; then
+	get_board_pubkey() {
+		keytype="$1"
+		grep "^ssh-" "$NFS_ROOT/etc/dropbear/dropbear_${keytype}_host_key.info" | awk '{print $1 " " $2}'
+	}
+	BOARD_PUBKEY="$(get_board_pubkey rsa)"
+	if [ -n "$BOARD_PUBKEY" ] && ! ssh-keygen -F "$BOARD_IP" | grep -q "$BOARD_PUBKEY" ; then
+		# board key is not in known_hosts, so we remove any old ones and add the new one
+		ssh-keygen -R "$BOARD_IP"
+		echo "$BOARD_IP $BOARD_PUBKEY" >>~/.ssh/known_hosts
+		# re-hash the file
+		ssh-keygen -H
+	fi
+fi
+
+ssh_zynq() {
+	ssh -o PubkeyAuthentication=yes root@"$BOARD_IP" "$@"
+}
+
+if (($SSH_SHELL)) ; then
+	ssh_zynq
+fi
+
+if (($RUN_DEMO)) ; then
+	#TODO
+fi
 
 #TODO run sort_demo

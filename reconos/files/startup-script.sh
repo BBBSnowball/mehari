@@ -5,13 +5,14 @@ SYSLOG_OPTIONS=
 
 echo "Starting rcS..."
 
-mkdir -p /var/run /var/log
+mkdir -p /var/run /var/log /dev/pts
 
 echo "++ Mounting filesystem"
-mount -t proc none /proc
-mount -t sysfs none /sys
-mount -t tmpfs none /tmp
-mount -t tmpfs none /var/run
+mount -t proc   none /proc
+mount -t sysfs  none /sys
+mount -t tmpfs  none /tmp
+mount -t tmpfs  none /var/run
+mount -t devpts none /dev/pts
 
 ttydev=`cat /sys/class/tty/ttyPS0/dev`
 ttymajor=${ttydev%%:*}
@@ -48,9 +49,13 @@ echo "Welcome to Zynq"  >/etc/motd
 echo -n "Kernel: "     >>/etc/motd
 uname -a               >>/etc/motd
 
-if [ -e "~root/.ssh/authorized_keys" ] ; then
-	chown root:root "~root/.ssh" "~root/.ssh/authorized_keys"
+if [ -e "/root/.ssh/authorized_keys" ] ; then
+	chown root:root "/root" "/root/.ssh" "/root/.ssh/authorized_keys"
+	chmod 700 "/root" "/root/.ssh"
+	chmod 600 "/root/.ssh/authorized_keys"
 fi
+
+touch /var/log/lastlog
 
 dropbear -s -p 22 -p 2222 -b /etc/motd
 
@@ -63,4 +68,4 @@ fi
 
 echo "rcS Complete"
 
-#TODO ntpd -p 1.europe.pool.ntp.org
+#TODO ntpd -p 1.europe.pool.ntp.org &
