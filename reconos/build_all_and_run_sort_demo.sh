@@ -332,6 +332,13 @@ if (($BOOT_ZYNQ)) ; then
 		"$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux/ps7_init.tcl" \
 		"$ROOT/u-boot-xlnx/u-boot"
 
+	# The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
+	# have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
+	# we fix this.
+	if [ -e ~/.cse ] && ls -l ~/.cse | awk '{print $3 $4}' | grep -q root ; then
+		sudo chown -R "$USER" ~/.cse
+	fi
+
 	run_xmd "fpga -f \"$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux/implementation/system.bit\""
 
 	echo "The board should be booting, now."
@@ -383,6 +390,7 @@ fi
 
 if (($RUN_DEMO)) ; then
 	#TODO
+	echo "TODO: run demo"
 fi
 
 #TODO run sort_demo
