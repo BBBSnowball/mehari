@@ -6,10 +6,12 @@ set -e
 
 [ -n "$MAKE_PARALLEL_PROCESSES" ] || MAKE_PARALLEL_PROCESSES=4
 
-#SKIP_BUILDING_UBOOT=1
-#SKIP_BUILDING_KERNEL=1
-#SKIP_BUILDING_ROOTFS=1
-#SKIP_BUILDING_RECONOS=1
+SKIP_BUILDING_UBOOT=1
+SKIP_BUILDING_KERNEL=1
+SKIP_BUILDING_ROOTFS=1
+SKIP_BUILDING_DROPBEAR=1
+SKIP_BUILDING_RECONOS=1
+#SKIP_UPDATING_ROOTFS=1
 #BOOT_ZYNQ=1
 #DEBUG_SKIP_EXPENSIVE_OPERATIONS=1
 
@@ -77,6 +79,9 @@ fi
 if ! (($SKIP_BUILDING_ROOTFS)) ; then
 	clean_repository busybox
 fi
+if ! (($SKIP_BUILDING_DROPBEAR)) ; then
+	( cd dropbear ; [ -e "Makefile" ] && make distclean )
+fi
 if ! (($SKIP_BUILDING_RECONOS)) ; then
 	clean_repository reconos
 fi
@@ -139,6 +144,7 @@ run_xmd() {
 run_xps() {
 	PROJECT="$1"
 	shift
+	echo "$* ; exit" '|' xps -nw "$PROJECT"
 	echo "$* ; exit" | xps -nw "$PROJECT"
 }
 
@@ -171,25 +177,78 @@ if ! (($SKIP_BUILDING_KERNEL)) ; then
 fi	# not SKIP_BUILDING_KERNEL
 
 
+ROOTFS="$ROOT/busybox/_install"
+mkdir -p "$ROOTFS"
+
 if ! (($SKIP_BUILDING_ROOTFS)) ; then
 	cd_verbose "$ROOT/busybox"
 	cp "$FILES/busybox-config" ./.config
-	if ! (($DEBUG_SKIP_EXPENSIVE_OPERATIONS)) ; then
-		make_parallel
-		long_operation make install	# it is installed into CONFIG_PREFIX, which is "./_install"
-	else
-		mkdir -p _install
-	fi
-	cd_verbose _install
+	make_parallel
+	long_operation make install	# it is installed into CONFIG_PREFIX, which is "./_install"
+
+	cd_verbose "$ROOTFS"
 	mkdir dev etc etc/init.d lib mnt opt proc root sys tmp var
 
 	cp "$FILES/startup-script.sh" etc/init.d/rcS
 	chmod +x                      etc/init.d/rcS
 	cp "$FILES/inittab"           etc/inittab
 	cp "$FILES/fstab"             etc/fstab
+
+	sed -i "s/^HOST_IP=.*$/HOST_IP=$HOST_IP/" "$ROOTFS/etc/init.d/rcS"
+
+	echo "root:x:0:0:root:/root:/bin/bash" >"$ROOTFS/etc/passwd"
+	echo "root:x:0:"                       >"$ROOTFS/etc/group"
+	#TODO http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
+	cat >/etc/nsswitch.conf <<'EOF'
+# /etc/nsswitch.conf
+#
+# Example configuration of GNU Name Service Switch functionality.
+# If you have the `glibc-doc-reference' and `info' packages installed, try:
+# `info libc "Name Service Switch"' for information about this file.
+
+passwd:         compat
+group:          compat
+shadow:         compat
+
+hosts:          files dns
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis
+EOF
 fi	# not SKIP_BUILDING_ROOTFS
 
+if ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_ROOTFS)) ; then
+	cd_verbose "$ROOT/dropbear"
+	#TODO --disable-syslog ?
+	HOST="$(basename "$CROSS_COMPILE" | sed 's/-$//')"
+	./configure --prefix="$ROOTFS" --host="$HOST" --enable-bundled-libtom --disable-utmp --disable-zlib
+	
+	#NOTE We could modify options.h, now.
 
+	TOOLCHAIN_BIN_DIR="$(dirname "$CROSS_COMPILE")"
+
+	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel
+	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel install
+
+	# copy dynamic libraries
+	for libname in libutil libc ld-linux libgcc_s libcrypt ; do
+		for lib in "$libdir"/$libname.so* ; do
+			cp -a "$lib"                  "$ROOTFS/lib"
+			cp -a "$(readlink -f "$lib")" "$ROOTFS/lib"
+		done
+	done
+
+	mkdir -p "$ROOTFS/root/.ssh"
+	if [ -e ~/.ssh/id_rsa.pub -a ! -e "$ROOTFS/root/.ssh/authorized_keys" ] ; then
+		cat ~/.ssh/id_rsa.pub >"$ROOTFS/root/.ssh/authorized_keys"
+		chmod 600 "$ROOTFS/root/.ssh/authorized_keys"
+	fi
+fi
 
 if ! (($SKIP_BUILDING_RECONOS)) ; then
 	cd_verbose "$ROOT/reconos/linux/driver"
@@ -202,7 +261,9 @@ if ! (($SKIP_BUILDING_RECONOS)) ; then
 
 	cd_verbose "$ROOT/reconos/demos/$DEMO/hw"
 	if [ -n "$XILINX_VERSION" ] ; then
-		sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_14.6/' setup_zynq
+		#TODO get design for 14.7 from Christoph
+		#sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
+		echo "Not setting version"	#DEBUG
 	fi
 	reconos_setup.sh setup_zynq
 
@@ -219,13 +280,13 @@ if ! (($SKIP_BUILDING_RECONOS)) ; then
 	long_operation "$ROOT/linux-xlnx/scripts/dtc/dtc" -I dts -O dtb -o device_tree.dtb device_tree.dts
 fi	# not SKIP_BUILDING_RECONOS
 
-if (($BOOT_ZYNQ)) ; then
+if ! (($SKIP_UPDATING_ROOTFS)) ; then
 	sudo mkdir -p "$NFS_ROOT"
 	sudo cp -a "$ROOT/busybox/_install/." "$NFS_ROOT"
 	
 	sudo rm -rf "$NFS_ROOT/opt/reconos"
 
-	if ! sudo diff -r "$ROOT/busybox/_install" "$NFS_ROOT" ; then
+	if ! sudo diff -r "$ROOT/busybox/_install" "$NFS_ROOT" -x dropbear -x .ash_history -x motd -x log -x run -x passwd ; then
 		echo "WARNING: NFS root directory $NFS_ROOT contains additional files!" >&2
 	fi
 
@@ -234,7 +295,9 @@ if (($BOOT_ZYNQ)) ; then
 	sudo cp "$ROOT/reconos/linux/driver/mreconos.ko"      "$NFS_ROOT/opt/reconos"
 	sudo cp "$ROOT/reconos/linux/scripts/reconos_init.sh" "$NFS_ROOT/opt/reconos"
 	sudo cp "$ROOT/reconos/demos/$DEMO/linux/$DEMO"       "$NFS_ROOT/opt/reconos"
+fi
 
+if (($BOOT_ZYNQ)) ; then
 	sudo_modify_by /etc/exports \
 		grep -v "$NFS_ROOT"
 	echo "$NFS_ROOT $BOARD_IP(rw,no_root_squash,no_subtree_check)" | sudo_append_to /etc/exports
@@ -267,4 +330,8 @@ if (($BOOT_ZYNQ)) ; then
 	if ! ping -c1 "$BOARD_IP" >/dev/null ; then
 		echo "WARNING: I cannot ping the board ($BOARD_IP). This is a bad sign."      >&2
 	fi
+	
+	#TODO add to known_hosts (or at least remove old entry)
 fi	# BOOT_ZYNQ
+
+#TODO run sort_demo
