@@ -331,6 +331,8 @@ if (($BOOT_ZYNQ)) ; then
 		"$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux/device_tree.dtb" \
 		"$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux/ps7_init.tcl" \
 		"$ROOT/u-boot-xlnx/u-boot"
+	#NOTE If this fails because it doesn't find the cable, install the cable drivers:
+	#     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
 
 	# The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
 	# have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
@@ -389,8 +391,8 @@ if (($SSH_SHELL)) ; then
 fi
 
 if (($RUN_DEMO)) ; then
-	#TODO
-	echo "TODO: run demo"
+	ssh_zynq "cd /opt/reconos ; PATH='/sbin:/usr/sbin:/bin:/usr/bin' ash ./reconos_init.sh"
+	ssh_zynq "/opt/reconos/sort_demo 2 2 50"
 fi
 
 #TODO run sort_demo
