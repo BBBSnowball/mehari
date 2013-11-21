@@ -1,0 +1,26 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          notify-host
+# Required-Start:    
+# Required-Stop:     
+# Order:             99
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: notify host that the system is up and running
+### END INIT INFO
+
+NAME=notify-host
+
+if [ -f "/etc/default/$NAME" ]; then
+     . /etc/default/$NAME
+fi
+
+[ -z "$NOTIFY_PORT"    ] && NOTIFY_PORT=12342
+[ -z "$NOTIFY_TIMEOUT" ] && NOTIFY_TIMEOUT=10
+
+if [ "$1" == "start" -a -n "$NOTIFY_HOST" ] ; then
+	echo -n "Notifying host: "
+	echo -n "$NOTIFY_HOST"
+	echo "done" | nc "$NOTIFY_HOST" "$NOTIFY_PORT" -w "$NOTIFY_TIMEOUT" || true
+	echo "."
+fi

@@ -1,0 +1,22 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          fix-tty
+# Required-Start:    $mount
+# Required-Stop:     $mount
+# Order:             10
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: create /dev/ttyPS0
+### END INIT INFO
+
+if [ "$1" == "start" ] ; then
+	ttydev=`cat /sys/class/tty/ttyPS0/dev`
+	ttymajor=${ttydev%%:*}
+	ttyminor=${ttydev##*:}
+	if [ -c /dev/ttyPS0 ]
+	then
+		rm /dev/ttyPS0
+	fi
+
+	mknod /dev/ttyPS0 c $ttymajor $ttyminor
+fi

@@ -1,0 +1,78 @@
+#!/bin/sh
+#                                                        ____  _____
+#                            ________  _________  ____  / __ \/ ___/
+#                           / ___/ _ \/ ___/ __ \/ __ \/ / / /\__ \
+#                          / /  /  __/ /__/ /_/ / / / / /_/ /___/ /
+#                         /_/   \___/\___/\____/_/ /_/\____//____/
+# 
+# ======================================================================
+# 
+#   project:      ReconOS
+#   author:       Christoph Rüthing, University of Paderborn
+#                 Benjamin Koch,     University of Paderborn
+#   description:  This script initializes ReconOS on your linux system.
+#                 It loads the needed modules and ceates the device files.
+# 
+# ======================================================================
+#
+
+### BEGIN INIT INFO
+# Provides:          reconos
+# Required-Start:    $mount
+# Required-Stop:     $mount
+# Order:             90
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: initialize reconOS
+### END INIT INFO
+
+NAME=reconOS
+DESC=reconOS
+
+reconos_start() {
+	#TODO There is a race-condition here: I think it won't work, if we
+	#     get here before the FPGA bitstream has been loaded. Is there
+	#     any way to detect this?
+
+    echo -n "Starting $DESC:"
+    echo -n " kernel-module"
+    modprobe mreconos
+
+    echo -n " device-files"
+    rm -rf /dev/reconos
+	mkdir -p /dev/reconos
+
+	for dir in /sys/class/misc/reconos-* ; do
+		minor=`cat $dir/dev`
+		minor=${minor##*:}
+		devname=${dir#*-}
+
+		#echo "  /dev/reconos/$devname with 10:$minor"
+		mknod /dev/reconos/$devname c 10 $minor
+	done
+
+	echo "."
+}
+
+reconos_stop() {
+	rmmod mreconos
+    rm -rf /dev/reconos
+}
+
+case "$1" in
+	start)
+		reconos_start
+		;;
+	stop)
+		reconos_stop
+		;;
+	restart|force-reload)
+		$0 stop
+		$0 start
+		;;
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop|restart|force-reload}" >&2
+		exit 1
+		;;
+esac

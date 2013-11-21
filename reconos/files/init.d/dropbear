@@ -1,0 +1,79 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          dropbear
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Order:             80
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: SSH server
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=dropbear
+DAEMON=/sbin/$NAME
+DESC="SSH server"
+
+# Check if DAEMON binary exist
+test -f $DAEMON || exit 0
+
+if [ -f "/etc/default/$NAME" ]; then
+     . /etc/default/$NAME
+fi
+
+ARGS="-s -p 22 -p 2222 -b /etc/motd"
+
+dropbear_generate_key_if_it_doesnt_exist() {
+  keytype="$1"
+  if [ ! -e "/etc/dropbear/dropbear_${keytype}_host_key" ] ; then
+    dropbearkey -t "${keytype}" -f "/etc/dropbear/dropbear_${keytype}_host_key" \
+      | tee "/etc/dropbear/dropbear_${keytype}_host_key.info"
+  fi
+}
+
+dropbear_generate_keys() {
+  mkdir -p /etc/dropbear
+  dropbear_generate_key_if_it_doesnt_exist dss
+  dropbear_generate_key_if_it_doesnt_exist rsa
+}
+
+dropbear_update_motd() {
+  echo "Welcome to Zynq"  >/etc/motd
+  echo -n "Kernel: "     >>/etc/motd
+  uname -a               >>/etc/motd
+}
+
+dropbear_make_sure_lastlog_exists() {
+  touch /var/log/lastlog
+}
+
+case "$1" in
+  start)
+    echo -n "Starting $DESC: "
+    echo -n "$NAME"
+    dropbear_update_motd
+    dropbear_generate_keys
+    dropbear_make_sure_lastlog_exists
+    start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
+      --exec $DAEMON > /dev/null 2>&1 -- $ARGS
+    echo "."
+    ;;
+  stop)
+    echo -n "Stopping $DESC: "
+    echo -n "$NAME"
+    start-stop-daemon --retry 5 --oknodo --stop --quiet --pidfile /var/run/$NAME.pid \
+      --exec $DAEMON  > /dev/null 2>&1
+    echo "."
+    ;;
+  restart|force-reload)
+    $0 stop
+    $0 start
+    ;;
+  *)
+    N=/etc/init.d/$NAME
+    echo "Usage: $N {start|stop|restart|force-reload}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

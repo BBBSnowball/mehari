@@ -272,14 +272,59 @@ if ! (($SKIP_BUILDING_ROOTFS)) ; then
 	fi
 
 	cd_verbose "$ROOTFS"
-	mkdir dev dev/pts etc etc/init.d lib mnt opt proc root sys tmp var var/{run,log}
+	mkdir dev dev/pts etc etc/{init.d,rc.d,default} lib mnt opt proc root sys tmp var var/{run,log}
 
-	cp "$FILES/startup-script.sh" etc/init.d/rcS
-	chmod +x                      etc/init.d/rcS
+	cp "$FILES/startup-script.sh" etc/rcS
+	chmod +x                      etc/rcS
 	cp "$FILES/inittab"           etc/inittab
 	cp "$FILES/fstab"             etc/fstab
 
-	sed -i "s/^HOST_IP=.*$/HOST_IP=$HOST_IP/" "$ROOTFS/etc/init.d/rcS"
+	cp "$FILES/init.d"/* "$ROOTFS/etc/init.d"
+	chmod +x "$ROOTFS/etc/init.d"/*
+
+	function get_init_info() {
+		file="$1"
+		key="$2"
+		sed -n '/^#\+\s*BEGIN INIT INFO\s*$/,/^#\+\s*END INIT INFO\s*$/ s/^#\s*'"$key"':\s*\(.*\)$/\1/pi' "$file"
+	}
+
+	function get_order() {
+		file="$1"
+		start_or_stop="$2"
+
+		ORDER="$(get_init_info "$file" "${start_or_stop}-order")"
+		if [ -n "$ORDER" ] ; then
+			echo "$ORDER"
+		else
+			ORDER="$(get_init_info "$file" "order")"
+
+			if [ "$start_or_stop" == "start" ] ; then
+				echo "$ORDER"
+			else
+				if [ -n "$ORDER" ] ; then
+					printf "%02u" $[100-$ORDER]
+				fi
+			fi
+		fi
+	}
+
+	cd_verbose "$ROOTFS/etc/init.d"
+	rm -f "$ROOTFS/etc/rc.d/*"
+	for rcscript in * ; do
+		START_ORDER="$(get_order "$rcscript" start)"
+		STOP_ORDER="$(get_order "$rcscript" stop)"
+
+		if [ -n "$START_ORDER" ] ; then
+			ln -s "../init.d/$rcscript" "../rc.d/S${START_ORDER}$rcscript"
+		fi
+
+		if [ -n "$STOP_ORDER" ] ; then
+			ln -s "../init.d/$rcscript" "../rc.d/K${STOP_ORDER}$rcscript"
+		fi
+	done
+
+	echo "NOTIFY_HOST=\"$HOST_IP\"" >"$ROOTFS/etc/default/notify-host"
+
 
 	echo "root:x:0:0:root:/root:/bin/ash" >"$ROOTFS/etc/passwd"
 	echo "root:x:0:"                      >"$ROOTFS/etc/group"
@@ -332,9 +377,11 @@ EOF
 
 	mkdir -p "$ROOTFS/opt/reconos"
 
-	cp "$ROOT/reconos/linux/driver/mreconos.ko"      "$ROOTFS/opt/reconos"
-	cp "$ROOT/reconos/linux/scripts/reconos_init.sh" "$ROOTFS/opt/reconos"
-	cp "$ROOT/reconos/demos/$DEMO/linux/$DEMO"       "$ROOTFS/opt/reconos"
+	KERNEL_RELEASE="$(cat "$ROOT/linux-xlnx/include/config/kernel.release")"
+	RECONOS_MODULE="kernel/drivers/mreconos.ko"
+	MODULE_DIR="$ROOTFS/lib/modules/$KERNEL_RELEASE"
+	cp "$ROOT/reconos/linux/driver/mreconos.ko" "$MODULE_DIR/$RECONOS_MODULE"
+	echo "$RECONOS_MODULE: " >>"$MODULE_DIR/modules.dep"
 fi	# not SKIP_BUILDING_ROOTFS
 
 if (($UPDATE_NFSROOT)) ; then
@@ -427,6 +474,7 @@ if (($SSH_SHELL)) ; then
 fi	# SSH_SHELL
 
 if (($RUN_DEMO)) ; then
-	ssh_zynq "cd /opt/reconos ; PATH='/sbin:/usr/sbin:/bin:/usr/bin' ash ./reconos_init.sh"
-	ssh_zynq "/opt/reconos/sort_demo 2 2 50"
+	[ -z "$DEMO_ARGS" ] && DEMO_ARGS="2 2 50"
+	ssh_zynq "cat >/tmp/$DEMO" <"$ROOT/reconos/demos/$DEMO/linux/$DEMO"
+	ssh_zynq "chmod +x /tmp/$DEMO && /tmp/$DEMO" $DEMO_ARGS
 fi	# RUN_DEMO
