@@ -4,3 +4,6 @@
 # temporary files
 *~
 *.bak
+
+# build results
+/reconos/_install

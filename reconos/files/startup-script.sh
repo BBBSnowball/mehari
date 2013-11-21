@@ -5,8 +5,6 @@ SYSLOG_OPTIONS=
 
 echo "Starting rcS..."
 
-mkdir -p /var/run /var/log /dev/pts
-
 echo "++ Mounting filesystem"
 mount -t proc   none /proc
 mount -t sysfs  none /sys
@@ -48,12 +46,6 @@ generate_key_if_it_doesnt_exist rsa
 echo "Welcome to Zynq"  >/etc/motd
 echo -n "Kernel: "     >>/etc/motd
 uname -a               >>/etc/motd
-
-if [ -e "/root/.ssh/authorized_keys" ] ; then
-	chown root:root "/root" "/root/.ssh" "/root/.ssh/authorized_keys"
-	chmod 700 "/root" "/root/.ssh"
-	chmod 600 "/root/.ssh/authorized_keys"
-fi
 
 touch /var/log/lastlog
 

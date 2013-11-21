@@ -20,10 +20,18 @@ set -e
 if (($SKIP_BUILDING)) ; then
 	[ -z "$SKIP_BUILDING_UBOOT"    ] && SKIP_BUILDING_UBOOT=1
 	[ -z "$SKIP_BUILDING_KERNEL"   ] && SKIP_BUILDING_KERNEL=1
-	[ -z "$SKIP_BUILDING_ROOTFS"   ] && SKIP_BUILDING_ROOTFS=1
+	[ -z "$SKIP_BUILDING_BUSYBOX"  ] && SKIP_BUILDING_BUSYBOX=1
 	[ -z "$SKIP_BUILDING_DROPBEAR" ] && SKIP_BUILDING_DROPBEAR=1
 	[ -z "$SKIP_BUILDING_RECONOS"  ] && SKIP_BUILDING_RECONOS=1
-	[ -z "$SKIP_UPDATING_ROOTFS"   ] && SKIP_UPDATING_ROOTFS=1
+	[ -z "$SKIP_BUILDING_ROOTFS"   ] && SKIP_BUILDING_ROOTFS=1
+fi
+
+if ! (($SKIP_BUILDING_BUSYBOX)) || ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_RECONOS)) ; then
+	SKIP_BUILDING_ROOTFS=0
+fi
+
+if (($BOOT_ZYNQ)) ; then
+	[ -z "$UPDATE_NFSROOT" ] && UPDATE_NFSROOT=1
 fi
 
 
@@ -31,6 +39,8 @@ cd "$(dirname "$0")"
 ROOT="$(pwd)"
 
 FILES="$ROOT/files"
+
+ROOTFS="$ROOT/_install"
 
 if ! [ -d "busybox" -a -d "linux-xlnx" -a -d "reconos" -a -d "u-boot-xlnx" ] ; then
 	echo "ERROR: I need several gits with source code. At least one of them is missing."  >&2
@@ -76,7 +86,7 @@ fi
 if ! (($SKIP_BUILDING_KERNEL)) ; then
 	clean_repository linux-xlnx
 fi
-if ! (($SKIP_BUILDING_ROOTFS)) ; then
+if ! (($SKIP_BUILDING_BUSYBOX)) ; then
 	clean_repository busybox
 fi
 if ! (($SKIP_BUILDING_DROPBEAR)) ; then
@@ -84,6 +94,9 @@ if ! (($SKIP_BUILDING_DROPBEAR)) ; then
 fi
 if ! (($SKIP_BUILDING_RECONOS)) ; then
 	clean_repository reconos
+fi
+if ! (($SKIP_BUILDING_ROOTFS)) ; then
+	rm -rf "$ROOTFS"
 fi
 
 if (($ONLY_CLEAN)) ; then
@@ -193,20 +206,73 @@ if ! (($SKIP_BUILDING_KERNEL)) ; then
 	cd_verbose "$ROOT/linux-xlnx"
 	make xilinx_zynq_defconfig
 	make_parallel uImage LOADADDR=0x00008000
+	make_parallel modules
 fi	# not SKIP_BUILDING_KERNEL
 
 
-ROOTFS="$ROOT/busybox/_install"
-mkdir -p "$ROOTFS"
-
-if ! (($SKIP_BUILDING_ROOTFS)) ; then
+if ! (($SKIP_BUILDING_BUSYBOX)) ; then
 	cd_verbose "$ROOT/busybox"
 	cp "$FILES/busybox-config" ./.config
+	sed -i "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\"$ROOTFS\"#" ./.config
 	make_parallel
-	long_operation make install	# it is installed into CONFIG_PREFIX, which is "./_install"
+fi	# not SKIP_BUILDING_BUSYBOX
+
+if ! (($SKIP_BUILDING_DROPBEAR)) ; then
+	cd_verbose "$ROOT/dropbear"
+	#TODO --disable-syslog ?
+	HOST="$(basename "$CROSS_COMPILE" | sed 's/-$//')"
+	./configure --prefix="$ROOTFS" --host="$HOST" --enable-bundled-libtom --disable-utmp --disable-zlib
+	
+	#NOTE We could modify options.h, now.
+
+	TOOLCHAIN_BIN_DIR="$(dirname "$CROSS_COMPILE")"
+
+	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel
+fi	# not SKIP_BUILDING_DROPBEAR
+
+if ! (($SKIP_BUILDING_RECONOS)) ; then
+	cd_verbose "$ROOT/reconos/linux/driver"
+	make_parallel
+	cd_verbose "$ROOT/reconos/linux/lib"
+	make_parallel
+
+	cd_verbose "$ROOT/reconos/demos/$DEMO/linux"
+	make_parallel
+
+	cd_verbose "$ROOT/reconos/demos/$DEMO/hw"
+	if [ -n "$XILINX_VERSION" ] ; then
+		#TODO get design for 14.7 from Christoph
+		#sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
+		echo "Not setting version"	#DEBUG
+	fi
+	reconos_setup.sh setup_zynq
+
+	cd_verbose "$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux"
+	#TODO keep __xps folder in git and use `make -f system.make bits`
+	make_bitfile() {
+		run_xps "system" "run bits"
+	}
+	long_operation make_bitfile
+
+	cp "$FILES/device_tree.dts" .
+	sed -i 's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot='"$HOST_IP"':'"$NFS_ROOT"',tcp#' device_tree.dts
+	sed -i 's#\bip=[0-9.]\+:#ip='"$BOARD_IP"':#' device_tree.dts
+	long_operation "$ROOT/linux-xlnx/scripts/dtc/dtc" -I dts -O dtb -o device_tree.dtb device_tree.dts
+fi	# not SKIP_BUILDING_RECONOS
+
+if ! (($SKIP_BUILDING_ROOTFS)) ; then
+	mkdir -p "$ROOTFS"
+
+	cd_verbose "$ROOT/busybox"
+	make_parallel CONFIG_PREFIX="$ROOTFS" install
+	if [ -e "$ROOT/busybox/busybox.links" ] ; then
+		# hide this file, so it doesn't make the git dirty
+		# (unfortunately, it is not ignored in .gitignore)
+		mv "$ROOT/busybox/busybox.links" "$ROOT/busybox/.busybox.links"
+	fi
 
 	cd_verbose "$ROOTFS"
-	mkdir dev etc etc/init.d lib mnt opt proc root sys tmp var
+	mkdir dev dev/pts etc etc/init.d lib mnt opt proc root sys tmp var var/{run,log}
 
 	cp "$FILES/startup-script.sh" etc/init.d/rcS
 	chmod +x                      etc/init.d/rcS
@@ -243,20 +309,11 @@ EOF
 	for dir in "usr/bin" "lib" "usr/lib" "usr/share" "sbin" "usr/sbin" ; do
 		cp -a "$libc_dir/$dir/." "$ROOTFS/$dir"
 	done
-fi	# not SKIP_BUILDING_ROOTFS
 
-if ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_ROOTFS)) ; then
+
+
 	cd_verbose "$ROOT/dropbear"
-	#TODO --disable-syslog ?
-	HOST="$(basename "$CROSS_COMPILE" | sed 's/-$//')"
-	./configure --prefix="$ROOTFS" --host="$HOST" --enable-bundled-libtom --disable-utmp --disable-zlib
-	
-	#NOTE We could modify options.h, now.
-
-	TOOLCHAIN_BIN_DIR="$(dirname "$CROSS_COMPILE")"
-
-	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel
-	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel install
+	PATH="$TOOLCHAIN_BIN_DIR:$PATH" make_parallel prefix="$ROOTFS" install
 
 	mkdir -p "$ROOTFS/root/.ssh"
 	if [ -e ~/.ssh/id_rsa.pub -a ! -e "$ROOTFS/root/.ssh/authorized_keys" ] ; then
@@ -267,54 +324,33 @@ if ! (($SKIP_BUILDING_DROPBEAR)) || ! (($SKIP_BUILDING_ROOTFS)) ; then
 	if [ ! -e "$ROOTFS/etc/shells" ] || ! grep -q "^/bin/ash$" "$ROOTFS/etc/shells" ; then
 		echo "/bin/ash" >>"$ROOTFS/etc/shells"
 	fi
-fi
 
-if ! (($SKIP_BUILDING_RECONOS)) ; then
-	cd_verbose "$ROOT/reconos/linux/driver"
-	make_parallel
-	cd_verbose "$ROOT/reconos/linux/lib"
-	make_parallel
 
-	cd_verbose "$ROOT/reconos/demos/$DEMO/linux"
-	make_parallel
+	cd_verbose "$ROOT/linux-xlnx"
+	make_parallel INSTALL_MOD_PATH="$ROOTFS" modules_install
 
-	cd_verbose "$ROOT/reconos/demos/$DEMO/hw"
-	if [ -n "$XILINX_VERSION" ] ; then
-		#TODO get design for 14.7 from Christoph
-		#sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
-		echo "Not setting version"	#DEBUG
-	fi
-	reconos_setup.sh setup_zynq
 
-	cd_verbose "$ROOT/reconos/demos/$DEMO/hw/edk_zynq_linux"
-	#TODO keep __xps folder in git and use `make -f system.make bits`
-	make_bitfile() {
-		run_xps "system" "run bits"
-	}
-	long_operation make_bitfile
+	mkdir -p "$ROOTFS/opt/reconos"
 
-	cp "$FILES/device_tree.dts" .
-	sed -i 's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot='"$HOST_IP"':'"$NFS_ROOT"',tcp#' device_tree.dts
-	sed -i 's#\bip=[0-9.]\+:#ip='"$BOARD_IP"':#' device_tree.dts
-	long_operation "$ROOT/linux-xlnx/scripts/dtc/dtc" -I dts -O dtb -o device_tree.dtb device_tree.dts
-fi	# not SKIP_BUILDING_RECONOS
+	cp "$ROOT/reconos/linux/driver/mreconos.ko"      "$ROOTFS/opt/reconos"
+	cp "$ROOT/reconos/linux/scripts/reconos_init.sh" "$ROOTFS/opt/reconos"
+	cp "$ROOT/reconos/demos/$DEMO/linux/$DEMO"       "$ROOTFS/opt/reconos"
+fi	# not SKIP_BUILDING_ROOTFS
 
-if ! (($SKIP_UPDATING_ROOTFS)) ; then
+if (($UPDATE_NFSROOT)) ; then
 	sudo mkdir -p "$NFS_ROOT"
 	sudo cp -a "$ROOTFS/." "$NFS_ROOT"
 	
-	sudo rm -rf "$NFS_ROOT/opt/reconos"
-
-	if ! sudo diff -r "$ROOT/busybox/_install" "$NFS_ROOT" -x dropbear -x .ash_history -x motd -x log -x run -x passwd ; then
+	if ! sudo diff -r "$ROOTFS" "$NFS_ROOT" -x .ash_history -x dropbear -x motd -x log -x run ; then
 		echo "WARNING: NFS root directory $NFS_ROOT contains additional files!" >&2
 	fi
 
-	sudo mkdir -p "$NFS_ROOT/opt/reconos"
-
-	sudo cp "$ROOT/reconos/linux/driver/mreconos.ko"      "$NFS_ROOT/opt/reconos"
-	sudo cp "$ROOT/reconos/linux/scripts/reconos_init.sh" "$NFS_ROOT/opt/reconos"
-	sudo cp "$ROOT/reconos/demos/$DEMO/linux/$DEMO"       "$NFS_ROOT/opt/reconos"
-fi
+	if [ -e "$NFS_ROOT/root/.ssh/authorized_keys" ] ; then
+		sudo chown root:root "$NFS_ROOT/root" "$NFS_ROOT/root/.ssh" "$NFS_ROOT/root/.ssh/authorized_keys"
+		sudo chmod 700 "$NFS_ROOT/root" "$NFS_ROOT/root/.ssh"
+		sudo chmod 600 "$NFS_ROOT/root/.ssh/authorized_keys"
+	fi
+fi	# UPDATE_NFSROOT
 
 if (($BOOT_ZYNQ)) ; then
 	sudo_modify_by /etc/exports \
@@ -380,7 +416,7 @@ if (($PREPARE_SSH)) || (($SSH_SHELL)) || (($RUN_DEMO)) ; then
 		# re-hash the file
 		ssh-keygen -H
 	fi
-fi
+fi	# PREPARE_SSH
 
 ssh_zynq() {
 	ssh -o PubkeyAuthentication=yes root@"$BOARD_IP" "$@"
@@ -388,11 +424,9 @@ ssh_zynq() {
 
 if (($SSH_SHELL)) ; then
 	ssh_zynq
-fi
+fi	# SSH_SHELL
 
 if (($RUN_DEMO)) ; then
 	ssh_zynq "cd /opt/reconos ; PATH='/sbin:/usr/sbin:/bin:/usr/bin' ash ./reconos_init.sh"
 	ssh_zynq "/opt/reconos/sort_demo 2 2 50"
-fi
-
-#TODO run sort_demo
+fi	# RUN_DEMO
