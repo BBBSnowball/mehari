@@ -165,7 +165,7 @@ sudo_modify_by() {
 
 	tmpfile="$(tempfile)"
 	cp "$FILE" "$tmpfile"
-	"$@" <"$tmpfile" | sudo_save_into /etc/exports
+	"$@" <"$tmpfile" | sudo_save_into "$FILE"
 	rm "$tmpfile"
 }
 
