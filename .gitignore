@@ -4,6 +4,7 @@
 # temporary files
 *~
 *.bak
+*.pyc
 
 # build results
 /reconos/_install
