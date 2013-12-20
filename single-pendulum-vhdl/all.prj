@@ -1,0 +1,6 @@
+vhdl work "float_helpers.vhd"
+vhdl work "double_type.vhd"
+vhdl work "float_pkg_c_min.vhd"
+
+vhdl work "test_float_conversion.vhd"
+vhdl work "test_sin.vhd"

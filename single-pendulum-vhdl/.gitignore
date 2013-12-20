@@ -1,6 +1,7 @@
 *.dat
 
 *.prj
+!all.prj
 isim.*
 *.ngc
 *.asy
@@ -8,6 +9,8 @@ isim.*
 
 #*.vho
 
+/run_test.tcl
+/test_sim
 
 
 # copied from https://gist.github.com/mapedd/2045092
