@@ -1,0 +1,16 @@
+# Output products list for <cordic_sin>
+_xmsgs/pn_parser.xmsgs
+cordic_sin/doc/cordic_v5_0_readme.txt
+cordic_sin/doc/cordic_v5_0_vinfo.html
+cordic_sin/doc/ds858_cordic.pdf
+cordic_sin.asy
+cordic_sin.gise
+cordic_sin.ngc
+cordic_sin.sym
+cordic_sin.vhd
+cordic_sin.vho
+cordic_sin.xco
+cordic_sin.xise
+cordic_sin_flist.txt
+cordic_sin_xmdf.tcl
+demo_tb/tb_cordic_sin.vhd
