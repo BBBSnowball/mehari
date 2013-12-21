@@ -67,19 +67,11 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387587070" xil_pn:in_ck="-3990147351767138277" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1387588384">
+    <transform xil_pn:end_ts="1387588384" xil_pn:in_ck="7457568933869908711" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1387592539">
       <status xil_pn:value="ExecutingRun"/>
       <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="double_type.vhd"/>
-      <outfile xil_pn:name="float_helpers.vhd"/>
-      <outfile xil_pn:name="float_neg.vhd"/>
-      <outfile xil_pn:name="float_pkg_c_min.vhd"/>
-      <outfile xil_pn:name="float_sin.vhd"/>
-      <outfile xil_pn:name="test_float_conversion.vhd"/>
-      <outfile xil_pn:name="test_float_to_sin.vhd"/>
-      <outfile xil_pn:name="test_helpers.vhd"/>
-      <outfile xil_pn:name="test_sin.vhd"/>
-      <outfile xil_pn:name="x.vhd"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
     <transform xil_pn:end_ts="1387587049" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="-9155440904352376810" xil_pn:start_ts="1387587049">
       <status xil_pn:value="SuccessfullyRun"/>

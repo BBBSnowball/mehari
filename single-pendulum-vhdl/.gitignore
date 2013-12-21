@@ -12,6 +12,12 @@ isim.*
 /run_test.tcl
 /test_sim
 
+/ipcore_dir/demo_tb/
+/ipcore_dir/*.sym
+/ipcore_dir/*/cmodel/
+/ipcore_dir/*_flist.txt
+/ipcore_dir/*_xmdf.tcl
+/ipcore_dir/edit_*.tcl
 
 # copied from https://gist.github.com/mapedd/2045092
 

@@ -2,15 +2,15 @@
 -- Company: 
 -- Engineer:
 --
--- Create Date:   16:20:25 12/20/2013
+-- Create Date:   03:22:20 12/21/2013
 -- Design Name:   
--- Module Name:   /home/benny/Documents/Studium/Masterarbeit/code/single-pendulum-vhdl/test_float_to_sin.vhd
+-- Module Name:   /home/benny/Documents/Studium/Masterarbeit/code/single-pendulum-vhdl/test_float_from_sin.vhd
 -- Project Name:  single-pendulum-vhdl
 -- Target Device:  
 -- Tool versions:  
 -- Description:   
 -- 
--- VHDL Test Bench Created by ISE for module: float_to_sin
+-- VHDL Test Bench Created by ISE for module: float_from_sin
 -- 
 -- Dependencies:
 -- 
@@ -34,44 +34,44 @@ library work;
 use work.float_helpers.all;
 use work.test_helpers.all;
 
-ENTITY test_float_to_sin IS
-END test_float_to_sin;
- 
-ARCHITECTURE behavior OF test_float_to_sin IS 
- 
-  -- Component Declaration for the Unit Under Test (UUT)
+ENTITY test_float_from_sin IS
+END test_float_from_sin;
 
-  COMPONENT float_to_sin
-  PORT(
-       aclk : IN  std_logic;
-       s_axis_a_tvalid : IN  std_logic;
-       s_axis_a_tready : OUT  std_logic;
-       s_axis_a_tdata : IN  std_logic_vector(63 downto 0);
-       m_axis_result_tvalid : OUT  std_logic;
-       m_axis_result_tready : IN  std_logic;
-       m_axis_result_tdata : OUT  std_logic_vector(47 downto 0)
-      );
-  END COMPONENT;
+ARCHITECTURE behavior OF test_float_from_sin IS 
+
+    -- Component Declaration for the Unit Under Test (UUT)
+
+    COMPONENT float_from_sin
+    PORT(
+         aclk : IN  std_logic;
+         s_axis_a_tvalid : IN  std_logic;
+         s_axis_a_tready : OUT  std_logic;
+         s_axis_a_tdata : IN  std_logic_vector(47 downto 0);
+         m_axis_result_tvalid : OUT  std_logic;
+         m_axis_result_tready : IN  std_logic;
+         m_axis_result_tdata : OUT  std_logic_vector(63 downto 0)
+        );
+    END COMPONENT;
 
 
-  --Inputs
-  signal aclk : std_logic := '0';
-  signal s_axis_a_tvalid : std_logic := '0';
-  signal s_axis_a_tdata : std_logic_vector(63 downto 0) := (others => '0');
-  signal m_axis_result_tready : std_logic := '0';
+   --Inputs
+   signal aclk : std_logic := '0';
+   signal s_axis_a_tvalid : std_logic := '0';
+   signal s_axis_a_tdata : std_logic_vector(47 downto 0) := (others => '0');
+   signal m_axis_result_tready : std_logic := '0';
 
-  --Outputs
-  signal s_axis_a_tready : std_logic;
-  signal m_axis_result_tvalid : std_logic;
-  signal m_axis_result_tdata : std_logic_vector(47 downto 0);
+ 	--Outputs
+   signal s_axis_a_tready : std_logic;
+   signal m_axis_result_tvalid : std_logic;
+   signal m_axis_result_tdata : std_logic_vector(63 downto 0);
 
-  -- Clock period definitions
-  constant aclk_period : time := 10 ns;
+   -- Clock period definitions
+   constant aclk_period : time := 10 ns;
 
 BEGIN
- 
+
 	-- Instantiate the Unit Under Test (UUT)
-  uut: float_to_sin PORT MAP (
+   uut: float_from_sin PORT MAP (
           aclk => aclk,
           s_axis_a_tvalid => s_axis_a_tvalid,
           s_axis_a_tready => s_axis_a_tready,
@@ -81,25 +81,25 @@ BEGIN
           m_axis_result_tdata => m_axis_result_tdata
         );
 
-  -- Clock process definitions
-  aclk_process: process
-  begin
+   -- Clock process definitions
+   aclk_process :process
+   begin
 		aclk <= '0';
 		wait for aclk_period/2;
 		aclk <= '1';
 		wait for aclk_period/2;
-  end process;
- 
+   end process;
+
 
   -- Stimulus process
   stim_proc: process
-    procedure test(input_value : in real) is
+    procedure test(output_value : in real) is
     begin
       wait until s_axis_a_tready = '1' for 10*aclk_period;
       assert s_axis_a_tready = '1' report "uut is not ready for data";
       wait for 0 ns;
 
-      s_axis_a_tdata <= to_float(input_value);
+      s_axis_a_tdata <= std_logic_vector(to_cordic_out(output_value));
       s_axis_a_tvalid <= '1';
 
       wait for 2*aclk_period;
@@ -112,12 +112,12 @@ BEGIN
       wait for 0 ns;
 
       if m_axis_result_tvalid = '1' then
-        assertEqual(m_axis_result_tdata, std_logic_vector(to_cordic_in(input_value)));
+        assertAlmostEqual(to_real(m_axis_result_tdata), output_value);
       end if;
     end procedure;
 
     constant null_X_40 : std_logic_vector(39 downto 0) := (others => '0');
-  begin		
+  begin   
       -- hold reset state for 100 ns.
       wait for 100 ns;
 
@@ -127,14 +127,14 @@ BEGIN
 
       -- insert stimulus here
 
-      assertEqual(std_logic_vector(to_cordic_in( 2.0)), "01000000" & null_X_40);
-      assertEqual(std_logic_vector(to_cordic_in( 1.5)), "00110000" & null_X_40);
-      assertEqual(std_logic_vector(to_cordic_in(-1.5)), "11010000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_out( 1.0)), "01000000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_out( 1.5)), "01100000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_out(-1.5)), "10100000" & null_X_40);
 
-      test(2.0);
+      test(1.0);
       test(1.5);
-      test(math_pi);
-      test(-math_pi);
+      test(math_pi/2.0);
+      test(-math_pi/2.0);
 
       endOfSimulation(0);
 

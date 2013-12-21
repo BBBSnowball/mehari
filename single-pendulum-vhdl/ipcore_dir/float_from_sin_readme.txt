@@ -48,6 +48,11 @@ Deliver IP Symbol:
 
    * float_from_sin.asy
 
+SYM file generator:
+   Generate a SYM file for compatibility with legacy flows
+
+   * float_from_sin.sym
+
 Generate XMDF file:
    ISE Project Navigator interface file. ISE uses this file to determine how the
    files output by CORE Generator for the core can be integrated into your ISE

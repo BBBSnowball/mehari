@@ -69,11 +69,11 @@ END COMPONENT;
 -- Configuration specification
   FOR ALL : wrapped_float_from_sin USE ENTITY XilinxCoreLib.floating_point_v6_1(behavioral)
     GENERIC MAP (
-      C_A_FRACTION_WIDTH => 45,
+      C_A_FRACTION_WIDTH => 46,
       C_A_TDATA_WIDTH => 48,
       C_A_TUSER_WIDTH => 1,
       C_A_WIDTH => 48,
-      C_B_FRACTION_WIDTH => 45,
+      C_B_FRACTION_WIDTH => 46,
       C_B_TDATA_WIDTH => 48,
       C_B_TUSER_WIDTH => 1,
       C_B_WIDTH => 48,

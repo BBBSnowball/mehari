@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Tue Dec 10 03:20:21 2013
+# Date: Sat Dec 21 02:31:41 2013
 #
 ##############################################################
 #
@@ -44,8 +44,8 @@ CSET a_tuser_width=1
 CSET add_sub_value=Both
 CSET axi_optimize_goal=Resources
 CSET b_tuser_width=1
-CSET c_a_exponent_width=3
-CSET c_a_fraction_width=45
+CSET c_a_exponent_width=2
+CSET c_a_fraction_width=46
 CSET c_compare_operation=Programmable
 CSET c_has_divide_by_zero=false
 CSET c_has_invalid_op=false
@@ -78,4 +78,4 @@ CSET result_tlast_behv=Null
 MISC pkg_timestamp=2013-07-22T10:46:33Z
 # END Extra information
 GENERATE
-# CRC: e0903130
+# CRC: a009f78f
