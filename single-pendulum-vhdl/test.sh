@@ -40,6 +40,16 @@ for test in $TESTS ; do
 		exit 1
 	fi
 
+	if grep -q "The simulator has terminated in an unexpected manner" isim.log ; then
+		echo "There seams to be some problem with the simulation." >&2
+		exit 1
+	fi
+
+	if ! grep -q "INFO: Simulator is stopped" isim.log ; then
+		echo "There seams to be some problem with the simulation." >&2
+		exit 1
+	fi
+
 	if grep -v "^\*\* Failure:NONE\. End of simulation\." isim.log | grep -q "^\*\* Failure:" ; then
 		echo "The simulation has been stopped by a fatal error!" >&2
 		exit 1

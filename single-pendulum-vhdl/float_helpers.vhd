@@ -13,12 +13,12 @@ package float_helpers is
   -- use work.float_pkg_c_min.to_float !
   function double_to_std_logic_vector(x : real) return double;
 
-  -- http://www-ee.uta.edu/online/zhu/spring_2007/tutorial/how_to_print_objexts.txt
-  function to_string(sv: Std_Logic_Vector) return string;
-
 
   function to_float (arg : REAL) return double;
   function to_real  (arg : double) return REAL;
+
+  type fixedpoint is array(2 downto -45) of std_logic;
+  function to_fixedpoint(value : real) return fixedpoint;
 end package;
 
 package body float_helpers is
@@ -109,13 +109,52 @@ package body float_helpers is
     return work.float_pkg_c_min.to_real(arg);
   end function;
 
-  -- http://www-ee.uta.edu/online/zhu/spring_2007/tutorial/how_to_print_objexts.txt
-  function to_string(sv: Std_Logic_Vector) return string is
-    use Std.TextIO.all;
-    variable bv: bit_vector(sv'range) := to_bitvector(sv);
-    variable lp: line;
+
+  function two_complement(value : std_logic_vector) return std_logic_vector is
+    variable tmp : std_logic_vector(natural range value'range);
   begin
-    write(lp, bv);
-    return lp.all;
-  end;
+    tmp := not(value);
+
+    -- add one
+    for i in tmp'low to tmp'high loop
+      if tmp(i) = '1' then
+        tmp(i) := '0';
+      else
+        tmp(i) := '1';
+        exit;
+      end if;
+    end loop;
+
+    return tmp;
+  end function;
+
+  function to_fixedpoint(value : real) return fixedpoint is
+    variable tmp : real;
+    variable fix : fixedpoint;
+  begin
+    assert value < 2.0**(fixedpoint'high-1+1)
+      report "value to big for fixedpoint: " & real'image(value) & " >= " & real'image(2.0**(fixedpoint'high-1));
+
+    --tmp := value * (2.0**(48.0-3.0));
+    --return std_logic_vector(to_signed(integer(tmp), 48));
+
+    tmp := abs(value);
+
+    fix(fixedpoint'high) := '0';
+    for i in fixedpoint'high-1 downto fixedpoint'low loop
+      --report "tmp=" & real'image(tmp) & ", 2.0**i=" & real'image(2.0**i) & ", i=" & integer'image(i);
+      if tmp >= 2.0**i then
+        tmp := tmp - 2.0**i;
+        fix(i) := '1';
+      else
+        fix(i) := '0';
+      end if;
+    end loop;
+
+    if value < 0.0 then
+      fix := fixedpoint(two_complement(std_logic_vector(fix)));
+    end if;
+
+    return fix;
+  end function;
 end package body float_helpers;

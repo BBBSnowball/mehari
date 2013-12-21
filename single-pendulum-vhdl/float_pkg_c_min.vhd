@@ -179,7 +179,7 @@ package body float_pkg_c_min is
     --constant round_style    : round_type := float_round_style;  -- rounding option
     constant denormalize    : BOOLEAN    := true)  -- Use IEEE extended FP
     return double is
-    variable result     : double (exponent_width + fraction_width downto 0);
+    variable result     : double;
     variable arg_real   : REAL;         -- Real version of argument
     variable validfp    : boundary_type;      -- Check for valid results
     variable exp        : INTEGER;      -- Integer version of exponent
@@ -241,8 +241,8 @@ package body float_pkg_c_min is
           fract := fract + 1;
         end if;
       end if;
-      result (exponent_width-1 + fraction_width downto fraction_width) := double(expon);
-      result (fraction_width-1 downto 0) := double(fract);
+      result (exponent_width-1 + fraction_width downto fraction_width) := std_logic_vector(expon);
+      result (fraction_width-1 downto 0) := std_logic_vector(fract);
       return result;
     end if;
   end function to_float;
