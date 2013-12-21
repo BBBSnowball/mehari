@@ -4,13 +4,13 @@
 --
 -- Create Date:   12:43:14 12/16/2013
 -- Design Name:   
--- Module Name:   /home/benny/Documents/Studium/Masterarbeit/code/abc/test_sin.vhd
+-- Module Name:   /home/benny/Documents/Studium/Masterarbeit/code/abc/test_cos.vhd
 -- Project Name:  abc
 -- Target Device:  
 -- Tool versions:  
 -- Description:   
 -- 
--- VHDL Test Bench Created by ISE for module: float_sin
+-- VHDL Test Bench Created by ISE for module: float_cos
 -- 
 -- Dependencies:
 -- 
@@ -27,11 +27,7 @@
 --------------------------------------------------------------------------------
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 USE ieee.numeric_std.ALL;
-
 use ieee.MATH_REAL.all;
 
 library work;
@@ -40,14 +36,14 @@ use work.float_helpers.all;
 use work.test_helpers.all;
 
 
-ENTITY test_sin IS
-END test_sin;
+ENTITY test_cos IS
+END test_cos;
 
-ARCHITECTURE behavior OF test_sin IS 
+ARCHITECTURE behavior OF test_cos IS 
  
   -- Component Declaration for the Unit Under Test (UUT)
  
-  COMPONENT float_sin
+  COMPONENT float_cos
   PORT(
        aclk : IN  std_logic;
        a_tdata : IN  std_logic_vector(63 downto 0);
@@ -83,7 +79,7 @@ BEGIN
   dbg_result_tdata <= to_real(result_tdata);
  
   -- Instantiate the Unit Under Test (UUT)
-  uut: float_sin PORT MAP (
+  uut: float_cos PORT MAP (
     aclk => aclk,
     a_tdata =>       a_tdata,
     a_tvalid =>      a_tvalid,
@@ -104,7 +100,7 @@ BEGIN
 
   -- Stimulus process
   stim_proc: process
-    procedure testSin(input_value : in real;
+    procedure test(input_value : in real;
                       expected_output_value : in real;
                       epsilon : in real := 1.0e-10) is
     begin
@@ -127,7 +123,7 @@ BEGIN
       wait for 0 ns;
 
       if result_tvalid = '1' then
-        assertAlmostEqual(to_real(result_tdata), sin(input_value), epsilon);
+        assertAlmostEqual(to_real(result_tdata), cos(input_value), epsilon);
       end if;
     end procedure;
   begin    
@@ -143,10 +139,10 @@ BEGIN
       report "uut is not ready (a_tready = " & std_logic'image(a_tready) & ")";
 
 
-    testSin(0.0, 0.0        );
-    testSin(math_pi/2.0, 1.0);
-    testSin(math_pi,     0.0);
-    testSin(1.2, 0.932039, epsilon => 1.0e-6);
+    test(0.0, 0.0        );
+    test(math_pi/2.0, 1.0);
+    test(math_pi,     0.0);
+    test(1.2, 0.932039, epsilon => 1.0e-6);
 
     wait for 1 ns;
 

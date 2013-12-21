@@ -115,6 +115,7 @@ BEGIN
       wait for 2*aclk_period;
 
       s_axis_phase_tvalid <= '0';
+      wait for 0 ns;
       s_axis_phase_tdata <= (others => '0');
 
       wait until m_axis_dout_tvalid = '1' for 100*aclk_period;
@@ -126,11 +127,13 @@ BEGIN
         if use_from_fixedpoint then
           assertAlmostEqual(from_fixedpoint(fixedpoint(m_axis_dout_tdata(47 downto 0))), expected_output);
         else
+          --TODO in float_sin.vhd we have to use the other half to get the sine. Why?!
+          actual := m_axis_dout_tdata(47 downto 0);
+          expected := std_logic_vector(to_cordic_out(expected_output));
+
           -- Only the first half or so is as expected due to
           -- lack of numerical precision. If the value is near zero, the leading bits
           -- may differ although the difference in the represented value is small.
-          actual := m_axis_dout_tdata(47 downto 0);
-          expected := std_logic_vector(to_cordic_out(expected_output));
           actual_for_comparison := actual(actual_for_comparison'range);
           expected_for_comparison := expected(expected_for_comparison'range);
           if not actual_for_comparison = expected_for_comparison and not (

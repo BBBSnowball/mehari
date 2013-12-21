@@ -2,8 +2,15 @@
 
 set -e
 
+cd "$(dirname "$0")"
+
 if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
-	TESTS="work.test_float_conversion work.test_sin"
+	TESTS=""
+	for test in test_*.vhd ; do
+		if [ "$test" != "test_helpers.vhd" ] ; then
+			TESTS="$TESTS work.$(basename $test .vhd)"
+		fi
+	done
 else
 	TESTS="$*"
 fi
@@ -15,8 +22,6 @@ done
 
 [ -n "$XILINX_SETTINGS_SCRIPT" ] && source "$XILINX_SETTINGS_SCRIPT"
 
-
-cd "$(dirname "$0")"
 
 cat >run_test.tcl <<EOF
 cd "$(realpath "$(dirname "$0")")"
@@ -62,4 +67,5 @@ for test in $TESTS ; do
 	fi
 done
 
+echo "Tests: $TESTS"
 echo "PASSED"

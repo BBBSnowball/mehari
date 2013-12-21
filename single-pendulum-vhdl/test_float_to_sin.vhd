@@ -105,6 +105,7 @@ BEGIN
       wait for 2*aclk_period;
 
       s_axis_a_tvalid <= '0';
+      wait for 0 ns;
       s_axis_a_tdata <= (others => '0');
 
       wait until m_axis_result_tvalid = '1' for 100*aclk_period;

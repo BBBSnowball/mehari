@@ -4,7 +4,7 @@
 -- 
 -- Create Date:    11:37:52 12/16/2013 
 -- Design Name: 
--- Module Name:    float_sin - Structural 
+-- Module Name:    float_cos - Structural 
 -- Project Name: 
 -- Target Devices: 
 -- Tool versions: 
@@ -20,16 +20,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
-
-entity float_sin is
+entity float_cos is
 	Port( 
       aclk : IN STD_LOGIC;
       a_tdata : IN STD_LOGIC_VECTOR (63 downto 0);
@@ -39,9 +30,9 @@ entity float_sin is
 			result_tdata : OUT STD_LOGIC_VECTOR (63 downto 0);
 			result_tvalid : OUT STD_LOGIC;
 			result_tready : IN STD_LOGIC );
-end float_sin;
+end float_cos;
 
-architecture Structural of float_sin is
+architecture Structural of float_cos is
 
   COMPONENT float_to_sin IS
     PORT (
@@ -113,11 +104,10 @@ t2 : float_from_sin
     aclk => aclk,
     s_axis_a_tvalid => temp2_valid,
     s_axis_a_tready => temp2_ready,
-    s_axis_a_tdata => temp2(95 downto 48),
+    s_axis_a_tdata => temp2(47 downto 0),
     m_axis_result_tvalid => result_tvalid,
     m_axis_result_tready => result_tready,
     m_axis_result_tdata =>  result_tdata
   );
 
 end Structural;
-
