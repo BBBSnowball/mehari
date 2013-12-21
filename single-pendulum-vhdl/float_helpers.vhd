@@ -17,8 +17,13 @@ package float_helpers is
   function to_float (arg : REAL) return double;
   function to_real  (arg : double) return REAL;
 
-  type fixedpoint is array(2 downto -45) of std_logic;
-  function to_fixedpoint(value : real) return fixedpoint;
+  type fixedpoint is array(integer range <>) of std_logic;
+  subtype cordic_in_t is fixedpoint(2 downto -45);
+  subtype cordic_out_t is fixedpoint(1 downto -46);
+  function to_fixedpoint(value : real; dummy : fixedpoint) return fixedpoint;
+  function to_cordic_in(value : real) return cordic_in_t;
+  function to_cordic_out(value : real) return cordic_out_t;
+  function from_fixedpoint(value : fixedpoint) return real;
 end package;
 
 package body float_helpers is
@@ -111,9 +116,15 @@ package body float_helpers is
 
 
   function two_complement(value : std_logic_vector) return std_logic_vector is
-    variable tmp : std_logic_vector(natural range value'range);
+    type tmp_t is array(integer range value'range) of std_logic;
+    variable tmp : tmp_t;
   begin
-    tmp := not(value);
+    --TODO This should work: tmp := not(value);
+
+    tmp := tmp_t(value);
+    for i in tmp'range loop
+      tmp(i) := not tmp(i);
+    end loop;
 
     -- add one
     for i in tmp'low to tmp'high loop
@@ -125,23 +136,23 @@ package body float_helpers is
       end if;
     end loop;
 
-    return tmp;
+    return std_logic_vector(tmp);
   end function;
 
-  function to_fixedpoint(value : real) return fixedpoint is
+  function to_fixedpoint(value : real; dummy : fixedpoint) return fixedpoint is
     variable tmp : real;
-    variable fix : fixedpoint;
+    variable fix : fixedpoint(integer range dummy'range);
   begin
-    assert value < 2.0**(fixedpoint'high-1+1)
-      report "value to big for fixedpoint: " & real'image(value) & " >= " & real'image(2.0**(fixedpoint'high-1));
+    assert value < 2.0**(dummy'high-1+1)
+      report "value to big for fixedpoint: " & real'image(value) & " >= " & real'image(2.0**(dummy'high-1));
 
     --tmp := value * (2.0**(48.0-3.0));
     --return std_logic_vector(to_signed(integer(tmp), 48));
 
     tmp := abs(value);
 
-    fix(fixedpoint'high) := '0';
-    for i in fixedpoint'high-1 downto fixedpoint'low loop
+    fix(dummy'high) := '0';
+    for i in dummy'high-1 downto dummy'low loop
       --report "tmp=" & real'image(tmp) & ", 2.0**i=" & real'image(2.0**i) & ", i=" & integer'image(i);
       if tmp >= 2.0**i then
         tmp := tmp - 2.0**i;
@@ -157,4 +168,39 @@ package body float_helpers is
 
     return fix;
   end function;
+
+  function from_fixedpoint(value : fixedpoint) return real is
+    variable tmp : real;
+    variable abs_value : fixedpoint(integer range value'range);
+  begin
+    if value(value'high) = '1' then
+      abs_value := fixedpoint(two_complement(std_logic_vector(value)));
+      assert abs_value(abs_value'high) /= '1'
+        report "Two-complement of value is also negative. This would result in infinite recursion."
+        severity failure;
+      return -from_fixedpoint(abs_value);
+    else
+      tmp := 0.0;
+
+      for i in value'range loop
+        if value(i) = '1' then
+          tmp := tmp + 2.0**i;
+        end if;
+      end loop;
+
+      return tmp;
+    end if;
+  end function;
+
+  function to_cordic_in(value : real) return cordic_in_t is
+    constant dummy : cordic_in_t := (others => '0');
+  begin
+    return to_fixedpoint(value, dummy);
+  end;
+
+  function to_cordic_out(value : real) return cordic_out_t is
+    constant dummy : cordic_out_t := (others => '0');
+  begin
+    return to_fixedpoint(value, dummy);
+  end;
 end package body float_helpers;

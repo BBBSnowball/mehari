@@ -50,7 +50,7 @@ for test in $TESTS ; do
 		exit 1
 	fi
 
-	if grep -v "^\*\* Failure:NONE\. End of simulation\." isim.log | grep -q "^\*\* Failure:" ; then
+	if grep -v "^\*\* Failure:\s*NONE\. End of simulation\." isim.log | grep -q "^\*\* Failure:" ; then
 		echo "The simulation has been stopped by a fatal error!" >&2
 		exit 1
 	fi

@@ -112,9 +112,10 @@ BEGIN
       wait for 0 ns;
 
       if m_axis_result_tvalid = '1' then
-        assertEqual(m_axis_result_tdata, std_logic_vector(to_fixedpoint(input_value)));
+        assertEqual(m_axis_result_tdata, std_logic_vector(to_cordic_in(input_value)));
       end if;
     end procedure;
+
     constant null_X_40 : std_logic_vector(39 downto 0) := (others => '0');
    begin		
       -- hold reset state for 100 ns.
@@ -126,9 +127,9 @@ BEGIN
 
       -- insert stimulus here
 
-      assertEqual(std_logic_vector(to_fixedpoint( 2.0)), "01000000" & null_X_40);
-      assertEqual(std_logic_vector(to_fixedpoint( 1.5)), "00110000" & null_X_40);
-      assertEqual(std_logic_vector(to_fixedpoint(-1.5)), "11010000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_in( 2.0)), "01000000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_in( 1.5)), "00110000" & null_X_40);
+      assertEqual(std_logic_vector(to_cordic_in(-1.5)), "11010000" & null_X_40);
 
       test(2.0);
       test(1.5);

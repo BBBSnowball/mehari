@@ -41,11 +41,10 @@
     <file xil_pn:fileType="FILE_LOG" xil_pn:name="ipcore_dir/coregen.log"/>
     <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="isim"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_CMD" xil_pn:name="isim.cmd"/>
-    <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_LOG" xil_pn:name="isim.log"/>
-    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="isim.wdb"/>
-    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_float_conversion_beh.prj"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_float_conversion_isim_beh.exe"/>
-    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="test_float_conversion_isim_beh.wdb"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_float_to_sin_beh.prj"/>
+    <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_float_to_sin_isim_beh.exe"/>
+    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="test_float_to_sin_isim_beh.wdb"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_sin_isim_beh.exe"/>
     <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_sin_stx_beh.prj"/>
     <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="webtalk_pn.xml"/>
@@ -68,8 +67,8 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387544797" xil_pn:in_ck="-7146157683851980127" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1387544797">
-      <status xil_pn:value="SuccessfullyRun"/>
+    <transform xil_pn:end_ts="1387587070" xil_pn:in_ck="-3990147351767138277" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1387588384">
+      <status xil_pn:value="ExecutingRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <outfile xil_pn:name="double_type.vhd"/>
       <outfile xil_pn:name="float_helpers.vhd"/>
@@ -77,14 +76,16 @@
       <outfile xil_pn:name="float_pkg_c_min.vhd"/>
       <outfile xil_pn:name="float_sin.vhd"/>
       <outfile xil_pn:name="test_float_conversion.vhd"/>
+      <outfile xil_pn:name="test_float_to_sin.vhd"/>
+      <outfile xil_pn:name="test_helpers.vhd"/>
       <outfile xil_pn:name="test_sin.vhd"/>
       <outfile xil_pn:name="x.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387544797" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="6380125806876918175" xil_pn:start_ts="1387544797">
+    <transform xil_pn:end_ts="1387587049" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="-9155440904352376810" xil_pn:start_ts="1387587049">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387544797" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="4664474309748248099" xil_pn:start_ts="1387544797">
+    <transform xil_pn:end_ts="1387587049" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="2565209751291210650" xil_pn:start_ts="1387587049">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
@@ -106,38 +107,47 @@
       <outfile xil_pn:name="ipcore_dir/float_to_sin.ngc"/>
       <outfile xil_pn:name="ipcore_dir/float_to_sin.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387544797" xil_pn:in_ck="-4447805808126820451" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1387544797">
+    <transform xil_pn:end_ts="1387587070" xil_pn:in_ck="-3990147351767138277" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1387587070">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputChanged"/>
+      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="double_type.vhd"/>
       <outfile xil_pn:name="float_helpers.vhd"/>
       <outfile xil_pn:name="float_neg.vhd"/>
       <outfile xil_pn:name="float_pkg_c_min.vhd"/>
       <outfile xil_pn:name="float_sin.vhd"/>
       <outfile xil_pn:name="test_float_conversion.vhd"/>
+      <outfile xil_pn:name="test_float_to_sin.vhd"/>
+      <outfile xil_pn:name="test_helpers.vhd"/>
       <outfile xil_pn:name="test_sin.vhd"/>
       <outfile xil_pn:name="x.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387548533" xil_pn:in_ck="-8778740039884440694" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-6484452369472969582" xil_pn:start_ts="1387548530">
+    <transform xil_pn:end_ts="1387587079" xil_pn:in_ck="-8061001186486108452" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="4811940353970289679" xil_pn:start_ts="1387587070">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="fuse.log"/>
       <outfile xil_pn:name="isim"/>
-      <outfile xil_pn:name="isim.log"/>
-      <outfile xil_pn:name="isim.wdb"/>
-      <outfile xil_pn:name="test_float_conversion_beh.prj"/>
-      <outfile xil_pn:name="test_float_conversion_isim_beh.exe"/>
+      <outfile xil_pn:name="test_float_to_sin_beh.prj"/>
+      <outfile xil_pn:name="test_float_to_sin_isim_beh.exe"/>
       <outfile xil_pn:name="xilinxsim.ini"/>
     </transform>
-    <transform xil_pn:end_ts="1387548533" xil_pn:in_ck="1497634875165193001" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="2002018869676148991" xil_pn:start_ts="1387548533">
+    <transform xil_pn:end_ts="1387587079" xil_pn:in_ck="-2303565510561502512" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="2680843377221564316" xil_pn:start_ts="1387587079">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="isim.cmd"/>
-      <outfile xil_pn:name="isim.log"/>
-      <outfile xil_pn:name="isim.wdb"/>
-      <outfile xil_pn:name="test_float_conversion_isim_beh.wdb"/>
+      <outfile xil_pn:name="test_float_to_sin_isim_beh.wdb"/>
     </transform>
     <transform xil_pn:end_ts="1387189364" xil_pn:name="TRAN_copyInitialToXSTAbstractSynthesis" xil_pn:start_ts="1387189364">
       <status xil_pn:value="SuccessfullyRun"/>

@@ -4,6 +4,7 @@
 # temporary files
 *~
 *.bak
+*.bak[0-9]
 *.pyc
 
 # build results

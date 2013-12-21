@@ -3,6 +3,11 @@ vhdl work "double_type.vhd"
 vhdl work "float_pkg_c_min.vhd"
 vhdl work "test_helpers.vhd"
 
+vhdl work "ipcore_dir/float_to_sin.vhd"
+vhdl work "ipcore_dir/cordic_sin.vhd"
+vhdl work "ipcore_dir/float_from_sin.vhd"
+
 vhdl work "test_float_conversion.vhd"
 vhdl work "test_sin.vhd"
 vhdl work "test_float_to_sin.vhd"
+vhdl work "test_cordic_sin.vhd"
