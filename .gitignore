@@ -9,3 +9,7 @@
 
 # build results
 /reconos/_install
+
+# llvm optimization results
+/single-pendulum-llvm/graph
+/single-pendulum-llvm/ir
