@@ -97,7 +97,7 @@ BEGIN
     begin
       wait until s_axis_a_tready = '1' for 10*aclk_period;
       assert s_axis_a_tready = '1' report "uut is not ready for data";
-      wait for 0 ns;
+      --wait for 0 ns;
 
       s_axis_a_tdata <= to_float(input_value);
       s_axis_a_tvalid <= '1';
@@ -105,12 +105,12 @@ BEGIN
       wait for 2*aclk_period;
 
       s_axis_a_tvalid <= '0';
-      wait for 0 ns;
+      --wait for 0 ns;
       s_axis_a_tdata <= (others => '0');
 
-      wait until m_axis_result_tvalid = '1' for 100*aclk_period;
+      wait until m_axis_result_tvalid = '1' and rising_edge(aclk) for 100*aclk_period;
       assert m_axis_result_tvalid = '1' report "result was not ready in time";
-      wait for 0 ns;
+      --wait for 0 ns;
 
       if m_axis_result_tvalid = '1' then
         assertEqual(m_axis_result_tdata, std_logic_vector(to_cordic_in(input_value)));
