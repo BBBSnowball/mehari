@@ -10,6 +10,7 @@ use STD.textio.all;
 
 library work;
 use work.float_helpers.all;
+use work.test_helpers.all;
 
 entity test_float_conversion is
 end test_float_conversion;
@@ -29,16 +30,6 @@ begin
 
 		variable read_len : natural;
 		variable tmp : test_data_item;
-
-		-- http://www-ee.uta.edu/online/zhu/spring_2007/tutorial/how_to_print_objexts.txt
-		function to_string(sv: Std_Logic_Vector) return string is
-			use Std.TextIO.all;
-			variable bv: bit_vector(sv'range) := to_bitvector(sv);
-			variable lp: line;
-		begin
-			write(lp, bv);
-			return lp.all;
-		end;
 
 	begin
 		while not endfile(test_data_file) loop
@@ -62,10 +53,9 @@ begin
 					real'image(to_real(tmp.v)) & " /= " & real'image(tmp.r);
 		end loop;
 
-		-- http://www.velocityreviews.com/forums/t57165-how-to-stop-simulation-in-vhdl.html
-		assert false report "NONE. End of simulation." severity failure;
+		endOfSimulation(0);
 
 		wait;
 	end process;
 
-end test_bench; 
+end test_bench;

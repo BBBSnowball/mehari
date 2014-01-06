@@ -28,8 +28,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 USE ieee.numeric_std.ALL;
 
 use ieee.MATH_REAL.all;
@@ -66,22 +64,14 @@ ARCHITECTURE behavior OF test_sin IS
   signal result_tready : std_logic := '0';
 
   --Outputs
-  --TODO We shouldn't have to initialize a_tready, but if we don't do this, it will have
-  --     the value 'U', if we start the simulation from the command-line. For some reason,
-  --     it works in ISE.
-  signal a_tready : std_logic := '1';
+  signal a_tready : std_logic;
   signal result_tdata : std_logic_vector(63 downto 0);
   signal result_tvalid : std_logic;
 
   -- Clock period definitions
   constant aclk_period : time := 10 ns;
 
-  signal dbg_a_tdata, dbg_result_tdata : real;
-
 BEGIN
-  dbg_a_tdata <= to_real(a_tdata);
-  dbg_result_tdata <= to_real(result_tdata);
- 
   -- Instantiate the Unit Under Test (UUT)
   uut: float_sin PORT MAP (
     aclk => aclk,
@@ -102,52 +92,47 @@ BEGIN
     wait for aclk_period/2;
   end process;
 
-  -- Stimulus process
-  stim_proc: process
-    procedure testSin(input_value : in real;
-                      expected_output_value : in real;
-                      epsilon : in real := 1.0e-10) is
-    begin
-      wait until a_tready = '1' for 10*aclk_period;
-      assert a_tready = '1' report "uut is not ready for data";
-      wait for 0 ns;
+  stimulus_process: process
+    constant max_clock_cycles : integer := 100;
 
+    procedure test(input_value : in real;
+                   epsilon     : in real := 1.0e-10) is
+    begin
+      wait until a_tready = '1' and rising_edge(aclk) for 10*aclk_period;
+      assert a_tready = '1' report "uut is not ready for data: a_tready = " & std_logic'image(a_tready);
+
+      wait until falling_edge(aclk);
       report "testing with " & real'image(input_value) & " (" & to_string(to_float(input_value)) & ")";
       a_tdata <= to_float(input_value);
       a_tvalid <= '1';
 
-      wait for 2*aclk_period;
+      wait for aclk_period;
 
       a_tvalid <= '0';
-      wait for 0 ns;
       a_tdata <= (others => '0');
 
-      wait until result_tvalid = '1' for 100*aclk_period;
+      wait until result_tvalid = '1' and rising_edge(aclk) for max_clock_cycles*aclk_period - aclk_period/2;
       assert result_tvalid = '1' report "result was not ready in time";
-      wait for 0 ns;
 
       if result_tvalid = '1' then
         assertAlmostEqual(to_real(result_tdata), sin(input_value), epsilon);
       end if;
     end procedure;
-  begin    
-    -- hold reset state for 100 ns.
+  begin
     wait for 100 ns;
 
     result_tready <= '1';
 
     wait for aclk_period*10;
 
+    test(0.0);
+    test(math_pi/2.0);
+    test(math_pi);
+    test(1.2, epsilon => 1.0e-6);
+    test(2.0, epsilon => 1.0e-9);
 
-    assert a_tready = '1'
-      report "uut is not ready (a_tready = " & std_logic'image(a_tready) & ")";
-
-
-    testSin(0.0, 0.0        );
-    testSin(math_pi/2.0, 1.0);
-    testSin(math_pi,     0.0);
-    testSin(1.2, 0.932039, epsilon => 1.0e-6);
-
+    -- user might want to see what happens after the tests, so we make
+    -- sure that the waveform file contains a few more samples
     wait for 1 ns;
 
     endOfSimulation(0);
@@ -155,13 +140,21 @@ BEGIN
     wait;
   end process;
 
-  --debug_process: process
-  --begin
-  -- report("y: " & real'image(y));
-  -- report("y_e: " & integer'image(y_e));
-  -- report("y_frac: " & real'image(y_frac));
-  -- report("y_fraction: " & to_string(y_fraction));
-  -- report("y_d: " & to_string(y_d));
-  -- wait for 1000ms;
-  --end process;
+  debug_timing_process : process(aclk)
+    variable input_was_valid  : std_logic := '0';
+    variable output_was_valid : std_logic := '0';
+  begin
+    if rising_edge(aclk) then
+      if a_tvalid = '1' and input_was_valid = '0' then
+        report "data on input is valid";
+      end if;
+
+      if result_tvalid = '1' and output_was_valid = '0' then
+        report "output data is valid";
+      end if;
+
+      input_was_valid := a_tvalid;
+      output_was_valid := result_tvalid;
+    end if;
+  end process;
 END;

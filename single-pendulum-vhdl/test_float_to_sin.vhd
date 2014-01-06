@@ -92,7 +92,9 @@ BEGIN
  
 
   stimulus_process: process
-    procedure test(input_value : in real; max_clock_cycles : in integer := 100) is
+    constant max_clock_cycles : integer := 7;
+
+    procedure test(input_value : in real) is
     begin
       wait until s_axis_a_tready = '1' and rising_edge(aclk) for 10*aclk_period;
       assert s_axis_a_tready = '1' report "uut is not ready for data";
@@ -113,8 +115,6 @@ BEGIN
         assertEqual(m_axis_result_tdata, std_logic_vector(to_cordic_in(input_value)));
       end if;
     end procedure;
-
-    constant null_X_40 : std_logic_vector(39 downto 0) := (others => '0');
   begin
       wait for 100 ns;
 
@@ -122,11 +122,7 @@ BEGIN
 
       wait for aclk_period*10;
 
-      assertEqual(std_logic_vector(to_cordic_in( 2.0)), "01000000" & null_X_40);
-      assertEqual(std_logic_vector(to_cordic_in( 1.5)), "00110000" & null_X_40);
-      assertEqual(std_logic_vector(to_cordic_in(-1.5)), "11010000" & null_X_40);
-
-      test(2.0, 7);
+      test(2.0);
       test(1.5);
       test(math_pi);
       test(-math_pi);

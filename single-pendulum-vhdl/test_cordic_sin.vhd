@@ -39,9 +39,7 @@ END test_cordic_sin;
 
 ARCHITECTURE behavior OF test_cordic_sin IS
   -- For some reason from_fixedpoint is VERY slow, so we avoid using it. However,
-  -- debug output is much better, if we do use it. At the moment, we have to use
-  -- from_fixedpoint because with the other method we do not compensate the numerical
-  -- imprecision, which makes the tests fail.
+  -- debug output is much better, if we do use it.
   constant use_from_fixedpoint : boolean := false;
 
   -- Component Declaration for the Unit Under Test (UUT)
@@ -96,8 +94,9 @@ BEGIN
   end process;
 
 
-  -- Stimulus process
-  stim_proc: process
+  stimulus_proc: process
+    constant max_clock_cycles : integer := 100;
+
     procedure test(input_value : in real) is
       variable expected_output : real;
       variable actual, expected : std_logic_vector(47 downto 0);
@@ -105,22 +104,20 @@ BEGIN
       variable actual_for_comparison, expected_for_comparison
         : std_logic_vector(actual'high downto actual'high-expected_precision);
     begin
-      wait until s_axis_phase_tready = '1' for 10*aclk_period;
+      wait until s_axis_phase_tready = '1' and rising_edge(aclk) for 10*aclk_period;
       assert s_axis_phase_tready = '1' report "uut is not ready for data";
-      wait for 0 ns;
 
+      wait until falling_edge(aclk);
       s_axis_phase_tdata <= std_logic_vector(to_cordic_in(input_value));
       s_axis_phase_tvalid <= '1';
 
-      wait for 2*aclk_period;
+      wait for aclk_period;
 
       s_axis_phase_tvalid <= '0';
-      wait for 0 ns;
       s_axis_phase_tdata <= (others => '0');
 
-      wait until m_axis_dout_tvalid = '1' for 100*aclk_period;
+      wait until m_axis_dout_tvalid = '1' and rising_edge(aclk) for max_clock_cycles*aclk_period - aclk_period/2;
       assert m_axis_dout_tvalid = '1' report "result was not ready in time";
-      wait for 0 ns;
 
       if m_axis_dout_tvalid = '1' then
         expected_output := sin(input_value);
@@ -146,8 +143,7 @@ BEGIN
     end procedure;
 
     constant null_X_40 : std_logic_vector(39 downto 0) := (others => '0');
-  begin		
-    -- hold reset state for 100 ns.
+  begin
     wait for 100 ns;
 
     m_axis_dout_tready <= '1';
