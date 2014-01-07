@@ -34,7 +34,19 @@ EOF
 
 for test in $TESTS ; do
 	[ -e "isim.log" ] && rm isim.log
-	fuse -incremental -prj all2.prj -o test_sim $test && ./test_sim -intstyle ise -tclbatch run_test.tcl || exit $?
+	fuse -incremental -prj all2.prj -o test_sim $test || exit $?
+
+	if ! [ -e "fuse.log" ] ; then
+		echo "ERROR: Fuse hasn't created logfile isim.log!" >&2
+		exit 1
+	fi
+
+	if grep "^WARNING:.* remains a black-box since it has no binding entity.$" fuse.log >&2 ; then
+		echo "ERROR: Simulation will not work, if an entity is missing. Please add it to all.prj" >&2
+		exit 1
+	fi
+
+	./test_sim -intstyle ise -tclbatch run_test.tcl || exit $?
 
 	if ! [ -e "isim.log" ] ; then
 		echo "ERROR: ISim hasn't created logfile isim.log!" >&2
@@ -64,7 +76,7 @@ for test in $TESTS ; do
 	fi
 
 	# We use grep without '-q', so the user will see the error messages again.
-	if grep "^at [^:]*: Error: " isim.log ; then
+	if grep "^at [^:]*: Error: " isim.log >&2 ; then
 		echo "There was at least one error during the test run!" >&2
 		exit 1
 	fi
