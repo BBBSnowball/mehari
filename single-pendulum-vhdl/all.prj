@@ -11,8 +11,6 @@ vhdl work "float_cos.vhd"
 vhdl work "float_neg.vhd"
 
 vhdl work "test_float_conversion.vhd"
-vhdl work "test_sin.vhd"
-vhdl work "test_cos.vhd"
 vhdl work "test_float_to_sin.vhd"
 vhdl work "test_cordic_sin.vhd"
 vhdl work "test_float_from_sin.vhd"
