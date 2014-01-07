@@ -27,6 +27,9 @@ architecture behavior of test_{{uut_name}} is
        {{input_a_name}}_tdata  : IN  double;
        {{input_a_name}}_tvalid : IN  std_logic;
        {{input_a_name}}_tready : OUT std_logic;
+       {{input_b_name}}_tdata  : IN  double;
+       {{input_b_name}}_tvalid : IN  std_logic;
+       {{input_b_name}}_tready : OUT std_logic;
        {{result_name}}_tdata  : OUT double;
        {{result_name}}_tvalid : OUT std_logic;
        {{result_name}}_tready : IN  std_logic
@@ -38,12 +41,15 @@ architecture behavior of test_{{uut_name}} is
   constant aclk_period : time := 10 ns;
 
   -- Inputs
-  signal input_tdata  : double    := (others => '0');
-  signal input_tvalid : std_logic := '0';
+  signal input_a_tdata  : double    := (others => '0');
+  signal input_a_tvalid : std_logic := '0';
+  signal input_b_tdata  : double    := (others => '0');
+  signal input_b_tvalid : std_logic := '0';
   signal result_tready: std_logic := '0';
 
   -- Outputs
-  signal input_tready  : std_logic;
+  signal input_a_tready  : std_logic;
+  signal input_b_tready  : std_logic;
   signal result_tdata  : double;
   signal result_tvalid : std_logic;
 
@@ -51,9 +57,12 @@ BEGIN
   -- Instantiate the Unit Under Test (UUT)
   uut: {{uut_name}} PORT MAP (
     aclk => aclk,
-    {{input_a_name}}_tdata  => input_tdata,
-    {{input_a_name}}_tvalid => input_tvalid,
-    {{input_a_name}}_tready => input_tready,
+    {{input_a_name}}_tdata  => input_a_tdata,
+    {{input_a_name}}_tvalid => input_a_tvalid,
+    {{input_a_name}}_tready => input_a_tready,
+    {{input_b_name}}_tdata  => input_b_tdata,
+    {{input_b_name}}_tvalid => input_b_tvalid,
+    {{input_b_name}}_tready => input_b_tready,
     {{result_name}}_tdata   => result_tdata,
     {{result_name}}_tvalid  => result_tvalid,
     {{result_name}}_tready  => result_tready
@@ -72,22 +81,28 @@ BEGIN
     constant max_clock_cycles : natural := {{max_clock_cycles}};
 
     procedure test(input_a_value : in real;
+                   input_b_value : in real;
                    epsilon       : in real := 1.0e-10) is
     begin
-      wait until input_tready = '1' and rising_edge(aclk) for 10*aclk_period;
-      assert input_tready = '1'
-        report "uut is not ready for data: input_tready = " & std_logic'image(input_tready);
+      wait until input_a_tready = '1' and input_b_tready = '1' and rising_edge(aclk) for 10*aclk_period;
+      assert input_a_tready = '1' and input_b_tready = '1'
+        report "uut is not ready for data: input_tready = "
+          & std_logic'image(input_a_tready) & " and " & std_logic'image(input_b_tready);
 
       wait until falling_edge(aclk);
-      report "testing with " & real'image(input_a_value) & " (" & to_string(to_float(input_a_value)) & ")";
-      input_tdata <= to_float(input_a_value);
-      input_tvalid <= '1';
+      report "testing with " & real'image(input_a_value) & " and " & real'image(input_b_value);
+      input_a_tdata <= to_float(input_a_value);
+      input_a_tvalid <= '1';
+      input_b_tdata <= to_float(input_b_value);
+      input_b_tvalid <= '1';
 
       if max_clock_cycles > 0 then
         wait for aclk_period;
 
-        input_tvalid <= '0';
-        input_tdata <= (others => '0');
+        input_a_tvalid <= '0';
+        input_a_tdata <= (others => '0');
+        input_b_tvalid <= '0';
+        input_b_tdata <= (others => '0');
 
         wait until result_tvalid = '1' and rising_edge(aclk)
           for max_clock_cycles*aclk_period - aclk_period/2;
@@ -122,20 +137,26 @@ BEGIN
   end process;
 
   debug_timing_process : process(aclk)
-    variable input_was_valid  : std_logic := '0';
-    variable output_was_valid : std_logic := '0';
+    variable input_a_was_valid : std_logic := '0';
+    variable input_b_was_valid : std_logic := '0';
+    variable output_was_valid  : std_logic := '0';
   begin
     if rising_edge(aclk) then
-      if input_tvalid = '1' and input_was_valid = '0' then
-        report "data on input is valid";
+      if input_a_tvalid = '1' and input_a_was_valid = '0' then
+        report "data on input a is valid";
+      end if;
+
+      if input_b_tvalid = '1' and input_b_was_valid = '0' then
+        report "data on input b is valid";
       end if;
 
       if result_tvalid = '1' and output_was_valid = '0' then
         report "output data is valid";
       end if;
 
-      input_was_valid  := input_tvalid;
-      output_was_valid := result_tvalid;
+      input_a_was_valid := input_a_tvalid;
+      input_b_was_valid := input_b_tvalid;
+      output_was_valid  := result_tvalid;
     end if;
   end process;
 end;

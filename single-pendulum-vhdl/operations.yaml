@@ -15,6 +15,30 @@ operations:
       argument_names: a
       result_name: result
       tests: neg_tests
+    - signature: real + real -> real
+      vhdl-component: float_add
+      max-clock-cycles: 13
+      argument_names: s_axis_a, s_axis_b
+      result_name: m_axis_result
+      tests: binop
+    - signature: real - real -> real
+      vhdl-component: float_sub
+      max-clock-cycles: 13
+      argument_names: s_axis_a, s_axis_b
+      result_name: m_axis_result
+      tests: binop
+    - signature: real * real -> real
+      vhdl-component: float_mul
+      max-clock-cycles: 10
+      argument_names: s_axis_a, s_axis_b
+      result_name: m_axis_result
+      tests: binop
+    - signature: real / real -> real
+      vhdl-component: float_div
+      max-clock-cycles: 58
+      argument_names: s_axis_a, s_axis_b
+      result_name: m_axis_result
+      tests: binop
 datatypes:
     - name: real
       c-type: double
@@ -29,3 +53,8 @@ tests:
     neg_tests:
       - test(-17.12345);
       - test(42.123456789123456789123456789);
+    binop:
+      - test(2.0, 3.0);
+      - test(2.0, -3.0);
+      - test(-17.12345, 42.123456789123456789123456789);
+      - test(0.0, 2.0);
