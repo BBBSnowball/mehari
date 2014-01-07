@@ -30,7 +30,8 @@ use IEEE.STD_LOGIC_1164.ALL;
 --use UNISIM.VComponents.all;
 
 entity float_neg is
-    Port ( a_tvalid : in  STD_LOGIC;
+    Port ( aclk : in STD_LOGIC;
+    	   a_tvalid : in  STD_LOGIC;
            a_tready : out  STD_LOGIC;
            a_tdata : in  STD_LOGIC_VECTOR (63 downto 0);
            result_tvalid : out  STD_LOGIC;
@@ -44,7 +45,7 @@ begin
 
 	result_tvalid <= a_tvalid;
 	a_tready <= result_tready;
-	result_tdata <= "1" & a_tdata(62 downto 0);
+	result_tdata <= (not a_tdata(63)) & a_tdata(62 downto 0);
 
 end Behavioral;
 

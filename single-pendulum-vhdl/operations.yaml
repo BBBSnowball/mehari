@@ -9,6 +9,12 @@ operations:
       argument_names: a
       result_name: result
       tests: sincos_tests
+    - signature: -real -> real
+      vhdl-component: float_neg
+      max-clock-cycles: 0
+      argument_names: a
+      result_name: result
+      tests: neg_tests
 datatypes:
     - name: real
       c-type: double
@@ -20,3 +26,6 @@ tests:
       - test(math_pi);
       - test(1.2, epsilon => 1.0e-6);
       - test(2.0, epsilon => 1.0e-9);
+    neg_tests:
+      - test(-17.12345);
+      - test(42.123456789123456789123456789);

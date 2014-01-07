@@ -69,7 +69,7 @@ BEGIN
   end process;
 
   stimulus_process : process
-    constant max_clock_cycles : integer := {{max_clock_cycles}};
+    constant max_clock_cycles : natural := {{max_clock_cycles}};
 
     procedure test(input_a_value : in real;
                    epsilon       : in real := 1.0e-10) is
@@ -83,12 +83,17 @@ BEGIN
       input_tdata <= to_float(input_a_value);
       input_tvalid <= '1';
 
-      wait for aclk_period;
+      if max_clock_cycles > 0 then
+        wait for aclk_period;
 
-      input_tvalid <= '0';
-      input_tdata <= (others => '0');
+        input_tvalid <= '0';
+        input_tdata <= (others => '0');
 
-      wait until result_tvalid = '1' and rising_edge(aclk) for max_clock_cycles*aclk_period - aclk_period/2;
+        wait until result_tvalid = '1' and rising_edge(aclk)
+          for max_clock_cycles*aclk_period - aclk_period/2;
+      else
+        wait for aclk_period/2;
+      end if;
       assert result_tvalid = '1'
         report "result was not ready in time: result_tvalid = " & std_logic'image(result_tvalid);
 
