@@ -24,5 +24,7 @@ BEGIN
         assertEqual(std_logic_vector(to_cordic_out(-1.5)), "10100000" & null_X_40);
 
         endOfSimulation(0);
+
+        wait;
     end process;
 END;

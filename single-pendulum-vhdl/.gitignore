@@ -11,6 +11,7 @@ isim.*
 
 /run_test.tcl
 /test_sim
+/test_gen/
 
 /ipcore_dir/demo_tb/
 /ipcore_dir/*.sym

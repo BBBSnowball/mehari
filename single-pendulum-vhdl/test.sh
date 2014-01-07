@@ -4,9 +4,12 @@ set -e
 
 cd "$(dirname "$0")"
 
+LD_LIBRARY_PATH= ./generate_tests.py
+cat all.prj test_gen/tests.prj >all2.prj
+
 if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
 	TESTS=""
-	for test in test_*.vhd ; do
+	for test in test_*.vhd test_gen/test_*.vhd ; do
 		if [ "$test" != "test_helpers.vhd" ] ; then
 			TESTS="$TESTS work.$(basename $test .vhd)"
 		fi
@@ -31,7 +34,7 @@ EOF
 
 for test in $TESTS ; do
 	[ -e "isim.log" ] && rm isim.log
-	fuse -incremental -prj all.prj -o test_sim $test && ./test_sim -intstyle ise -tclbatch run_test.tcl || exit $?
+	fuse -incremental -prj all2.prj -o test_sim $test && ./test_sim -intstyle ise -tclbatch run_test.tcl || exit $?
 
 	if ! [ -e "isim.log" ] ; then
 		echo "ERROR: ISim hasn't created logfile isim.log!" >&2

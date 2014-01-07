@@ -1,0 +1,22 @@
+operations:
+    - signature: sin(real) -> real
+      vhdl-component: float_sin
+      argument_names: a
+      result_name: result
+      tests: sincos_tests
+    - signature: cos(real) -> real
+      vhdl-component: float_cos
+      argument_names: a
+      result_name: result
+      tests: sincos_tests
+datatypes:
+    - name: real
+      c-type: double
+      vhdl-type: std_logic_vector(63 downto 0)
+tests:
+    sincos_tests:
+      - test(0.0);
+      - test(math_pi/2.0);
+      - test(math_pi);
+      - test(1.2, epsilon => 1.0e-6);
+      - test(2.0, epsilon => 1.0e-9);
