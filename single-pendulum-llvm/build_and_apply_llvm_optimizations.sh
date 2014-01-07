@@ -150,8 +150,8 @@ done
 # 4. run example
 # --------------
 create_ir() {
-	local FILE=$1
-	local resultvar=$2
+	local FILE="$1"
+	local resultvar="$2"
 	local OUTFILE="$IR_DIR/$(basename "${FILE%.*}").ll"
 	print_verbose "Create intermediate representation for $FILE"
 	$LLVM_BIN/clang "$CFLAGS" -S -emit-llvm -I"$IPANEMA_INCLUDES_SYSLAYER" -I"$IPANEMA_INCLUDES_SIM" "$FILE" -o "$OUTFILE"
@@ -159,7 +159,7 @@ create_ir() {
 }
 
 create_callgraph() {
-	local FILE=$1
+	local FILE="$1"
 	local FILENAME=$(basename "${FILE%.*}")
 	print_verbose "Export callgraph for $FILE"
 	$LLVM_BIN/opt -analyze -dot-callgraph "$FILE" > /dev/null
@@ -167,8 +167,8 @@ create_callgraph() {
 }
 
 prepare_inline_opt() {
-	local FILE=$1
-	local resultvar=$2
+	local FILE="$1"
+	local resultvar="$2"
 	local OUTFILE="$IR_DIR/$(basename "${FILE%.*}")-pre-inline.ll"
 	print_verbose "Prepare inline optimization"
 	$LLVM_BIN/opt -load "$LLVM_LIB/LLVMPrepareAlwaysInline.so" -prepare-always-inline -S "$FILE" -o "$OUTFILE"
@@ -176,13 +176,16 @@ prepare_inline_opt() {
 }
 
 apply_inline_opt() {
-	local FILE=$1
-	local resultvar=$2
+	local FILE="$1"
+	local resultvar="$2"
 	local OUTFILE="$IR_DIR/$(basename "${FILE%.*}")-inline.ll"
 	print_verbose "Apply inline optimization"
 	$LLVM_BIN/opt -always-inline -S "$FILE" -o "$OUTFILE"
 	eval $resultvar="'$OUTFILE'"
 }
+
+
+cd $BASEDIR
 
 # first create intermediate representation for source file
 ir_file=
