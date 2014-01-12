@@ -13,6 +13,8 @@ if __name__ == '__main__':
 
     sys.exit(paver.tasks.main())
 
+# test only, don't do anything
+NO_OP = False
 
 from paver.easy import task, needs, cmdopts, might_call
 import paver
@@ -36,6 +38,15 @@ logging.getLogger().setLevel(loglevel)
 sys.path.insert(1, Path(ROOT.parent, "tools", "python-helpers"))
 from mehari.build_utils import *
 
+if NO_OP:
+    def sh(cmd):
+        logger.info("sh(%r)" % (cmd,))
+    def sh_test(cmd):
+        logger.info("sh_test(%r)" % (cmd,))
+        return 0
+    import mehari.build_utils
+    mehari.build_utils.sh = sh
+    mehari.build_utils.sh_test = sh_test
 
 #TODO use commandline arguments provided by paver
 def global_from_env(name, default = None):
@@ -74,10 +85,10 @@ def check_submodules():
             sys.exit(1)
 
 def host_has_ip(ip):
-    return os.system('ifconfig | grep -q "inet addr6\?:%s[/ ]"' % ip) == 0
+    return sh_test('ifconfig | grep -q "inet addr6\?:%s[/ ]"' % ip) == 0
 
 def can_ping(host):
-    return os.system('ping -c1 "%s" >/dev/null' % host) == 0
+    return sh_test('ping -c1 "%s" >/dev/null' % host) == 0
 
 @task
 def check_host_ip():
@@ -278,7 +289,7 @@ def run_xps(project, commands):
     cmd = ShellEscaped("echo %s | xps -nw %s") % (str(commands) + " ; exit", project)
     # try 3 times
     for i in range(3):
-        res = os.system(cmd)
+        res = sh_test(cmd)
         if res == 0:
             return
         elif res == 35584:
@@ -380,7 +391,9 @@ def build_reconos():
     #TODO keep __xps folder in git and use `make -f system.make bits`
     #TODO This sometimes fails with a segfault (prints "Segmentation fault" and
     #     exits with status 35584). We should run it again in that case.
-    long_operation(run_xps_cmd("system", "run bits"))
+    def make_bitstream():
+        run_xps("system", "run bits")
+    long_operation(make_bitstream)
 
     Path(FILES, "device_tree.dts").copy(Path(".", "device_tree.dts"))
     sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s:%s,tcp#' % (HOST_IP, NFS_ROOT),
@@ -584,7 +597,7 @@ def update_nfsroot():
     
     exclude = [".ash_history", "dropbear", "motd", "log", "run"]
     exclude_args = " ".join(map(lambda x: "-x " + escape_for_shell(x), exclude))
-    res = os.system("sudo diff -r %s %s %s"
+    res = sh_test("sudo diff -r %s %s %s"
         % (escape_for_shell(ROOTFS), escape_for_shell(NFS_ROOT), exclude_args))
     if res != 0:
         logger.warn("WARNING: NFS root directory %s contains additional files!" % NFS_ROOT)
@@ -644,7 +657,7 @@ def boot_zynq():
 
 
     # wait for the board to contact us
-    if os.system(ShellEscaped("timeout 30 nc -l %s 12342") % HOST_IP) != 0:
+    if sh_test(ShellEscaped("timeout 30 nc -l %s 12342") % HOST_IP) != 0:
         logger.error(
             "ERROR: The board didn't send the 'done' message within 30 seconds.")
 
@@ -669,7 +682,7 @@ def get_board_pubkey(keytype):
     return re.search("^(ssh-\S+\s+\S+)", text, re.MULTILINE).group(1)
 
 def pubkey_is_in_known_hosts(hostname, pubkey):
-    return 0 == os.system("ssh-keygen -F %s | grep -q %s" %
+    return 0 == sh_test("ssh-keygen -F %s | grep -q %s" %
         (escape_for_shell(hostname), escape_for_shell(pubkey)))
 
 @task
