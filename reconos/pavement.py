@@ -56,7 +56,9 @@ reconos_build_options = register_cmdoptsgroup("reconos_build",
     ("host-ip=", "H", "IP address (of your machine) that should be used to communicate with the Zynq board"),
     ("board-ip=", "b", "IP address that will be used by the Zynq board"),
     ("demo=", "d", "Demo application to run"),
-    ("nfs-root=", "r", "Location of the NFS root folder on your machine"))
+    ("nfs-root=", "r", "Location of the NFS root folder on your machine"),
+    {"parallel_processes": "4", "host_ip": "192.168.24.17", "board_ip": "192.168.24.23",
+     "demo": "sort_demo", "nfs_root": "/nfs/zynqn"})
 
 
 @task
@@ -86,7 +88,6 @@ def can_ping(host):
 @cmdoptsgroup("reconos_build")
 def check_host_ip():
     """make sure this host responds to the host IP"""
-    print(repr(paver.tasks.environment.options))
     if not host_has_ip(reconos_build_options.host_ip) or not can_ping(reconos_build_options.host_ip):
         logger.error(heredoc("""
             ERROR: Host IP is %s, but none of your interfaces has that IP.
