@@ -13,14 +13,12 @@ if __name__ == '__main__':
 
     sys.exit(paver.tasks.main())
 
-# test only, don't do anything
-NO_OP = False
-
 from paver.easy import task, needs, cmdopts, might_call
 import paver
 #TODO use path.py that is bundled with paver
 from unipath import Path
 import sys, os, re, subprocess, glob, tempfile, logging
+
 
 ROOT   = Path(__file__).absolute().parent
 FILES  = Path(ROOT, "files")
@@ -37,6 +35,9 @@ logging.getLogger().setLevel(loglevel)
 
 sys.path.insert(1, Path(ROOT.parent, "tools", "python-helpers"))
 from mehari.build_utils import *
+
+# test only, don't do anything
+NO_OP = from_env("NOOP", from_env("NO_OP", False))
 
 if NO_OP:
     def sh(cmd):
