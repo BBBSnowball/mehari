@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     sys.exit(paver.tasks.main())
 
-from paver.easy import task, needs, cmdopts, might_call
+from paver.easy import task, needs, might_call, register_cmdoptsgroup, cmdoptsgroup
 import paver
 #TODO use path.py that is bundled with paver
 from unipath import Path
@@ -48,6 +48,14 @@ if NO_OP:
     import mehari.build_utils
     mehari.build_utils.sh = sh
     mehari.build_utils.sh_test = sh_test
+
+
+register_cmdoptsgroup("reconos_build",
+    ("parallel-processes=", "j", "Parallel processes started when building a subtask with GNU make"),
+    ("host-ip=", "H", "IP address (of your machine) that should be used to communicate with the Zynq board"),
+    ("board-ip=", "b", "IP address that will be used by the Zynq board"),
+    ("demo", "d", "Demo application to run"),
+    ("nfs-root", "r", "Location of the NFS root folder on your machine"))
 
 #TODO use commandline arguments provided by paver
 def global_from_env(name, default = None):
@@ -92,6 +100,7 @@ def can_ping(host):
     return sh_test('ping -c1 "%s" >/dev/null' % host) == 0
 
 @task
+@cmdoptsgroup("reconos_build")
 def check_host_ip():
     "make sure this host responds to HOST_IP"
     if not host_has_ip(HOST_IP) or not can_ping(HOST_IP):
@@ -114,6 +123,7 @@ def check_host_ip():
         sys.exit(1)
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("check_submodules")
 def reconos_config():
     RECONOS_CONFIG = Path(ROOT, "reconos", "tools", "environment", "default.sh")
@@ -315,7 +325,7 @@ def sed_i(expr, file):
     sh('sed -i %s %s' % (expr, file))
 
 @task
-
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def build_uboot():
     if "CROSS_COMPILE" not in os.environ:
@@ -369,6 +379,7 @@ def build_dropbear():
     make_parallel(ShellEscaped("PATH=%s" % escape_for_shell(path_with_toolchain)))
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def build_reconos():
     cd_verbose(ROOT, "reconos", "linux", "driver")
@@ -592,6 +603,7 @@ def build_rootfs():
     pass
 
 @task
+@cmdoptsgroup("reconos_build")
 def update_nfsroot():
     sh("sudo mkdir -p %s" % escape_for_shell(NFS_ROOT))
     sh("sudo cp -a %s %s" % (escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(NFS_ROOT)))
@@ -619,6 +631,7 @@ def sudo_append_to(file, *lines):
     sh(ShellEscaped("echo %s | sudo tee -a %s >/dev/null") % (text, file))
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("check_host_ip", "reconos_config", "update_nfsroot")
 def boot_zynq():
     sudo_modify_by("/etc/exports",
@@ -687,6 +700,7 @@ def pubkey_is_in_known_hosts(hostname, pubkey):
         (escape_for_shell(hostname), escape_for_shell(pubkey)))
 
 @task
+@cmdoptsgroup("reconos_build")
 def prepare_ssh():
     pubkey = get_board_pubkey("rsa")
 
@@ -708,11 +722,13 @@ def ssh_zynq(*command):
 
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("check_host_ip", "prepare_ssh")
 def ssh_shell():
     ssh_zynq()
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("check_host_ip", "prepare_ssh")
 def run_demo():
     demo_args = from_env("DEMO_ARGS", "2 2 50")
