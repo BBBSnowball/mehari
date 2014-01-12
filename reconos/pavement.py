@@ -7,14 +7,11 @@ if __name__ == '__main__':
 
     # make sure we use our extended paver
     ROOT = Path(__file__).absolute().parent
-    print Path(ROOT.parent, "tools", "paver")
     sys.path.insert(1, Path(ROOT.parent, "tools", "paver"))
     
-    from pkg_resources import load_entry_point
+    import paver.tasks
 
-    sys.exit(
-        load_entry_point('Paver==1.2.2', 'console_scripts', 'paver')()
-    )
+    sys.exit(paver.tasks.main())
 
 
 from paver.easy import task, needs, cmdopts
