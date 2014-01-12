@@ -33,7 +33,7 @@ exit
 EOF
 
 for test in $TESTS ; do
-	[ -e "isim.log" ] && rm isim.log
+	[ -e "fuse.log" ] && rm fuse.log
 	fuse -incremental -prj all2.prj -o test_sim $test || exit $?
 
 	if ! [ -e "fuse.log" ] ; then
@@ -46,6 +46,7 @@ for test in $TESTS ; do
 		exit 1
 	fi
 
+	[ -e "isim.log" ] && rm isim.log
 	./test_sim -intstyle ise -tclbatch run_test.tcl || exit $?
 
 	if ! [ -e "isim.log" ] ; then
