@@ -29,7 +29,7 @@ logging.basicConfig()
 if paver.tasks.environment.verbose:
     loglevel = logging.DEBUG
 else:
-    loglevel = logging.WARNING
+    loglevel = logging.INFO
 logger.setLevel(loglevel)
 logging.getLogger().setLevel(loglevel)
 
@@ -648,8 +648,8 @@ def boot_zynq():
     bitfile = Path(edk_project_dir, "implementation", "system.bit")
     run_xmd("fpga -f %s" % escape_for_shell(bitfile))
 
-    print("The board should be booting, now.")
-    print("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
+    logger.info("The board should be booting, now.")
+    logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
 
 
     # wait for the board to contact us
