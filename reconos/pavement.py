@@ -50,31 +50,14 @@ if NO_OP:
     mehari.build_utils.sh_test = sh_test
 
 
-register_cmdoptsgroup("reconos_build",
+#TODO default values
+reconos_build_options = register_cmdoptsgroup("reconos_build",
     ("parallel-processes=", "j", "Parallel processes started when building a subtask with GNU make"),
     ("host-ip=", "H", "IP address (of your machine) that should be used to communicate with the Zynq board"),
     ("board-ip=", "b", "IP address that will be used by the Zynq board"),
-    ("demo", "d", "Demo application to run"),
-    ("nfs-root", "r", "Location of the NFS root folder on your machine"))
+    ("demo=", "d", "Demo application to run"),
+    ("nfs-root=", "r", "Location of the NFS root folder on your machine"))
 
-#TODO use commandline arguments provided by paver
-def global_from_env(name, default = None):
-    globals()[name] = from_env(name, default)
-
-##global_from_env("ZYNQ_BOARD_REVISION", "d")
-global_from_env("MAKE_PARALLEL_PROCESSES", "4"            )
-global_from_env("HOST_IP",                 "192.168.24.17")
-global_from_env("BOARD_IP",                "192.168.24.23")
-global_from_env("DEMO",                    "sort_demo"    )
-global_from_env("NFS_ROOT",                "/nfs/zynqn"   )
-
-if False:
-    # make lint happy...
-    MAKE_PARALLEL_PROCESSES = None
-    HOST_IP = None
-    BOARD_IP = None
-    DEMO = None
-    NFS_ROOT = None
 
 @task
 def check_submodules():
@@ -102,10 +85,11 @@ def can_ping(host):
 @task
 @cmdoptsgroup("reconos_build")
 def check_host_ip():
-    "make sure this host responds to HOST_IP"
-    if not host_has_ip(HOST_IP) or not can_ping(HOST_IP):
+    """make sure this host responds to the host IP"""
+    print(repr(paver.tasks.environment.options))
+    if not host_has_ip(reconos_build_options.host_ip) or not can_ping(reconos_build_options.host_ip):
         logger.error(heredoc("""
-            ERROR: HOST_IP is %s, but none of your interfaces has that IP.
+            ERROR: Host IP is %s, but none of your interfaces has that IP.
               You have several options:
               - set %s as static IP in your network settings
               - manually set an additional IP for one of your interfaces:
@@ -116,10 +100,9 @@ def check_host_ip():
                 ethernet cable and connect it via a switch. If you directly connect it to
                 the board, the connection will be reset.
               - Change the IPs that we use:
-                TODO: HOST_IP=... BOARD_IP=... $0
-              - only build and don't run it:
-                TODO: BOOT_ZYNQ=0 $0
-            """ % (HOST_IP, HOST_IP, HOST_IP)))
+                ./pavement.py boot_zynq --host-ip=... --board-ip=...
+              - only build and don't run it
+            """ % (reconos_build_options.host_ip, reconos_build_options.host_ip, reconos_build_options.host_ip)))
         sys.exit(1)
 
 @task
@@ -226,10 +209,9 @@ def check_libc():
     do_check_libc(libc_dir)
 
 @task
+@needs("check_submodules", "check_libc", "check_host_ip")
 def check():
-    check_submodules()
-    check_libc()
-    check_host_ip()
+    pass
 
 
 def clean_repository(dir):
@@ -281,8 +263,7 @@ def make(*targets):
     long_operation("make " + escape_for_shell(targets))
 
 def make_parallel(*targets):
-    global MAKE_PARALLEL_PROCESSES
-    long_operation(("make -j%s " % MAKE_PARALLEL_PROCESSES) + escape_for_shell(targets))
+    long_operation(("make -j%s " % reconos_build_options.parallel_processes) + escape_for_shell(targets))
 
 
 def sudo_modify_by(file, *command):
@@ -334,8 +315,8 @@ def build_uboot():
     cd_verbose(ROOT, "u-boot-xlnx")
     sh(r'patch -N -p1 <"%s/u-boot-xlnx-zynq.patch"' % (FILES,))
 
-    sed_i([r's/^#define CONFIG_IPADDR\b.*$/#define CONFIG_IPADDR   %s/'   % BOARD_IP,
-           r's/^#define CONFIG_SERVERIP\b.*$/#define CONFIG_SERVERIP %s/' % HOST_IP],
+    sed_i([r's/^#define CONFIG_IPADDR\b.*$/#define CONFIG_IPADDR   %s/'   % reconos_build_options.board_ip,
+           r's/^#define CONFIG_SERVERIP\b.*$/#define CONFIG_SERVERIP %s/' % reconos_build_options.host_ip],
            "include/configs/zynq_common.h")
 
     cd_verbose(ROOT, "u-boot-xlnx")
@@ -387,10 +368,10 @@ def build_reconos():
     cd_verbose(ROOT, "reconos", "linux", "lib")
     make_parallel()
 
-    cd_verbose(ROOT, "reconos", "demos", DEMO, "linux")
+    cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "linux")
     make_parallel()
 
-    cd_verbose(ROOT, "reconos", "demos", DEMO, "hw")
+    cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "hw")
 
     xil_version = xilinx_version()
     #TODO get design for 14.7 from Christoph
@@ -399,7 +380,7 @@ def build_reconos():
 
     sh("bash reconos_setup.sh setup_zynq")
 
-    cd_verbose(ROOT, "reconos", "demos", DEMO, "hw", "edk_zynq_linux")
+    cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
     #TODO keep __xps folder in git and use `make -f system.make bits`
     #TODO This sometimes fails with a segfault (prints "Segmentation fault" and
     #     exits with status 35584). We should run it again in that case.
@@ -408,8 +389,8 @@ def build_reconos():
     long_operation(make_bitstream)
 
     Path(FILES, "device_tree.dts").copy(Path(".", "device_tree.dts"))
-    sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s:%s,tcp#' % (HOST_IP, NFS_ROOT),
-           r's#\bip=[0-9.]\+:#ip=%s:#' % BOARD_IP],
+    sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s:%s,tcp#' % (reconos_build_options.host_ip, reconos_build_options.nfs_root),
+           r's#\bip=[0-9.]\+:#ip=%s:#' % reconos_build_options.board_ip],
            "device_tree.dts")
     long_operation(escape_for_shell([Path(ROOT, "linux-xlnx", "scripts", "dtc", "dtc"),
         "-I", "dts", "-O", "dtb", "-o", "device_tree.dtb", "device_tree.dts"]))
@@ -500,7 +481,7 @@ def install_base_system():
             Path(ROOTFS, "etc", "rc.d", "K%s%s" % (start_order, name)).make_relative_link_to(dst)
 
     Path(ROOTFS, "etc", "default", "notify-host").write_file(
-        "NOTIFY_HOST=" + escape_for_shell(HOST_IP) + "\n")
+        "NOTIFY_HOST=" + escape_for_shell(reconos_build_options.host_ip) + "\n")
 
 
     Path(ROOTFS, "etc", "passwd").write_file(
@@ -605,17 +586,17 @@ def build_rootfs():
 @task
 @cmdoptsgroup("reconos_build")
 def update_nfsroot():
-    sh("sudo mkdir -p %s" % escape_for_shell(NFS_ROOT))
-    sh("sudo cp -a %s %s" % (escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(NFS_ROOT)))
+    sh("sudo mkdir -p %s" % escape_for_shell(reconos_build_options.nfs_root))
+    sh("sudo cp -a %s %s" % (escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(reconos_build_options.nfs_root)))
     
     exclude = [".ash_history", "dropbear", "motd", "log", "run"]
     exclude_args = " ".join(map(lambda x: "-x " + escape_for_shell(x), exclude))
     res = sh_test("sudo diff -r %s %s %s"
-        % (escape_for_shell(ROOTFS), escape_for_shell(NFS_ROOT), exclude_args))
+        % (escape_for_shell(ROOTFS), escape_for_shell(reconos_build_options.nfs_root), exclude_args))
     if res != 0:
-        logger.warn("WARNING: NFS root directory %s contains additional files!" % NFS_ROOT)
+        logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
 
-    authorized_keys_file = Path(NFS_ROOT, "root", ".ssh", "authorized_keys")
+    authorized_keys_file = Path(reconos_build_options.nfs_root, "root", ".ssh", "authorized_keys")
     ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
     if authorized_keys_file.exists():
         sh("sudo chown root:root %s" % escape_for_shell(ssh_dirs_and_files))
@@ -635,13 +616,13 @@ def sudo_append_to(file, *lines):
 @needs("check_host_ip", "reconos_config", "update_nfsroot")
 def boot_zynq():
     sudo_modify_by("/etc/exports",
-        ShellEscaped("grep -v %s") % NFS_ROOT)
+        ShellEscaped("grep -v %s") % reconos_build_options.nfs_root)
     sudo_append_to("/etc/exports",
-        "%s %s(rw,no_root_squash,no_subtree_check)" % (NFS_ROOT, BOARD_IP))
+        "%s %s(rw,no_root_squash,no_subtree_check)" % (reconos_build_options.nfs_root, reconos_build_options.board_ip))
     sh("sudo exportfs -rav")
 
     #TODO this should be in git...
-    edk_project_dir = Path(ROOT, "reconos", "demos", DEMO, "hw", "edk_zynq_linux")
+    edk_project_dir = Path(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
     Path(FILES, "ps7_init.tcl").copy(Path(edk_project_dir, "ps7_init.tcl"))
 
     # The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
@@ -671,27 +652,27 @@ def boot_zynq():
 
 
     # wait for the board to contact us
-    if sh_test(ShellEscaped("timeout 30 nc -l %s 12342") % HOST_IP) != 0:
+    if sh_test(ShellEscaped("timeout 30 nc -l %s 12342") % reconos_build_options.host_ip) != 0:
         logger.error(
             "ERROR: The board didn't send the 'done' message within 30 seconds.")
 
-        if not can_ping(HOST_IP):
+        if not can_ping(reconos_build_options.host_ip):
             logger.error(heredoc("""
                 ERROR: I cannot ping %s, so I think for some reason your IP got reset.
                   Please make sure that you use an ethernet switch (i.e. don't
                   directly connect your PC to the board) or make sure that the IP
                   settings survive a reset of the ethernet connection (i.e. set them
                   in NetworkManager or similar).
-                """ % (HOST_IP)))
+                """ % (reconos_build_options.host_ip)))
             sys.exit(1)
-        if not can_ping(BOARD_IP):
+        if not can_ping(reconos_build_options.board_ip):
             logger.warn(
-                "WARNING: I cannot ping the board (%s). This is a bad sign.", BOARD_IP)
+                "WARNING: I cannot ping the board (%s). This is a bad sign.", reconos_build_options.board_ip)
 
         sys.exit(1)
 
 def get_board_pubkey(keytype):
-    infofile = Path(NFS_ROOT, "etc", "dropbear", "dropbear_%s_host_key.info" % keytype)
+    infofile = Path(reconos_build_options.nfs_root, "etc", "dropbear", "dropbear_%s_host_key.info" % keytype)
     text = infofile.read_file()
     return re.search("^(ssh-\S+\s+\S+)", text, re.MULTILINE).group(1)
 
@@ -704,18 +685,18 @@ def pubkey_is_in_known_hosts(hostname, pubkey):
 def prepare_ssh():
     pubkey = get_board_pubkey("rsa")
 
-    if pubkey and not pubkey_is_in_known_hosts(BOARD_IP, pubkey):
+    if pubkey and not pubkey_is_in_known_hosts(reconos_build_options.board_ip, pubkey):
         # board key is not in known_hosts, so we remove any old ones and add the new one
-        sh("ssh-keygen -R %s" % BOARD_IP)
+        sh("ssh-keygen -R %s" % reconos_build_options.board_ip)
         append_file(
             Path("~", ".ssh", "known_hosts").expand_user(),
-            "%s %s" % (BOARD_IP, escape_for_shell(pubkey)))
+            "%s %s" % (reconos_build_options.board_ip, escape_for_shell(pubkey)))
         # re-hash the file
         sh("ssh-keygen -H")
 
 def ssh_zynq_special(command, redirects=""):
     sh("ssh -o PubkeyAuthentication=yes root@%s %s %s"
-        % (BOARD_IP, escape_for_shell(command), redirects))
+        % (reconos_build_options.board_ip, escape_for_shell(command), redirects))
 
 def ssh_zynq(*command):
     return ssh_zynq_special(command)
@@ -733,9 +714,9 @@ def ssh_shell():
 def run_demo():
     demo_args = from_env("DEMO_ARGS", "2 2 50")
 
-    ssh_zynq_special("cat >%s" % escape_for_shell(Path("/tmp", DEMO)),
-        "<%s" % escape_for_shell(Path(ROOT, "reconos", "demos", DEMO, "linux", DEMO)))
-    ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (DEMO, DEMO, demo_args))
+    ssh_zynq_special("cat >%s" % escape_for_shell(Path("/tmp", reconos_build_options.demo)),
+        "<%s" % escape_for_shell(Path(ROOT, "reconos", "demos", reconos_build_options.demo, "linux", reconos_build_options.demo)))
+    ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (reconos_build_options.demo, reconos_build_options.demo, demo_args))
 
 @task
 @needs("build", "update_nfsroot", "boot_zynq", "run_demo")
