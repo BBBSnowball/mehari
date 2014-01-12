@@ -235,54 +235,25 @@ def clean_rootfs():
     Path(ROOTFS).rmtree()
 
 @task
+@needs("clean_uboot", "clean_kernel", "clean_busybox", "clean_dropbear",
+    "clean_reconos", "clean_rootfs")
 def clean():
-    clean_uboot()
-    clean_kernel()
-    clean_busybox()
-    clean_dropbear()
-    clean_reconos()
-    clean_rootfs()
+    pass
 
 @task
+@needs("build_uboot", "build_kernel", "build_busybox", "build_dropbear",
+    "build_reconos", "build_rootfs")
 def build():
-    build_uboot()
-    build_kernel()
-    build_busybox()
-    build_dropbear()
-    build_reconos()
-    build_rootfs()
-
-#TODO run build_rootfs() after building busybox, dropbear or reconos
-
-
-
-class ShellEscaped(str):
-    def __mod__(self, arg):
-        if isinstance(arg, tuple):
-            arg = tuple(map(escape_for_shell, arg))
-        else:
-            arg = escape_for_shell(arg)
-
-        return ShellEscaped(super(ShellEscaped, self).__mod__(arg))
-
-def escape_one_for_shell(arg):
-    if isinstance(arg, ShellEscaped):
-        return arg
-    else:
-        arg = re.sub("([\\\\'\"$])", "\\\\\\1", arg)
-        return ShellEscaped('"' + arg + '"')
-
-def escape_for_shell(args):
-    if isinstance(args, (tuple, list)):
-        return " ".join(map(escape_one_for_shell, args))
-    else:
-        return escape_one_for_shell(args)
+    pass
 
 def long_operation(cmd):
     if int(from_env("DEBUG_SKIP_EXPENSIVE_OPERATIONS", "0")) > 0:
         logger.info("Skipping: " + str(cmd))
     else:
-        sh(cmd)
+        if callable(cmd):
+            cmd()
+        else:
+            sh(cmd)
 
 def make(*targets):
     long_operation("make " + escape_for_shell(targets))
@@ -303,11 +274,20 @@ def run_xmd(commands):
     commands = escape_for_shell(str(commands) + " ; exit")
     sh("echo %s | xmd" % commands)
 
-def run_xps_cmd(project, commands):
-    return ShellEscaped("echo %s | xps -nw %s") % (str(commands) + " ; exit", project)
-
 def run_xps(project, commands):
-    sh(run_xps_cmd(project, commands))
+    cmd = ShellEscaped("echo %s | xps -nw %s") % (str(commands) + " ; exit", project)
+    # try 3 times
+    for i in range(3):
+        res = os.system(cmd)
+        if res == 0:
+            return
+        elif res == 35584:
+            logger.warn("xps failed. This may be due to a segfault, so we try again.")
+        else:
+            break
+    # Either it didn't fail with a segfault or it failed too often
+    raise IOError("System command returned non-zero status (return value is %d): %r"
+        % (res, cmd))
 
 def cd_verbose(*dir):
     logger.info("In directory: " + str(dir))
@@ -323,9 +303,9 @@ def sed_i(expr, file):
     sh('sed -i %s %s' % (expr, file))
 
 @task
-def build_uboot():
-    reconos_config()
 
+@needs("reconos_config")
+def build_uboot():
     if "CROSS_COMPILE" not in os.environ:
         raise Exception("reconos_config didn't set CROSS_COMPILE")
 
@@ -341,9 +321,8 @@ def build_uboot():
 
 
 @task
+@needs("reconos_config")
 def build_kernel():
-    reconos_config()
-
     cd_verbose(ROOT, "linux-xlnx")
     make("xilinx_zynq_defconfig")
     make_parallel("uImage", "LOADADDR=0x00008000")
@@ -351,9 +330,8 @@ def build_kernel():
 
 
 @task
+@needs("reconos_config")
 def build_busybox():
-    reconos_config()
-
     cd_verbose(ROOT, "busybox")
     Path(FILES, "busybox-config").copy(".config")
     sed_i(r's#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\"%s\"#' % ROOTFS.replace("#", "\\#"),
@@ -362,9 +340,8 @@ def build_busybox():
 
 
 @task
+@needs("reconos_config")
 def build_dropbear():
-    reconos_config()
-
     cd_verbose(ROOT, "dropbear")
     CROSS_COMPILE = os.environ["CROSS_COMPILE"]
     HOST = re.sub("-$", "", Path(CROSS_COMPILE).name)
@@ -380,9 +357,8 @@ def build_dropbear():
     make_parallel(ShellEscaped("PATH=%s" % escape_for_shell(path_with_toolchain)))
 
 @task
+@needs("reconos_config")
 def build_reconos():
-    reconos_config()
-
     cd_verbose(ROOT, "reconos", "linux", "driver")
     make_parallel()
     cd_verbose(ROOT, "reconos", "linux", "lib")
@@ -462,14 +438,6 @@ def get_order(file, start_or_stop):
                 return "%02u" % (100 - int(order))
             else:
                 return ""
-
-def touch(file):
-    if not Path(file).exists():
-        Path(file).write_file("")
-
-def copy_tree(src, dst):
-    sh("cp -a %s %s" % (Path(src, "."), dst))
-
 
 @task
 def install_base_system():
@@ -590,10 +558,6 @@ def install_kernel_modules():
         "INSTALL_MOD_PATH=%s" % ROOTFS,
         "modules_install")
 
-def append_file(file, text):
-    text = file.read_file() + text
-    file.write_file(text)
-
 @task
 def install_reconos():
     KERNEL_RELEASE=Path(ROOT, "linux-xlnx", "include", "config", "kernel.release").read_file().strip()
@@ -606,22 +570,12 @@ def install_reconos():
         RECONOS_MODULE + ": \n")
 
 @task
+@needs("reconos_config", "install_busybox", "install_base_system",
+    "install_libc", "install_dropbear", "install_kernel_modules",
+    "install_reconos")
 def build_rootfs():
-    reconos_config()
-
-    Path(ROOTFS).mkdir(parents=True)    
-
-    install_busybox()
-
-    install_base_system()
-
-    install_libc()
-
-    install_dropbear()
-
-    install_kernel_modules()
-
-    install_reconos()
+    #TODO: Path(ROOTFS).mkdir(parents=True)
+    pass
 
 @task
 def update_nfsroot():
@@ -651,12 +605,8 @@ def sudo_append_to(file, *lines):
     sh(ShellEscaped("echo %s | sudo tee -a %s >/dev/null") % (text, file))
 
 @task
-@needs("check_host_ip")
+@needs("check_host_ip", "reconos_config", "update_nfsroot")
 def boot_zynq():
-    reconos_config()
-
-    update_nfsroot()
-
     sudo_modify_by("/etc/exports",
         ShellEscaped("grep -v %s") % NFS_ROOT)
     sudo_append_to("/etc/exports",
@@ -744,16 +694,13 @@ def ssh_zynq(*command):
 
 
 @task
-@needs("check_host_ip")
+@needs("check_host_ip", "prepare_ssh")
 def ssh_shell():
-    prepare_ssh()
     ssh_zynq()
 
 @task
-@needs("check_host_ip")
+@needs("check_host_ip", "prepare_ssh")
 def run_demo():
-    prepare_ssh()
-
     demo_args = from_env("DEMO_ARGS", "2 2 50")
 
     ssh_zynq_special("cat >%s" % escape_for_shell(Path("/tmp", DEMO)),
@@ -761,17 +708,11 @@ def run_demo():
     ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (DEMO, DEMO, demo_args))
 
 @task
+@needs("build", "update_nfsroot", "boot_zynq", "run_demo")
 def build_and_run():
-    build()
-
-    update_nfsroot()
-
-    boot_zynq()
-
-    run_demo()
+    pass
 
 @task
+@needs("clean, build_and_run")
 def clean_build_and_run():
-    clean()
-
-    build_and_run()
+    pass
