@@ -58,7 +58,12 @@ ROOT   = Path(__file__).absolute().parent
 FILES  = Path(ROOT, "files")
 ROOTFS = Path(ROOT, "_install")
 
-logger = logging.getLogger("pavement")
+logger = logging.getLogger(__name__)
+logging.basicConfig()
+if paver.tasks.environment.verbose:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.WARNING)
 
 
 def heredoc(doc):
