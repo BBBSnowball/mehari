@@ -14,20 +14,30 @@ if __name__ == '__main__':
     sys.exit(paver.tasks.main())
 
 
-from paver.easy import task, needs, cmdopts
+from paver.easy import task, needs, cmdopts, might_call
 import paver
 #TODO use path.py that is bundled with paver
 from unipath import Path
 import sys, os, re, subprocess, glob, tempfile, logging
 
+ROOT   = Path(__file__).absolute().parent
+FILES  = Path(ROOT, "files")
+ROOTFS = Path(ROOT, "_install")
+
+logger = logging.getLogger(__name__)
+logging.basicConfig()
+if paver.tasks.environment.verbose:
+    loglevel = logging.DEBUG
+else:
+    loglevel = logging.WARNING
+logger.setLevel(loglevel)
+logging.getLogger().setLevel(loglevel)
+
+sys.path.insert(1, Path(ROOT.parent, "tools", "python-helpers"))
+from mehari.build_utils import *
+
 
 #TODO use commandline arguments provided by paver
-def from_env(name, default = None):
-    if name in os.environ:
-        return os.environ[name]
-    else:
-        return default
-
 def global_from_env(name, default = None):
     globals()[name] = from_env(name, default)
 
@@ -45,41 +55,6 @@ if False:
     BOARD_IP = None
     DEMO = None
     NFS_ROOT = None
-
-################################################################################
-
-if __name__ == '__main__':
-    #TODO simply call shovel and make it work - only works, if I change shovel
-    sys.stderr.write("ERROR: Please use shovel to run this file!\n")
-    sys.exit(1)
-
-
-ROOT   = Path(__file__).absolute().parent
-FILES  = Path(ROOT, "files")
-ROOTFS = Path(ROOT, "_install")
-
-logger = logging.getLogger(__name__)
-logging.basicConfig()
-if paver.tasks.environment.verbose:
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.WARNING)
-
-
-def heredoc(doc):
-    """remove indent from multi-line string"""
-    doc = re.sub("^\n*", "", doc)
-    indent = re.match("^(\s*)", doc).group(0)
-    if indent:
-        doc = re.sub("^"+indent, "", doc)
-    #doc = re.sub("\n*$", "", doc)
-    return doc
-
-def sh(cmd):
-    res = os.system(cmd)
-    if res != 0:
-        raise IOError("System command returned non-zero status (return value is %d): %r"
-            % (res, cmd))
 
 @task
 def check_submodules():
@@ -126,65 +101,8 @@ def check_host_ip():
             """ % (HOST_IP, HOST_IP, HOST_IP)))
         sys.exit(1)
 
-class changed_environment(object):
-    __slots__ = "vars", "_old_values"
-
-    def __init__(self, **changed_vars):
-        self.vars = changed_vars
-
-    @staticmethod
-    def change_environment(values):
-        for key in values:
-            if values[key] is not None:
-                os.environ[key] = values[key]
-            else:
-                del os.environ[key]
-
-    @staticmethod
-    def save_environment(keys):
-        saved = {}
-        for key in keys:
-            if key in os.environ:
-                saved[key] = os.environ[key]
-            else:
-                saved[key] = None
-        return saved
-
-    def __enter__(self):
-        self._old_values = self.save_environment(self.vars.keys())
-        self.change_environment(self.vars)
-        return None
-
-    def __exit__(self, *exc):
-        self.change_environment(self._old_values)
-
-def backticks(cmd):
-    shell = isinstance(cmd, str)
-    proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE)
-    (out, err) = proc.communicate()
-    if proc.returncode == 0:
-        return out
-    else:
-        raise IOError("System command returned an error (return code is %d): %r"
-            % (proc.returncode, cmd))
-
-def source_shell_file(file):
-    #with changed_environment(BASH_SOURCE=file):
-    shell_cmd = ShellEscaped(". %s && env") % file
-    env = backticks(["bash", "-c", shell_cmd])
-    for line in env.split("\n"):
-        if line.find("=") < 0:
-            continue
-        key, value = line.split("=", 1)
-        if key in ["SHLVL", "_"]:
-            # this is a special variable -> ignore
-            continue
-        if key not in os.environ or os.environ[key] != value:
-            logger.debug("changed or new env var: %s=%s" % (key, value))
-        os.environ[key] = value
-
 @task
-@needs("check_submodules", "check_libc")
+@needs("check_submodules")
 def reconos_config():
     RECONOS_CONFIG = Path(ROOT, "reconos", "tools", "environment", "default.sh")
 
@@ -196,10 +114,24 @@ def reconos_config():
         xil_tools = Path("/opt/Xilinx", os.environ["XILINX_VERSION"])
     else:
         xil_tools = Path("/opt/Xilinx/14.6")
+
+    if not os.path.exists(xil_tools):
+        logger.error(heredoc("""
+            ERROR: Couldn't find the directory with Xilinx tools. Please install Xilinx ISE_DS
+              (Webpack will do) and tell me about the location. You have several options:
+            - Set the environment variable XILINX=/path/to/ISE_DS/ISE
+            - Set the environment variable XILINX_VERSION, if the tools live in /opt/Xilinx/$XILINX_VERSION
+            - Set the environment variable xil_tools to the directory that contains the ISE_DS directory
+              (This may not work with other scripts, so you may want to choose one of the other options.)
+            """))
+        sys.exit(1)
+
     gnutools = Path(from_env("gnutools",
         Path(xil_tools, "ISE_DS", "EDK", "gnu", "arm", "lin", "bin", "arm-xilinx-linux-gnueabi-")))
     libc_dir = Path(from_env("libc_dir",
         Path(gnutools.parent.parent, "arm-xilinx-linux-gnueabi", "libc")))
+
+    do_check_libc(libc_dir)
 
     Path(RECONOS_CONFIG).write_file(heredoc("""
         xil_tools="%s"
@@ -246,10 +178,7 @@ def xilinx_version():
 
     return XILINX_VERSION
 
-@task
-def check_libc():
-    libc_dir = reconos_config()["libc_dir"]
-
+def do_check_libc(libc_dir):
     # make sure we have the most important libc files
     if not libc_dir.isdir():
         logger.error("$libc_dir must be set to the install directory of libc, but it doesn't exist")
@@ -266,6 +195,13 @@ def check_libc():
                        \$libc_dir is '%s'
                 """ % (file, libc_dir)))
             sys.exit(1)
+
+@task
+@might_call("reconos_config")
+def check_libc():
+    libc_dir = reconos_config()["libc_dir"]
+
+    do_check_libc(libc_dir)
 
 @task
 def check():
