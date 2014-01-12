@@ -24,6 +24,9 @@ ROOT   = Path(__file__).absolute().parent
 FILES  = Path(ROOT, "files")
 ROOTFS = Path(ROOT, "_install")
 
+sys.path.insert(1, Path(ROOT.parent, "tools", "python-helpers"))
+from mehari.build_utils import *
+
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 if paver.tasks.environment.verbose:
@@ -32,9 +35,6 @@ else:
     loglevel = logging.INFO
 logger.setLevel(loglevel)
 logging.getLogger().setLevel(loglevel)
-
-sys.path.insert(1, Path(ROOT.parent, "tools", "python-helpers"))
-from mehari.build_utils import *
 
 # test only, don't do anything
 NO_OP = from_env("NOOP", from_env("NO_OP", False))
