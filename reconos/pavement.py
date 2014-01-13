@@ -50,15 +50,59 @@ if NO_OP:
     mehari.build_utils.sh_test = sh_test
 
 
-#TODO default values
 reconos_build_options = register_cmdoptsgroup("reconos_build",
     ("parallel-processes=", "j", "Parallel processes started when building a subtask with GNU make"),
     ("host-ip=", "H", "IP address (of your machine) that should be used to communicate with the Zynq board"),
     ("board-ip=", "b", "IP address that will be used by the Zynq board"),
     ("demo=", "d", "Demo application to run"),
     ("nfs-root=", "r", "Location of the NFS root folder on your machine"),
+    ("nfs-mount=", "", "IP of the NFS server (default: host-ip:nfs-root, i.e. 192.168.24.17:/nfs/zynqn). "
+        + "If you change this default, make sure that nfs-root on this host referes to the same folder. "
+        + "Furthermore, the script won't try to publish the NFS share (as it normally would), so make sure "
+        + "that this share is configured and working."),
+    ("nfs-no-sudo", "", "Do not use sudo to access nfs-root. The script assumes that it can edit all files "
+        + "in nfs-root and files will automatically be owned by root. Here is one way to do it: nfs-root "
+        + "is an nfs mount with options 'all_squash,anongid=0,anonuid=0' (in /etc/exports on the server, not "
+        + "mount options!). You should point the board to the same NFS server using the nfs-mount option. "
+        + "However, it should not be squashed at all (i.e. don't use all_squash, but do use no_root_squash)."),
     {"parallel_processes": "4", "host_ip": "192.168.24.17", "board_ip": "192.168.24.23",
-     "demo": "sort_demo", "nfs_root": "/nfs/zynqn"})
+     "demo": "sort_demo", "nfs_root": "/nfs/zynqn", "nfs-mount": "", "nfs-no-sudo": False})
+
+# To be honest, all those options are quite confusing, so I will try to explain them. There are two
+# scenarios to consider:
+# 1. Your system can run an NFS server and you can use sudo to copy the files to the NFS share
+#    and chown them to root.
+# 2. You don't have an NFS server on this host or you don't have root permissions.
+#
+# The first case is quite simple: You set host-ip and board-ip to appropriate values and run this script.
+# It will export the NFS share and use sudo whenever appropriate. You may have to enter your password for
+# sudo. If you want the script to run unattended, change /etc/sudoers to not require a password.
+#
+# In addition, you may have to change your IP settings. Simply use the host-ip and board-ip parameters
+# to tell the script which addresses it should use. Only IPv4 is supported. Both IPs must be in the same
+# subnet assuming a netmask of 255.255.255.0 (.../24).
+#
+#
+# The second case needs a bit more work. You may wonder why somebody would want to jump to so many hoops, if
+# they could simply use the other solution. My continuous integration runs in an LXC container and my kernel
+# is too old to support NFS inside containers. Furthermore, I don't want the tests to run with root priviledges.
+#
+# You have to prepare the NFS server:
+# (I assume the NFS server has the IP 192.168.24.20 and host-ip and board-ip are the defaults.)
+#   in /etc/exports on the NFS server:
+#   /media/zynq-rootfs 192.168.24.17(rw,async,all_squash,anongid=0,anonuid=0,secure,no_subtree_check) \
+#                      192.168.24.23(rw,async,no_root_squash,secure,no_subtree_check)
+# Make sure that an appropriate file system lives at /media/zynq-rootfs. After changing /etc/exports
+# you have to run something like 'exportfs -rav'.
+#
+# You have to mount the NFS share on the build host, i.e.
+# ssh root@192.168.24.17 mount -t nfs 192.168.24.20:/media/zynq-rootfs /nfs/zynqn -o soft,vers=3
+# You should add the mount to /etc/fstab, so it will be remounted after a reboot.
+#
+# The mounted NFS share provides full access for every user, so you should make sure that only trusted users
+# can access it, e.g. chown jenkins /nfs ; chmod 700 /nfs
+#
+# Use these options: --nfs-mount=192.168.24.20:/media/zynq-rootfs --nfs-no-sudo
 
 
 @task
@@ -267,11 +311,17 @@ def make_parallel(*targets):
     long_operation(("make -j%s " % reconos_build_options.parallel_processes) + escape_for_shell(targets))
 
 
+def sudo_cmd():
+    if reconos_build_options.nfs_no_sudo:
+        return ""
+    else:
+        return "sudo"
+
 def sudo_modify_by(file, *command):
     x, tmpfile = tempfile.mkstemp()
     Path(file).copy(tmpfile)
-    sh(ShellEscaped("%s <%s | sudo tee %s >/dev/null")
-        % (command, tmpfile, file))
+    sh(ShellEscaped("%s <%s | %s tee %s >/dev/null")
+        % (command, tmpfile, sudo_cmd(), file))
     Path(tmpfile).remove()
 
 def run_xmd(commands):
@@ -390,7 +440,11 @@ def build_reconos():
     long_operation(make_bitstream)
 
     Path(FILES, "device_tree.dts").copy(Path(".", "device_tree.dts"))
-    sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s:%s,tcp#' % (reconos_build_options.host_ip, reconos_build_options.nfs_root),
+    if reconos_build_options.nfs_mount != "":
+        nfs_mount = reconos_build_options.nfs_mount
+    else:
+        nfs_mount = "%s:%s" % (reconos_build_options.host_ip, reconos_build_options.nfs_root)
+    sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s,tcp#' % nfs_mount,
            r's#\bip=[0-9.]\+:#ip=%s:#' % reconos_build_options.board_ip],
            "device_tree.dts")
     long_operation(escape_for_shell([Path(ROOT, "linux-xlnx", "scripts", "dtc", "dtc"),
@@ -587,40 +641,46 @@ def build_rootfs():
 @task
 @cmdoptsgroup("reconos_build")
 def update_nfsroot():
-    sh("sudo mkdir -p %s" % escape_for_shell(reconos_build_options.nfs_root))
-    sh("sudo cp -a %s %s" % (escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(reconos_build_options.nfs_root)))
+    sh("%s mkdir -p %s" % (sudo_cmd(), escape_for_shell(reconos_build_options.nfs_root)))
+    sh("%s cp -a %s %s" % (sudo_cmd(), escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(reconos_build_options.nfs_root)))
     
     exclude = [".ash_history", "dropbear", "motd", "log", "run"]
     exclude_args = " ".join(map(lambda x: "-x " + escape_for_shell(x), exclude))
-    res = sh_test("sudo diff -r %s %s %s"
-        % (escape_for_shell(ROOTFS), escape_for_shell(reconos_build_options.nfs_root), exclude_args))
+    res = sh_test("%s diff -r %s %s %s"
+        % (sudo_cmd(), escape_for_shell(ROOTFS), escape_for_shell(reconos_build_options.nfs_root), exclude_args))
     if res != 0:
         logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
 
     authorized_keys_file = Path(reconos_build_options.nfs_root, "root", ".ssh", "authorized_keys")
     ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
     if authorized_keys_file.exists():
-        sh("sudo chown root:root %s" % escape_for_shell(ssh_dirs_and_files))
+        sh("%s chown root:root %s" % (sudo_cmd(), escape_for_shell(ssh_dirs_and_files)))
         for file_or_dir in ssh_dirs_and_files:
             if file_or_dir.isdir():
                 rights = "700"
             else:
                 rights = "600"
-            sh("sudo chmod %s %s" % (rights, escape_for_shell(file_or_dir)))
+            sh("%s chmod %s %s" % (sudo_cmd(), rights, escape_for_shell(file_or_dir)))
 
 def sudo_append_to(file, *lines):
     text = "\n".join(lines) + "\n"
-    sh(ShellEscaped("echo %s | sudo tee -a %s >/dev/null") % (text, file))
+    sh(ShellEscaped("echo %s | %s tee -a %s >/dev/null") % (text, sudo_cmd(), file))
 
 @task
 @cmdoptsgroup("reconos_build")
 @needs("check_host_ip", "reconos_config", "update_nfsroot")
 def boot_zynq():
-    sudo_modify_by("/etc/exports",
-        ShellEscaped("grep -v %s") % reconos_build_options.nfs_root)
-    sudo_append_to("/etc/exports",
-        "%s %s(rw,no_root_squash,no_subtree_check)" % (reconos_build_options.nfs_root, reconos_build_options.board_ip))
-    sh("sudo exportfs -rav")
+    if reconos_build_options.nfs_mount == "":
+        if reconos_build_options.nfs_no_sudo:
+            logger.warn("WARNING: You have set --nfs-no-sudo, but not --nfs-mount. I will now try to create the "
+                + "NFS share without using sudo. This will most likely fail!")
+
+        # create NFS share for the board
+        sudo_modify_by("/etc/exports",
+            ShellEscaped("grep -v %s") % reconos_build_options.nfs_root)
+        sudo_append_to("/etc/exports",
+            "%s %s(rw,no_root_squash,no_subtree_check)" % (reconos_build_options.nfs_root, reconos_build_options.board_ip))
+        sh("%s exportfs -rav" % sudo_cmd())
 
     #TODO this should be in git...
     edk_project_dir = Path(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
@@ -631,7 +691,11 @@ def boot_zynq():
     # we fix this.
     cse_dir = Path("~/.cse").expand_user()
     if cse_dir.exists() and cse_dir.stat().st_uid == 0:
-        sh('sudo chown -R "$USER" ~/.cse')
+        if reconos_build_options.nfs_no_sudo:
+            logger.error("~/.cse is owned by root. Please run: sudo chown -R \"$USER\" ~/.cse")
+            sys.exit(1)
+        else:
+            sh('sudo chown -R "$USER" ~/.cse')
 
     #NOTE If this fails because it doesn't find the cable, install the cable drivers:
     #     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
