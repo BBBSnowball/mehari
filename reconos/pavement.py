@@ -254,7 +254,22 @@ def check_libc():
     do_check_libc(libc_dir)
 
 @task
-@needs("check_submodules", "check_libc", "check_host_ip")
+@might_call("reconos_config")
+def check_digilent_driver():
+    if sh_test("find ~/.cse -name libCseDigilent.so >/dev/null") != 0:
+        logger.warning(heredoc("""
+            WARNING: I cannot find the Digilent JTAG driver in ~/.cse. It may live in another location.
+                     If you are sure that it works, you can ignore this warning. You can run these commands to
+                     install it (adapt the path as appropriate):
+                       cd /opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64/digilent
+                       sudo ./install_digilent.sh
+                       sudo chown -R "$USER" ~/.cse
+                       sudo cp -r ~/.cse ~some_user/
+                       sudo chown -R some_user ~some_user/.cse
+            """))
+
+@task
+@needs("check_submodules", "check_libc", "check_host_ip", "check_digilent_driver")
 def check():
     pass
 
