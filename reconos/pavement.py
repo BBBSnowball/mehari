@@ -659,7 +659,7 @@ def update_nfsroot():
     sh("%s mkdir -p %s" % (sudo_cmd(), escape_for_shell(reconos_build_options.nfs_root)))
     sh("%s cp -a %s %s" % (sudo_cmd(), escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(reconos_build_options.nfs_root)))
     
-    exclude = [".ash_history", "dropbear", "motd", "log", "run"]
+    exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
     exclude_args = " ".join(map(lambda x: "-x " + escape_for_shell(x), exclude))
     res = sh_test("%s diff -r %s %s %s"
         % (sudo_cmd(), escape_for_shell(ROOTFS), escape_for_shell(reconos_build_options.nfs_root), exclude_args))
