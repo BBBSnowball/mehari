@@ -670,6 +670,15 @@ def update_nfsroot():
     ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
     if authorized_keys_file.exists():
         sh("%s chown root:root %s" % (sudo_cmd(), escape_for_shell(ssh_dirs_and_files)))
+        if reconos_build_options.nfs_no_sudo:
+            st = os.stat(authorized_keys_file)
+            if st.st_uid != 0 or st.st_gid != 0:
+                logger.error(heredoc("""
+                    ERROR: The authorized_keys file must belong to root, but it doesn't. We won't
+                           be able to connect to the board. Please make sure that the NFS options
+                           are correct (see help of --nfs-no-sudo).
+                    """))
+                sys.exit(1)
         for file_or_dir in ssh_dirs_and_files:
             if file_or_dir.isdir():
                 rights = "700"
