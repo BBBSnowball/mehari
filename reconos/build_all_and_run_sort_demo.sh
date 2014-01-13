@@ -77,7 +77,7 @@ fi
 
 
 clean_repository() {
-	( cd "$ROOT/$1" && git reset --hard && git clean -f -x -d )
+	( cd "$ROOT/$1" && git reset --hard && git clean -f -x -d ) || echo "Cleaning returned error status."
 }
 
 if ! (($SKIP_BUILDING_UBOOT)) ; then
@@ -90,7 +90,7 @@ if ! (($SKIP_BUILDING_BUSYBOX)) ; then
 	clean_repository busybox
 fi
 if ! (($SKIP_BUILDING_DROPBEAR)) ; then
-	( cd dropbear ; [ -e "Makefile" ] && make distclean )
+	( cd dropbear ; [ -e "Makefile" ] && make distclean || true )
 fi
 if ! (($SKIP_BUILDING_RECONOS)) ; then
 	clean_repository reconos
@@ -100,6 +100,7 @@ if ! (($SKIP_BUILDING_ROOTFS)) ; then
 fi
 
 if (($ONLY_CLEAN)) ; then
+	echo "Exit after cleaning."
 	exit
 fi
 
