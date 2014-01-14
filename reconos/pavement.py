@@ -819,7 +819,7 @@ def prepare_ssh():
         sh("ssh-keygen -R %s" % reconos_build_options.board_ip)
         append_file(
             Path("~", ".ssh", "known_hosts").expand_user(),
-            "%s %s" % (reconos_build_options.board_ip, escape_for_shell(pubkey)))
+            "%s %s" % (reconos_build_options.board_ip, pubkey))
         # re-hash the file
         sh("ssh-keygen -H")
 
