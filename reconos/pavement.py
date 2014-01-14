@@ -359,8 +359,9 @@ def run_xps(project, commands):
         % (res, cmd))
 
 def cd_verbose(*dir):
+    dir = Path(*dir)
     logger.info("In directory: " + str(dir))
-    Path(*dir).chdir()
+    dir.chdir()
 
 def sed_i(expr, file):
     if isinstance(expr, (tuple, list)):
