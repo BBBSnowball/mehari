@@ -248,6 +248,7 @@ def do_check_libc(libc_dir):
             sys.exit(1)
 
 @task
+@cmdoptsgroup("reconos_build")
 @might_call("reconos_config")
 def check_libc():
     libc_dir = reconos_config()["libc_dir"]
@@ -255,6 +256,7 @@ def check_libc():
     do_check_libc(libc_dir)
 
 @task
+@cmdoptsgroup("reconos_build")
 @might_call("reconos_config")
 def check_digilent_driver():
     if sh_test("find ~/.cse -name libCseDigilent.so >/dev/null") != 0:
@@ -281,21 +283,27 @@ def clean_repository(dir):
     sh('cd "%s" && git reset --hard && git clean -f -x -d' % dir)
 
 @task
+@cmdoptsgroup("reconos_build")
 def clean_uboot():
     clean_repository("u-boot-xlnx")
 @task
+@cmdoptsgroup("reconos_build")
 def clean_kernel():
     clean_repository("linux-xlnx")
 @task
+@cmdoptsgroup("reconos_build")
 def clean_busybox():
     clean_repository("busybox")
 @task
+@cmdoptsgroup("reconos_build")
 def clean_dropbear():
     sh("cd dropbear ; [ -e \"Makefile\" ] && make distclean || true")
 @task
+@cmdoptsgroup("reconos_build")
 def clean_reconos():
     clean_repository("reconos")
 @task
+@cmdoptsgroup("reconos_build")
 def clean_rootfs():
     Path(ROOTFS).rmtree()
 
@@ -392,6 +400,7 @@ def build_uboot():
 
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def build_kernel():
     cd_verbose(ROOT, "linux-xlnx")
@@ -401,6 +410,7 @@ def build_kernel():
 
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def build_busybox():
     cd_verbose(ROOT, "busybox")
@@ -411,6 +421,7 @@ def build_busybox():
 
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def build_dropbear():
     cd_verbose(ROOT, "dropbear")
@@ -470,6 +481,7 @@ def build_reconos():
 
 
 @task
+@cmdoptsgroup("reconos_build")
 def install_busybox():
     cd_verbose(ROOT, "busybox")
     make_parallel("CONFIG_PREFIX=%s" % ROOTFS, "install")
@@ -518,6 +530,7 @@ def get_order(file, start_or_stop):
                 return ""
 
 @task
+@cmdoptsgroup("reconos_build")
 def install_base_system():
     cd_verbose(ROOTFS)
     for dir in ["dev", "dev/pts",
@@ -583,6 +596,7 @@ def install_base_system():
     touch(Path(ROOTFS, "etc", "ld.so.conf"))
 
 @task
+@cmdoptsgroup("reconos_build")
 @needs("reconos_config")
 def install_libc():
     # We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
@@ -599,6 +613,7 @@ def install_libc():
         % (escape_for_shell(libc_dir), escape_for_shell(locale_directories), escape_for_shell(ROOTFS)))
 
 @task
+@cmdoptsgroup("reconos_build")
 def install_dropbear():
     reconos_config()
 
@@ -633,6 +648,7 @@ def install_dropbear():
         shells_file.write_file(shells)
 
 @task
+@cmdoptsgroup("reconos_build")
 def install_kernel_modules():
     cd_verbose(ROOT, "linux-xlnx")
     make_parallel(
@@ -640,6 +656,7 @@ def install_kernel_modules():
         "modules_install")
 
 @task
+@cmdoptsgroup("reconos_build")
 def install_reconos():
     KERNEL_RELEASE=Path(ROOT, "linux-xlnx", "include", "config", "kernel.release").read_file().strip()
     RECONOS_MODULE="kernel/drivers/mreconos.ko"
