@@ -11,12 +11,12 @@ fi
 
 check_program() {
 	if ! which "$1" >/dev/null ; then
-		if [ -z "$3" ] ; then
+		if [ -n "$3" ] ; then
 			echo "Please install $3" >&2
 		else
 			echo "Please install $1" >&2
 		fi
-		if [ -z "$2" ] ; then
+		if [ -n "$2" ] ; then
 			echo "On Debian: apt-get install $2" >&2
 		fi
 		exit 1
@@ -36,7 +36,7 @@ check_program python     python2.7        "Python 2.7 (newer versions MIGHT work
 check_program git        git-core
 check_program ssh        openssh-client
 check_program ssh-keygen openssh-client
-check_program exportfs   nfs-kernel-server
+#check_program exportfs   nfs-kernel-server		# not always necessary...
 
 check_program ifconfig
 check_program grep
