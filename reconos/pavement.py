@@ -505,14 +505,14 @@ def sed_backticks(expr, file, noprint = False):
         flags = "-n"
     else:
         flags = ""
-    backticks('sed %s %s <%s' % (flags, expr, file))
+    return backticks('sed %s %s <%s' % (flags, expr, file))
 
 
 def get_init_info(file, key):
     return sed_backticks(
         r'/^#\+\s*BEGIN INIT INFO\s*$/,/^#\+\s*END INIT INFO\s*$/ s/^#\s*%s:\s*\(.*\)$/\1/pi' % key,
         file,
-        noprint=True)
+        noprint=True).strip()
 
 def get_order(file, start_or_stop):
     order = get_init_info(file, "%s-order" % start_or_stop)
