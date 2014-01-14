@@ -24,6 +24,7 @@ def heredoc(doc):
     return doc
 
 def sh(cmd):
+    logger.info("sh: %r" % (cmd,))
     res = os.system(cmd)
     if res != 0:
         #TODO raise paver.tasks.BuildFailure?
@@ -31,7 +32,10 @@ def sh(cmd):
             % (res, cmd))
 
 def sh_test(cmd):
-    return os.system(cmd)
+    logger.info("sh?: %r" % (cmd,))
+    res = os.system(cmd)
+    logger.debug("  -> %s" % res)
+    return res
 
 class changed_environment(object):
     __slots__ = "vars", "_old_values"

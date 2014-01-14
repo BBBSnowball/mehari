@@ -41,9 +41,10 @@ NO_OP = from_env("NOOP", from_env("NO_OP", False))
 
 if NO_OP:
     def sh(cmd):
-        logger.info("sh(%r)" % (cmd,))
+        logger.info("sh-noop: %r" % (cmd,))
     def sh_test(cmd):
-        logger.info("sh_test(%r)" % (cmd,))
+        logger.info("sh-noop?: %r" % (cmd,))
+        logger.debug("  -> 0 (always 0 in no-op mode)")
         return 0
     import mehari.build_utils
     mehari.build_utils.sh = sh
