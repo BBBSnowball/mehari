@@ -853,6 +853,6 @@ def build_and_run():
     pass
 
 @task
-@needs("clean, build_and_run")
+@needs("clean", "build_and_run")
 def clean_build_and_run():
     pass
