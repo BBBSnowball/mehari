@@ -766,7 +766,7 @@ def boot_zynq():
     cd_verbose(ROOT)
     sh(escape_for_shell([
         "bash",
-        "zynq_boot_jtag.sh",
+        "zynq_boot_tftp.sh",
         Path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
         Path(edk_project_dir, "device_tree.dtb"),
         Path(edk_project_dir, "ps7_init.tcl"),
