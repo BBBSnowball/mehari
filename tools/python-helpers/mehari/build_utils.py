@@ -101,6 +101,11 @@ def escape_for_shell(args):
     else:
         return escape_one_for_shell(args)
 
+def escape_for_regex(text):
+    for special_char in "\\[].*":
+        text = text.replace(special_char, "\\" + special_char)
+    return text
+
 def source_shell_file(file):
     #with changed_environment(BASH_SOURCE=file):
     shell_cmd = ShellEscaped(". %s && env") % file

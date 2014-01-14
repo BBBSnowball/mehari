@@ -662,11 +662,29 @@ def update_nfsroot():
     sh("%s cp -a %s %s" % (sudo_cmd(), escape_for_shell(Path(ROOTFS, ".")), escape_for_shell(reconos_build_options.nfs_root)))
     
     exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-    exclude_args = " ".join(map(lambda x: "-x " + escape_for_shell(x), exclude))
-    res = sh_test("%s diff -r %s %s %s"
-        % (sudo_cmd(), escape_for_shell(ROOTFS), escape_for_shell(reconos_build_options.nfs_root), exclude_args))
-    if res != 0:
-        logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
+    exclude_pattern = "/\\(" + "\\|".join(map(escape_for_regex, exclude)) + "\\)\\(/\|$\\)"
+    exclude_filter = "grep -v " + escape_for_shell(exclude_pattern)
+    # We could use <(...) syntax, but sh doesn't support it, so we use temporary files instead.
+    def sudo_list_files(dir):
+        _, tmpfile = tempfile.mkstemp()
+        cmd = "cd %s ; find | %s | sort >%s" % (escape_for_shell(dir), exclude_filter, escape_for_shell(tmpfile))
+        sh("%s sh -c %s" % (sudo_cmd(), escape_for_shell(cmd)))
+        return tmpfile
+
+    file_list1 = None
+    file_list2 = None
+    try:
+        file_list1 = sudo_list_files(ROOTFS)
+        file_list2 = sudo_list_files(reconos_build_options.nfs_root)
+        res = sh_test("%s diff -y --suppress-common-lines %s %s"
+            % (sudo_cmd(), escape_for_shell(file_list1), escape_for_shell(file_list2)))
+        if res != 0:
+            logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
+    finally:
+        if file_list1:
+            Path(file_list1).remove()
+        if file_list2:
+            Path(file_list2).remove()
 
     authorized_keys_file = Path(reconos_build_options.nfs_root, "root", ".ssh", "authorized_keys")
     ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
