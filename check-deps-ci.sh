@@ -61,6 +61,12 @@ if ! which make >/dev/null || ! which gcc >/dev/null || ! which ld >/dev/null ; 
 	exit
 fi
 
+if ! which gmake >/dev/null ; then
+	echo "Xilinx needs gmake as an alias for the GNU make executable. Please run:" >&2
+	echo "  sudo ln -s `which make` /usr/bin/gmake"                                >&2
+	exit
+fi
+
 if ! find --version | grep -q "GNU findutils" ; then
 	# Windows has a totally different program called 'find'. I'm not sure about Mac OS.
 	echo "Please install GNU findutils and make sure we get its version of find." >&2
