@@ -583,17 +583,20 @@ def install_base_system():
     touch(Path(ROOTFS, "etc", "ld.so.conf"))
 
 @task
+@needs("reconos_config")
 def install_libc():
-    config = reconos_config()
+    # We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
+    # a list of the locales we do want.
+    # Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
+    included_locales = ["en_US", "en_US.utf8", "de_DE.utf8"]
+    locale_directories = map(lambda locale: "usr/lib/locale/"+locale, included_locales)
 
     # copy libc files
-    #libc_dir = config["libc_dir"]  #TODO return value of task is always None :-(
     libc_dir = get_libc_dir_after_reconos_config()
-    for dir in ["usr/bin", "lib", "usr/lib", "usr/share", "sbin", "usr/sbin"]:
-        dir_components = dir.split("/")
-        src = Path(libc_dir, *dir_components)
-        dst = Path(ROOTFS,   *dir_components)
-        copy_tree(src, dst)
+    sh("tar -c -C %s . --exclude=usr/lib/locale --exclude=usr/include | tar -x -C %s"
+        % (escape_for_shell(libc_dir), escape_for_shell(ROOTFS)))
+    sh("tar -c -C %s %s | tar -x -C %s"
+        % (escape_for_shell(libc_dir), escape_for_shell(locale_directories), escape_for_shell(ROOTFS)))
 
 @task
 def install_dropbear():
