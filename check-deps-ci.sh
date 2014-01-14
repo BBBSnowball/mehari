@@ -49,6 +49,7 @@ check_program touch
 check_program diff
 #check_program gawk
 check_program curl
+check_program tar
 
 if ! which make >/dev/null || ! which gcc >/dev/null || ! which ld >/dev/null ; then
 	echo -n "We need a working build system. This usually means gcc, make, binutils and " >&2
