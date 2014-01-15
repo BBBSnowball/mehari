@@ -31,7 +31,7 @@ find -regex ".*/ci-[0-9]+-[^/ ]+\.[^/ ]+" | awk -F "/" '{print $NF " " $0}' \
 	| cut -d " " -f2- \
 	>.tmp-tasks
 if ! (($DONT_TEST)) ; then
-	find -name test-ci.sh | sort >>.tmp-tasks
+	find -name test-ci*.sh | sort >>.tmp-tasks
 fi
 TASK_COUNT="$(wc -l .tmp-tasks | cut -d " " -f1)"
 echo "Found $TASK_COUNT tasks."
