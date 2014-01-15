@@ -47,9 +47,11 @@ check_program tee
 check_program patch
 check_program touch
 check_program diff
-#check_program gawk
+check_program gawk
 check_program curl
 check_program tar
+check_program cut
+check_program wc
 
 if ! which make >/dev/null || ! which gcc >/dev/null || ! which ld >/dev/null ; then
 	echo -n "We need a working build system. This usually means gcc, make, binutils and " >&2
@@ -89,22 +91,19 @@ fi
 check_python unipath python-unipath
 check_python yaml    python-yaml
 
-if [ -z "$XILINX_SETTINGS" ] ; then
-	if [ -n "$XILINX" ] ; then
-		XILINX_SETTINGS="$XILINX/../settings64.sh"
-	elif [ -n "$XILINX_VERSION" ] ; then
-		XILINX_SETTINGS="/opt/Xilinx/$XILINX_VERSION/ISE_DS/settings64.sh"
-	fi
+if [ -z "$XILINX_SETTINGS_SCRIPT" ] ; then
+	source ./ci-*-find-xilinx-tools.sh
 fi
-if [ ! -e "$XILINX_SETTINGS" ] ; then
+if [ ! -e "$XILINX_SETTINGS_SCRIPT" ] ; then
 	echo -n "I cannot find the Xilinx ISE tools. Please install version 14.6 or 14.7 (other versions MIGHT work). " >&2
 	echo    "If Xilinx ISE is installed, please help me find it. You can either:" >&2
 	echo    "- set XILINX_VERSION, if it lives in /opt/Xilinx/$XILINX_VERSION" >&2
 	echo    "- set XILINX=/path/to/Xilinx/ISE_DS/ISE" >&2
+	echo    "- set XILINX_SETTINGS_SCRIPT=/path/to/Xilinx/ISE_DS/settings64.sh" >&2
 	exit 1
 fi
 
-if ! ( . "$XILINX_SETTINGS" >/dev/null ; xmd -help >/dev/null ) ; then
+if ! ( . "$XILINX_SETTINGS_SCRIPT" >/dev/null ; xmd -help >/dev/null ) ; then
 	echo -n "I cannot execute the xmd program. That probably means that dynamic libraries are missing. " >&2
 	echo    "Please make sure that you have a 32-bit libc6." >&2
 	echo    "On Debian, you should install libc6-i386 (or ia32-libs)." >&2
