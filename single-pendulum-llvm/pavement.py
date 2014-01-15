@@ -116,6 +116,7 @@ def check():
 def clean_results():
     path.rmtree(IR_DIR)
     path.rmtree(GRAPH_DIR)
+    path.rmtree(NEW_SRC_DIR)
 
 
 def clean_repository(dir):
