@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# This file runs all script for continuous integration. The order is like this:
+# 1. ci-NNNN-name.sh - sorted by filename, NNNN is a 4-digit number, name is a description (without spaces)
+# 2. test-ci.sh or test-ci-name.sh - sorted by whole path, but order shouldn't matter
+#
+# The number part in ci-NNNN-name.sh has this informal meaning:
+# 0000 - 0049: check dependencies
+# 0050 - 0099: build tools that we need for the build system (e.g. python-ctemplate)
+# 0200 - 0299: clean
+# 0400 - 0499: build mehari
+# 0600 - 0699: build tests
+# 0800 - 0899: package build results and/or install to temporary location
+# 0900 - 0990: final preparations for the tests
+
 set -e
 
 cd "$(dirname "$0")"
