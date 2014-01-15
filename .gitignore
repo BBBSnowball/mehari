@@ -12,6 +12,6 @@
 /reconos/_install
 
 # llvm optimization results
-/single-pendulum-llvm/graph
-/single-pendulum-llvm/ir
-/single-pendulum-llvm/src_new
+/llvm-optimizations-application/graph
+/llvm-optimizations-application/ir
+/llvm-optimizations-application/src_new
