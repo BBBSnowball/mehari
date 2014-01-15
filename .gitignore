@@ -6,6 +6,7 @@
 *.bak
 *.bak[0-9]
 *.pyc
+.tmp-*
 
 # build results
 /reconos/_install
