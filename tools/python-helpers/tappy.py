@@ -65,18 +65,76 @@ class TapTestResult(unittest.TestResult):
         super(TapTestResult, self).addSkip(test, reason)
         self.stream.write("ok %d - %s # skip %s\n" % (self.testsRun, str(test), reason))
 
+class MultiTestResult(unittest.TestResult):
+    """A test result class that delegates to more than one TestResult instance."""
+
+    def __init__(self, *test_results):
+        super(MultiTestResult, self).__init__()
+        self.__test_results = test_results
+
+    def startTest(self, *args):
+        super(MultiTestResult, self).startTest(*args)
+        for inner in self.__test_results:
+            inner.startTest(*args)
+
+    def addSuccess(self, *args):
+        super(MultiTestResult, self).addSuccess(*args)
+        for inner in self.__test_results:
+            inner.addSuccess(*args)
+
+    def addFailure(self, *args):
+        super(MultiTestResult, self).addFailure(*args)
+        for inner in self.__test_results:
+            inner.addFailure(*args)
+
+    def addError(self, *args):
+        super(MultiTestResult, self).addError(*args)
+        for inner in self.__test_results:
+            inner.addError(*args)
+
+    def addExpectedFailure(self, *args):
+        super(MultiTestResult, self).addExpectedFailure(*args)
+        for inner in self.__test_results:
+            inner.addExpectedFailure(*args)
+
+    def addUnexpectedSuccess(self, *args):
+        super(MultiTestResult, self).addUnexpectedSuccess(*args)
+        for inner in self.__test_results:
+            inner.addUnexpectedSuccess(*args)
+
+    def addSkip(self, *args):
+        super(MultiTestResult, self).addSkip(*args)
+        for inner in self.__test_results:
+            inner.addSkip(*args)
+
+    def startTestRun(self, *args):
+        super(MultiTestResult, self).startTestRun(*args)
+        for inner in self.__test_results:
+            inner.startTestRun(*args)
+
+    def stopTestRun(self, *args):
+        super(MultiTestResult, self).stopTestRun(*args)
+        for inner in self.__test_results:
+            inner.stopTestRun(*args)
+
 class TapTestRunner(unittest.TextTestRunner):
     """A test runner class that produces TAP compliant output."""
 
     resultclass = TapTestResult
+    tapfilename = "test.tap"
 
     def __init__(self, stream=sys.stderr, descriptions=True, verbosity=1):
         super(TapTestRunner, self).__init__(stream, descriptions, verbosity)
 
     def _makeResult(self):
-        return self.resultclass(self.stream, self.descriptions, self.verbosity)
+        tapresult = self.resultclass(self.tapstream, self.descriptions, self.verbosity)
+        if self.stream != None:
+            return MultiTestResult(tapresult, unittest.TextTestResult(self.stream, self.descriptions, self.verbosity))
+        else:
+            return tapresult
 
     def run(self, test):
-        self.stream.write("TAP version 13\n")
-        self.stream.write("1..%d\n" % test.countTestCases())
-        return super(TapTestRunner, self).run(test)
+        with open(self.tapfilename, "w") as self.tapstream:
+            self.tapstream.write("TAP version 13\n")
+            self.tapstream.write("1..%d\n" % test.countTestCases())
+            return super(TapTestRunner, self).run(test)
