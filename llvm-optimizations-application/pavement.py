@@ -65,7 +65,8 @@ LLVM_CUSTOM_PASSES = path.joinpath(LLVM, "lib", "Transforms", "Mehari")
 
 
 # TODO get example source by command line argument
-EXAMPLE = path.joinpath(SRC_DIR, "single_pendulum.c")
+# EXAMPLE = path.joinpath(SRC_DIR, "single_pendulum.c")
+EXAMPLE = path.joinpath(SRC_DIR, "dc_motor.c")
 
 
 MAKE_PARALLEL_PROCESSES = 4
@@ -116,6 +117,7 @@ def check():
 def clean_results():
     path.rmtree(IR_DIR)
     path.rmtree(GRAPH_DIR)
+    path.rmtree(NEW_SRC_DIR)
 
 
 def clean_repository(dir):
