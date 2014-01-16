@@ -20,6 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
 import sys
+import traceback
 
 class TapTestResult(unittest.TestResult):
     """A test result class that produces TAP compliant output."""
@@ -28,24 +29,33 @@ class TapTestResult(unittest.TestResult):
         super(TapTestResult, self).__init__()
         self.stream = stream
 
-    def startTest(self, test):
-        super(TapTestResult, self).startTest(test)
+    def __formatErr(self, err):
+        exctype, value, tb = err
+        return ''.join(traceback.format_exception(exctype, value, tb))
+
+    def __addDiagnostics(self, s):
+        for line in s.splitlines():
+            self.stream.write('# %s\n' % line)
 
     def addSuccess(self, test):
         super(TapTestResult, self).addSuccess(test)
         self.stream.write("ok %d - %s\n" % (self.testsRun, str(test)))
 
-    def addFailure(self, test):
+    def addFailure(self, test, err):
         super(TapTestResult, self).addFailure(test)
         self.stream.write("not ok - %d %s\n" % (self.testsRun, str(test)))
+        self.__addDiagnostics(self.__formatErr(err))
 
-    def addError(self, test):
+    def addError(self, test, err):
         super(TapTestResult, self).addError(test)
         self.stream.write("not ok %d - %s # ERROR\n" % (self.testsRun, str(test)))
+        self.tapOutput.append("# ERROR:")
+        self.__addDiagnostics(self.__formatErr(err))
 
     def addExpectedFailure(self, test, err):
         super(TapTestResult, self).addExpectedFailure(test, err)
         self.stream.write("not ok %d - %s # TODO known breakage\n" % (self.testsRun, str(test)))
+        self.__addDiagnostics(str(err))
 
     def addUnexpectedSuccess(self, test):
         super(TapTestResult, self).addUnexpectedSuccess(test)
@@ -70,4 +80,3 @@ class TapTestRunner(unittest.TextTestRunner):
         self.stream.write("TAP version 13\n")
         self.stream.write("1..%d\n" % test.countTestCases())
         return super(TapTestRunner, self).run(test)
-
