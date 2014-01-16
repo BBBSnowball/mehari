@@ -138,3 +138,7 @@ class TapTestRunner(unittest.TextTestRunner):
             self.tapstream.write("TAP version 13\n")
             self.tapstream.write("1..%d\n" % test.countTestCases())
             return super(TapTestRunner, self).run(test)
+
+def unittest_main(tapfile="test.tap", *args, **kwargs):
+    TapTestRunner.tapfilename = tapfile
+    return unittest.main(*args, testRunner=TapTestRunner, **kwargs)
