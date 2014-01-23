@@ -1,4 +1,4 @@
 #!/bin/sh
 
-nano float-testdata.py
+python float-testdata.py
 ./test.sh work.all
