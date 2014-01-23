@@ -48,7 +48,7 @@ while read script ; do
 		chmod +x "$script"
 	fi
 
-	( cd "$(dirname "$script")" && "./$(basename "$script")" ) || (
+	( cd "$(dirname "$script")" && "./$(basename "$script")" ) </dev/null || (
 		EXITCODE=$?
 		echo -e "\n\nFailed. Exit code is $EXITCODE.\n\n" >&2
 		exit $EXITCODE
@@ -62,7 +62,7 @@ while read script ; do
 	[ -e "$ENVVAR_STORE" ] \
 		&& cat "$ENVVAR_STORE" \
 		&& cat "$ENVVAR_STORE" >>"$ENVVAR_STORE_ALL" \
-		&& source "$ENVVAR_STORE" \
+		&& source "$ENVVAR_STORE" </dev/null \
 		&& rm "$ENVVAR_STORE"
 done <"$TASK_LIST"
 
