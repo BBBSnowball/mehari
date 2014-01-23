@@ -52,6 +52,7 @@ check_program curl
 check_program tar
 check_program cut
 check_program wc
+check_program realpath
 
 if ! which make >/dev/null || ! which gcc >/dev/null || ! which ld >/dev/null ; then
 	echo -n "We need a working build system. This usually means gcc, make, binutils and " >&2
@@ -117,8 +118,8 @@ echo
 echo -n "In particular, I haven't checked for any headers and libraries that we need. Most build scripts will "
 echo -n "do that themselves. Those files are usually in a package called something-dev or something-devel. You "
 echo    "will need headers and libraries for:"
-echo    "- Python (python"
-echo    "- ctemplate (python2.7-dev)"
+echo    "- Python (python2.7-dev)"
+echo    "- ctemplate (libctemplate-dev)"
 echo
 # Furthermore, the build scripts are much more thorough than a simple check in this could be, so we would
 # have lot's of false positives.
