@@ -1,3 +1,5 @@
+apply from: "../gradle/symlink.gradle"
+
 ext.pythonInstallPath = "_install"
 
 def distutilsPlatformBuildDir() {
@@ -39,14 +41,22 @@ task test_python_ctemplate(type: Exec) {
 	outputs.file "python-ctemplate/python-ctemplate.tap"
 }
 
-task compile {
-	dependsOn compile_python_ctemplate
+task install_paver(type: SymLink) {
+	from "paver"
+	into "_install"
+	include "paver/**"
 }
 
-task install {
-	dependsOn install_python_ctemplate
+task install_python_helpers(type: SymLink) {
+	from "python-helpers"
+	into "_install"
+	include "**"
+	exclude "*.bak"
+	exclude "*.pyc"
 }
 
-task test {
-	dependsOn test_python_ctemplate
+["compile", "install", "test"].each { name ->
+	task(name) {
+		dependsOn tasks.findAll { task -> task.name.startsWith(name + "_") }
+	}
 }
