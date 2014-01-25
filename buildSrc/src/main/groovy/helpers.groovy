@@ -2,7 +2,7 @@ import org.gradle.api.Project
 import org.gradle.api.Plugin
 
 class helpers {
-	Project project;
+	private Project project;
 
 	def propertyOrDefault(propertyName, defaultValue) {
 		return project.hasProperty(propertyName) ? project[propertyName] : defaultValue;
@@ -30,24 +30,30 @@ class helpers {
 			}
 		}
 	}
+
+	def addExtensions() {
+		for (method in this.metaClass.methods) {
+			if (Object.metaClass.respondsTo(method.name) || method.name.startsWith("_")
+					|| method.name.equals("getProject") || method.name.equals("addExtensions"))
+				continue;
+			project.extensions.extraProperties[method.name] = this.&"$method.name"
+		}
+
+		String pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
+		project.extensions.extraProperties.pythonInstallPath = pythonInstallPath
+
+		addMethodForAllTasks("environmentFromConfig") { task ->
+			task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
+			task.environment "XILINX_VERSION",         propertyOrDefault("xilinx_version", "14.6")
+			task.environment "XILINX_SETTINGS_SCRIPT", propertyOrDefault("xilinx_settings_script", defaultXilinxSettingsScript())
+			task.environment "PYTHONPATH",             project.pythonInstallPath
+		}
+	}
 }
 
 public class HelpersPlugin implements Plugin<Project> {
-    void apply(Project project) {
-    	def helpers_instance = new helpers(project: project);
-    	for (method in helpers_instance.metaClass.methods) {
-    		if (Object.metaClass.respondsTo(method.name) || method.name.startsWith("_") || method.name.equals("getProject"))
-    			continue;
-    		project.extensions.extraProperties[method.name] = helpers_instance.&"$method.name"
-    	}
-
-		project.extensions.extraProperties.pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
-
-		helpers_instance.addMethodForAllTasks("environmentFromConfig") { task ->
-			task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
-			task.environment "XILINX_VERSION",         project.propertyOrDefault("xilinx_version", "14.6")
-			task.environment "XILINX_SETTINGS_SCRIPT", project.propertyOrDefault("xilinx_settings_script", project.defaultXilinxSettingsScript())
-			task.environment "PYTHONPATH",             project.pythonInstallPath
-		}
-    }
+	void apply(Project project) {
+		def helpers_instance = new helpers(project: project);
+		helpers_instance.addExtensions()
+	}
 }
