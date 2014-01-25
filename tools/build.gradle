@@ -1,12 +1,8 @@
-apply from: "../gradle/symlink.gradle"
-
-ext.pythonInstallPath = "_install"
-
 def distutilsPlatformBuildDir() {
 	return ["python", "-c", 'import sys, distutils.util ; print "build/lib.%s-%s" % (distutils.util.get_platform(), sys.version[0:3])'].execute().text
 }
 
-task compile_python_ctemplate(type: Exec) {
+task compilePythonCTemplate(type: Exec) {
 	workingDir "python-ctemplate"
 
 	commandLine "python", "setup.py", "build", "--build-platlib="+distutilsPlatformBuildDir()
@@ -16,38 +12,35 @@ task compile_python_ctemplate(type: Exec) {
 	outputs.file "python-ctemplate/" + distutilsPlatformBuildDir()  + "/ctemplate.so"
 }
 
-task install_python_ctemplate(type: Copy) {
+task installPythonCTemplate(type: Copy) {
 	from "python-ctemplate/" + distutilsPlatformBuildDir()
 	into pythonInstallPath
 
-	dependsOn compile_python_ctemplate
-
-	//workingDir "python-ctemplate"
-	//commandLine "python", "setup.py", "install", "--prefix=../" + pythonInstallPath
+	dependsOn compilePythonCTemplate
 }
 
-task test_python_ctemplate(type: Exec) {
+task testPythonCTemplate(type: Exec) {
 	workingDir "python-ctemplate"
 
 	commandLine "python", "tests/test.py"
 
 	environment "PYTHONPATH", file(pythonInstallPath).absolutePath
 
-	dependsOn install_python_ctemplate
+	dependsOn installPythonCTemplate
 	mustRunAfter "compile"
 
-	inputs.files compile_python_ctemplate.outputs
+	inputs.files installPythonCTemplate.outputs
 	inputs.dir "python-ctemplate/test"
 	outputs.file "python-ctemplate/python-ctemplate.tap"
 }
 
-task install_paver(type: SymLink) {
+task installPaver(type: SymLink) {
 	from "paver"
 	into "_install"
 	include "paver/**"
 }
 
-task install_python_helpers(type: SymLink) {
+task installPythonHelpers(type: SymLink) {
 	from "python-helpers"
 	into "_install"
 	include "**"
@@ -57,6 +50,6 @@ task install_python_helpers(type: SymLink) {
 
 ["compile", "install", "test"].each { name ->
 	task(name) {
-		dependsOn tasks.findAll { task -> task.name.startsWith(name + "_") }
+		dependsOn tasks.findAll { task -> task.name.startsWith(name) && task.name != name }
 	}
 }

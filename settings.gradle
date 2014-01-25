@@ -1,1 +1,1 @@
-include "tools"
+include "tools", "single-pendulum-vhdl"

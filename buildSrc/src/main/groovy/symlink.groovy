@@ -15,6 +15,7 @@ import org.gradle.api.internal.file.copy.CopyActionProcessingStream;
 import org.gradle.api.internal.file.copy.FileCopyDetailsInternal;
 import org.gradle.api.logging.Logger;
 import org.gradle.util.Path;
+import org.gradle.api.tasks.Copy;
 
 import java.io.File;
 
@@ -84,7 +85,7 @@ public class FileLinkAction implements CopyAction {
 		return target;
 	}
 
-	private createSymbolicLink(FileCopyDetailsInternal details, File link) {
+	private boolean createSymbolicLink(FileCopyDetailsInternal details, File link) {
 		if (link.exists()) {
 			if (link.getCanonicalFile().equals(details.getFile())) {
 				// up-to-date
@@ -116,8 +117,8 @@ public class FileLinkAction implements CopyAction {
 
 		public void processFile(FileCopyDetailsInternal details) {
 			File target = fileResolver.resolve(details.getRelativePath().getPathString());
-			boolean copied = createSymbolicLink(details, target);
-			if (copied) {
+			boolean changed = createSymbolicLink(details, target);
+			if (changed) {
 				didWork = true;
 			}
 		}
@@ -137,5 +138,3 @@ public class SymLink extends Copy {
 		return new FileLinkAction(getServices().get(FileResolver.class).withBaseDir(destinationDir), overwrite, getLogger());
 	}
 }
-
-ext.SymLink = SymLink

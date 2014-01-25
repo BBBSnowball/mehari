@@ -10,14 +10,15 @@
 
 # build results
 _install
+/buildSrc/build
 
 # llvm optimization results
 /llvm-optimizations-application/graph
 /llvm-optimizations-application/ir
 /llvm-optimizations-application/src_new
 
-# Gradle executables (created by Gradle wrapper)
-/.gradle
+# files created by the Gradle wrapper
+.gradle
 
 # local Gradle properties
 /gradle-local.properties

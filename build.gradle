@@ -9,28 +9,8 @@ buildscript {
 
 // use properties plugin -> local settings (e.g. Xilinx path and version) are in gradle-local.properties
 allprojects {
-  apply plugin: 'properties'
-}
-
-def propertyOrDefault(propertyName, defaultValue) {
-	return hasProperty(propertyName) ? project[propertyName] : defaultValue;
-}
-
-def defaultXilinxSettingsScript() {
-	return "/opt/Xilinx/" + propertyOrDefault("xilinx_version", "14.6") + "/ISE_DS/settings64.sh"
-}
-
-def addMethodForAllTasks(methodName, methodClosure) {
-	// executed for all current and future tasks: add a method using task.ext
-	tasks.all { task ->
-		task.ext[methodName] = methodClosure.curry(task)
-	}
-}
-
-addMethodForAllTasks("environmentFromConfig") { task ->
-	task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
-	task.environment "XILINX_VERSION",         propertyOrDefault("xilinx_version", "14.6")
-	task.environment "XILINX_SETTINGS_SCRIPT", propertyOrDefault("xilinx_settings_script", defaultXilinxSettingsScript())
+	apply plugin: 'properties'
+	apply plugin: HelpersPlugin
 }
 
 task checkSystemDependencies(type:Exec) {
@@ -41,19 +21,26 @@ task checkSystemDependencies(type:Exec) {
 	environmentFromConfig()
 }
 
-task prepareTools {
-	dependsOn "tools:install", "tools:test"
-
-	mustRunAfter checkSystemDependencies
-}
-
 subprojects {
 	tasks.all { task ->
 		task.mustRunAfter checkSystemDependencies
 	}
 }
 
-task allCI(dependsOn: checkSystemDependencies)
+task prepareTools {
+	dependsOn "tools:install", "tools:test"
+
+	mustRunAfter checkSystemDependencies
+}
+
+forAllNormalTestTasks() { task ->
+	task.dependsOn prepareTools
+}
+
+task allCI {
+	dependsOn checkSystemDependencies
+	dependsOn "single-pendulum-vhdl:test"
+}
 defaultTasks "allCI"
 
 if (hasProperty("sispm_outlet") && sispm_outlet) {
@@ -65,13 +52,8 @@ if (hasProperty("sispm_outlet") && sispm_outlet) {
 		environment "SISPM_OUTLET", sispm_outlet
 	}
 
-	allprojects {
-		if (name != "tools") {
-			tasks.all { task ->
-				if (task.name.startsWith("test"))
-					task.mustRunAfter powercycleBoard
-			}
-		}
+	forAllNormalTestTasks {
+		task.mustRunAfter powercycleBoard
 	}
 
 	allCI.dependsOn powercycleBoard
