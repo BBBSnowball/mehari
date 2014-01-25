@@ -848,7 +848,12 @@ def run_demo():
     ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (reconos_build_options.demo, reconos_build_options.demo, demo_args))
 
 @task
-@needs("build", "update_nfsroot", "boot_zynq", "run_demo")
+@needs("update_nfsroot", "boot_zynq", "run_demo")
+def boot_zynq_and_run_demo():
+    pass
+
+@task
+@needs("build", "boot_zynq_and_run_demo")
 def build_and_run():
     pass
 

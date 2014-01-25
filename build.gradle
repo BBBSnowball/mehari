@@ -37,9 +37,30 @@ forAllNormalTestTasks() { task ->
 	task.dependsOn prepareTools
 }
 
+task clean {
+	dependsOn "llvm-optimizations-application:clean"
+	dependsOn "reconos:clean"
+}
+
+task compile {
+	dependsOn "llvm-optimizations-application:createIrFiles"
+	dependsOn "reconos:compile"
+
+	mustRunAfter clean
+}
+
+task test {
+	dependsOn "single-pendulum-vhdl:test"
+	dependsOn "reconos:test"
+
+	mustRunAfter clean
+}
+
 task allCI {
 	dependsOn checkSystemDependencies
-	dependsOn "single-pendulum-vhdl:test"
+	dependsOn clean
+	dependsOn compile
+	dependsOn test
 }
 defaultTasks "allCI"
 
