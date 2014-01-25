@@ -1,0 +1,52 @@
+ext.pythonInstallPath = "_install"
+
+def distutilsPlatformBuildDir() {
+	return ["python", "-c", 'import sys, distutils.util ; print "build/lib.%s-%s" % (distutils.util.get_platform(), sys.version[0:3])'].execute().text
+}
+
+task compile_python_ctemplate(type: Exec) {
+	workingDir "python-ctemplate"
+
+	commandLine "python", "setup.py", "build", "--build-platlib="+distutilsPlatformBuildDir()
+
+	inputs.dir "python-ctemplate/src"
+	inputs.file "python-ctemplate/setup.py"
+	outputs.file "python-ctemplate/" + distutilsPlatformBuildDir()  + "/ctemplate.so"
+}
+
+task install_python_ctemplate(type: Copy) {
+	from "python-ctemplate/" + distutilsPlatformBuildDir()
+	into pythonInstallPath
+
+	dependsOn compile_python_ctemplate
+
+	//workingDir "python-ctemplate"
+	//commandLine "python", "setup.py", "install", "--prefix=../" + pythonInstallPath
+}
+
+task test_python_ctemplate(type: Exec) {
+	workingDir "python-ctemplate"
+
+	commandLine "python", "tests/test.py"
+
+	environment "PYTHONPATH", file(pythonInstallPath).absolutePath
+
+	dependsOn install_python_ctemplate
+	mustRunAfter "compile"
+
+	inputs.files compile_python_ctemplate.outputs
+	inputs.dir "python-ctemplate/test"
+	outputs.file "python-ctemplate/python-ctemplate.tap"
+}
+
+task compile {
+	dependsOn compile_python_ctemplate
+}
+
+task install {
+	dependsOn install_python_ctemplate
+}
+
+task test {
+	dependsOn test_python_ctemplate
+}
