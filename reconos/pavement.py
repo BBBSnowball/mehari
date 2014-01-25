@@ -164,6 +164,10 @@ def reconos_config():
         xil_tools = Path(os.environ["xil_tools"])
     elif "XILINX" in os.environ:
         xil_tools = Path(os.environ["XILINX"]).parent.parent
+    elif "XILINX_SETTINGS_SCRIPT" in os.environ:
+        xilinx_settings_script = os.environ["XILINX_SETTINGS_SCRIPT"]
+        xilinx_path = backticks("bash -c '. %s >/dev/null ; echo $XILINX'" % escape_for_shell(xilinx_settings_script))
+        xil_tools = Path(xilinx_path).parent.parent
     elif "XILINX_VERSION" in os.environ:
         xil_tools = Path("/opt/Xilinx", os.environ["XILINX_VERSION"])
     else:
