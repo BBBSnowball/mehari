@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Test how long it takes for the board to turn off resp. on when we switch power. This measures how
 # long it takes for the JTAG interface to come up. Other things may be slower or faster.
 #   sispmctl -f 1 ; while   lsusb|grep -q 0403:6014 ; do echo -n . ; sleep 1 ; done ; echo

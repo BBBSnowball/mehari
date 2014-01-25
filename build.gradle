@@ -55,3 +55,24 @@ subprojects {
 
 task allCI(dependsOn: checkSystemDependencies)
 defaultTasks "allCI"
+
+if (hasProperty("sispm_outlet") && sispm_outlet) {
+	task powercycleBoard(type: Exec) {
+		description "Turn the board off and on again."
+
+		commandLine "./ci-0910-powercycle-board.sh"
+
+		environment "SISPM_OUTLET", sispm_outlet
+	}
+
+	allprojects {
+		if (name != "tools") {
+			tasks.all { task ->
+				if (task.name.startsWith("test"))
+					task.mustRunAfter powercycleBoard
+			}
+		}
+	}
+
+	allCI.dependsOn powercycleBoard
+}
