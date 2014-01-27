@@ -70,7 +70,7 @@ reconos_build_options = register_cmdoptsgroup("reconos_build",
         + "should set a unique address for your board."),
     {"parallel_processes": "4", "host_ip": "192.168.24.17", "board_ip": "192.168.24.23",
      "demo": "sort_demo", "nfs_root": "/nfs/zynqn", "nfs-mount": "", "nfs-no-sudo": False,
-     "mac-address": "00:0a:35:00:01:22"})
+     "mac_address": "00:0a:35:00:01:22"})
 
 # To be honest, all those options are quite confusing, so I will try to explain them. There are two
 # scenarios to consider:
