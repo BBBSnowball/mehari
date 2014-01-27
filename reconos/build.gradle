@@ -1,0 +1,25 @@
+ext.reconos_args = ["--host-ip", host_ip, "--board-ip", board_ip, "-j"+parallel_compilation_processes,
+	"--nfs-mount=" + nfs_mount, "--nfs-no-sudo", "--demo=sort_demo", "--nfs-root", local_nfs_root,
+	"--mac-address", board_mac_address]
+
+task clean(type: Exec) {
+	commandLine(["./pavement.py", "clean"] + reconos_args)
+
+	environmentFromConfig()
+}
+
+task compile(type: Exec) {
+	commandLine(["./pavement.py", "build"] + reconos_args)
+
+	environmentFromConfig()
+
+	mustRunAfter clean
+}
+
+task test(type: Exec) {
+	commandLine(["./pavement.py", "boot_zynq_and_run_demo"] + reconos_args)
+
+	environmentFromConfig()
+
+	dependsOn compile
+}

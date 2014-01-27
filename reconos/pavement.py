@@ -66,8 +66,11 @@ reconos_build_options = register_cmdoptsgroup("reconos_build",
         + "is an nfs mount with options 'all_squash,anongid=0,anonuid=0' (in /etc/exports on the server, not "
         + "mount options!). You should point the board to the same NFS server using the nfs-mount option. "
         + "However, it should not be squashed at all (i.e. don't use all_squash, but do use no_root_squash)."),
+    ("mac-address=", "m", "Use a different MAC address. The default address is the same for all boards, so you "
+        + "should set a unique address for your board."),
     {"parallel_processes": "4", "host_ip": "192.168.24.17", "board_ip": "192.168.24.23",
-     "demo": "sort_demo", "nfs_root": "/nfs/zynqn", "nfs-mount": "", "nfs-no-sudo": False})
+     "demo": "sort_demo", "nfs_root": "/nfs/zynqn", "nfs-mount": "", "nfs-no-sudo": False,
+     "mac_address": "00:0a:35:00:01:22"})
 
 # To be honest, all those options are quite confusing, so I will try to explain them. There are two
 # scenarios to consider:
@@ -161,6 +164,10 @@ def reconos_config():
         xil_tools = Path(os.environ["xil_tools"])
     elif "XILINX" in os.environ:
         xil_tools = Path(os.environ["XILINX"]).parent.parent
+    elif "XILINX_SETTINGS_SCRIPT" in os.environ:
+        xilinx_settings_script = os.environ["XILINX_SETTINGS_SCRIPT"]
+        xilinx_path = backticks("bash -c '. %s >/dev/null ; echo $XILINX'" % escape_for_shell(xilinx_settings_script))
+        xil_tools = Path(xilinx_path).parent.parent
     elif "XILINX_VERSION" in os.environ:
         xil_tools = Path("/opt/Xilinx", os.environ["XILINX_VERSION"])
     else:
@@ -392,7 +399,8 @@ def build_uboot():
     sh(r'patch -N -p1 <"%s/u-boot-xlnx-zynq.patch"' % (FILES,))
 
     sed_i([r's/^#define CONFIG_IPADDR\b.*$/#define CONFIG_IPADDR   %s/'   % reconos_build_options.board_ip,
-           r's/^#define CONFIG_SERVERIP\b.*$/#define CONFIG_SERVERIP %s/' % reconos_build_options.host_ip],
+           r's/^#define CONFIG_SERVERIP\b.*$/#define CONFIG_SERVERIP %s/' % reconos_build_options.host_ip,
+           r's/\bethaddr=[0-9a-fA-F:]\+\\0/ethaddr=%s\\0/'                % reconos_build_options.mac_address],
            "include/configs/zynq_common.h")
 
     cd_verbose(ROOT, "u-boot-xlnx")
@@ -848,7 +856,12 @@ def run_demo():
     ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (reconos_build_options.demo, reconos_build_options.demo, demo_args))
 
 @task
-@needs("build", "update_nfsroot", "boot_zynq", "run_demo")
+@needs("update_nfsroot", "boot_zynq", "run_demo")
+def boot_zynq_and_run_demo():
+    pass
+
+@task
+@needs("build", "boot_zynq_and_run_demo")
 def build_and_run():
     pass
 

@@ -1,0 +1,17 @@
+task generate_float_testdata(type: Exec) {
+	commandLine "python", "float-testdata.py"
+
+	inputs.file  "float-testdata.py"
+	outputs.file "float-testdata.dat"
+
+	environmentFromConfig()
+}
+
+//TODO create a task for generate_tests and one task for each test
+task test(type: Exec) {
+	commandLine "./test.sh", "work.all"
+
+	dependsOn generate_float_testdata
+
+	environmentFromConfig()
+}

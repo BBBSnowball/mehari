@@ -1,0 +1,55 @@
+def distutilsPlatformBuildDir() {
+	return ["python", "-c", 'import sys, distutils.util ; print "build/lib.%s-%s" % (distutils.util.get_platform(), sys.version[0:3])'].execute().text
+}
+
+task compilePythonCTemplate(type: Exec) {
+	workingDir "python-ctemplate"
+
+	commandLine "python", "setup.py", "build", "--build-platlib="+distutilsPlatformBuildDir()
+
+	inputs.dir "python-ctemplate/src"
+	inputs.file "python-ctemplate/setup.py"
+	outputs.file "python-ctemplate/" + distutilsPlatformBuildDir()  + "/ctemplate.so"
+}
+
+task installPythonCTemplate(type: Copy) {
+	from "python-ctemplate/" + distutilsPlatformBuildDir()
+	into pythonInstallPath
+
+	dependsOn compilePythonCTemplate
+}
+
+task testPythonCTemplate(type: Exec) {
+	workingDir "python-ctemplate"
+
+	commandLine "python", "tests/test.py"
+
+	environment "PYTHONPATH", file(pythonInstallPath).absolutePath
+
+	dependsOn installPythonCTemplate
+	mustRunAfter "compile"
+
+	inputs.files installPythonCTemplate.outputs
+	inputs.dir "python-ctemplate/test"
+	outputs.file "python-ctemplate/python-ctemplate.tap"
+}
+
+task installPaver(type: SymLink) {
+	from "paver"
+	into "_install"
+	include "paver/**"
+}
+
+task installPythonHelpers(type: SymLink) {
+	from "python-helpers"
+	into "_install"
+	include "**"
+	exclude "*.bak"
+	exclude "*.pyc"
+}
+
+["compile", "install", "test"].each { name ->
+	task(name) {
+		dependsOn tasks.findAll { task -> task.name.startsWith(name) && task.name != name }
+	}
+}

@@ -27,9 +27,13 @@ def sh(cmd):
     logger.info("sh: %r" % (cmd,))
     res = os.system(cmd)
     if res != 0:
+        # The return value of os.system is platform-dependent. We assume that this script will only be executed
+        # on platforms that behave as described for Unix.
+        # http://docs.python.org/2/library/os.html#os.system
+
         #TODO raise paver.tasks.BuildFailure?
-        raise IOError("System command returned non-zero status (return value is %d): %r"
-            % (res, cmd))
+        raise IOError("System command returned non-zero status (exit status is %d, signal number is %d): %r"
+            % (res >> 8, res&0xff, cmd))
 
 def sh_test(cmd):
     logger.info("sh?: %r" % (cmd,))
