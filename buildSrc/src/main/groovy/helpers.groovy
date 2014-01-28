@@ -2,6 +2,7 @@ import org.gradle.api.Project
 import org.gradle.api.Plugin
 import org.gradle.api.GradleException
 import java.util.regex.Pattern
+import org.gradle.api.tasks.Exec
 
 class helpers {
 	private Project project;
@@ -22,6 +23,14 @@ class helpers {
 		// executed for all current and future tasks: add a method using task.ext
 		project.tasks.all { task ->
 			task.ext[methodName] = methodClosure.curry(task)
+		}
+	}
+
+	def addMethodForSomeTasks(methodName, conditionClosure, methodClosure) {
+		// executed for all current and future tasks: add a method using task.ext
+		project.tasks.all { task ->
+			if (conditionClosure(task))
+				task.ext[methodName] = methodClosure.curry(task)
 		}
 	}
 
@@ -155,7 +164,7 @@ class helpers {
 		String pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
 		project.extensions.extraProperties.pythonInstallPath = pythonInstallPath
 
-		addMethodForAllTasks("environmentFromConfig") { task ->
+		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
 			task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
 			task.environment "XILINX_VERSION",         propertyOrDefault("xilinx_version", "14.6")
 			task.environment "XILINX_SETTINGS_SCRIPT", propertyOrDefault("xilinx_settings_script", defaultXilinxSettingsScript())
@@ -166,6 +175,12 @@ class helpers {
 			names.each { name ->
 				task.inputs.property(name) { hasProperty(name) ? project."$name" : null }
 			}
+		}
+
+		addMethodForSomeTasks("prependPATH", { task-> task instanceof Exec }) { task, ...paths ->
+			def oldPath = System.getenv()["PATH"]
+			task.environment "PATH", paths.collect(project.&file).findAll().join(File.pathSeparator) \
+				+ File.pathSeparator + oldPath
 		}
 	}
 }

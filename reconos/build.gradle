@@ -8,13 +8,13 @@ ext.reconos_args = ["--host-ip", host_ip, "--board-ip", board_ip, "-j"+parallel_
 	environmentFromConfig()
 }*/
 
-task compile(type: Exec) {
+/*task compile(type: Exec) {
 	commandLine(["./pavement.py", "build"] + reconos_args)
 
 	environmentFromConfig()
 
 	mustRunAfter "clean"
-}
+}*/
 
 task test(type: Exec) {
 	commandLine(["./pavement.py", "boot_zynq_and_run_demo"] + reconos_args)
@@ -130,6 +130,8 @@ task reconosConfig {
 	recommendedProperty "xilinx_version"
 
 	ext.reconos_config = rootPath("reconos", "tools", "environment", "default.sh")
+	ext.reconosConfigScript = file("reconos/tools/environment/setup_reconos_toolchain.sh")
+	ext.reconosConfigScriptEscaped = escapeForShell(reconosConfigScript)
 
 	usesProperties "xilinx_settings_script", "xilinx_version", "gnutools", "libc_dir"
 	outputs.file reconos_config
@@ -223,10 +225,11 @@ def get_libc_dir_after_reconos_config() {
 }
 
 ext.xilinxVersionCache = hasProperty("xilinx_version") ? xilinx_version : null
-def xilinx_version() {
+def determineXilinxVersionAfterReconosConfig() {
 	if (!xilinxVersionCache)
 		xilinxVersionCache = backticks(
-			/xps -help|sed -n 's#^Xilinx EDK \([0-9]\+\.[0-9]\+\)\b.*$#\1#p'/)
+			". ${reconosConfig.reconosConfigScriptEscaped} ; " +
+			/xps -help|sed -n 's#^Xilinx EDK \([0-9]\+\.[0-9]\+\)\b.*$#\1#p'/, "bash")
 
 	return xilinxVersionCache
 }
@@ -313,6 +316,8 @@ task patchUboot(type: Exec) {
 	commandLine "sh", "-c", "patch -N -p1 <${escapeForShell(path(FILES, 'u-boot-xlnx-zynq.patch'))}"
 
 	workingDir file("u-boot-xlnx")
+
+	mustRunAfter cleanUboot
 }
 
 def sedTask(name, expr, file, configClosure=null) {
@@ -350,9 +355,8 @@ sedTask("applyConfigToUboot", [
 def crosscompileMakeTask(name, targets, configClosure=null) {
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 	targets = escapeForShell(targets)
-	def reconosConfigScript = file("reconos/tools/environment/setup_reconos_toolchain.sh")
 	task(name, type: Exec) {
-		commandLine "bash", "-c", ". $reconosConfigScript && make -j$parallel_processes $targets"
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && make -j$parallel_processes $targets"
 
 		recommendedProperty "parallel_compilation_processes"
 
@@ -362,55 +366,266 @@ def crosscompileMakeTask(name, targets, configClosure=null) {
 		tasks[name].configure(configClosure)
 }
 
-crosscompileMakeTask("buildUboot", "zynq_zed") {
+crosscompileMakeTask("compileUboot", "zynq_zed") {
 	workingDir file("u-boot-xlnx")
 
 	dependsOn patchUboot, applyConfigToUboot
+}
 
-	mustRunAfter cleanUboot
+crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
+	workingDir file("linux-xlnx")
+
+	mustRunAfter cleanKernel
+}
+crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
+	workingDir file("linux-xlnx")
+	dependsOn configureKernel
+}
+crosscompileMakeTask("compileKernelModules", ["uImage", "LOADADDR=0x00008000"]) {
+	workingDir file("linux-xlnx")
+	dependsOn configureKernel
+	shouldRunAfter compileKernelImage
+}
+
+task compileKernel() {
+	dependsOn configureKernel, compileKernelImage, compileKernelModules
+}
+
+task copyBusyboxConfig(type: Copy) {
+	from rootPath(FILES, "busybox-config")
+	into rootPath("busybox")
+
+	mustRunAfter cleanBusybox
+}
+
+sedTask("applyConfigToBusybox", "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\\\"${ROOTFS.toString().replace("#", "\\#")}\\\"#",
+		rootPath("busybox", ".config")) {
+	dependsOn copyBusyboxConfig
+}
+
+crosscompileMakeTask("compileBusybox", []) {
+	dependsOn copyBusyboxConfig, applyConfigToBusybox
+	workingDir rootPath("busybox")
+}
+
+ext._getCrosscompileEnvvarAfterReconosConfig_cache = null
+def getCrosscompileEnvvarAfterReconosConfig() {
+	if (_getCrosscompileEnvvarAfterReconosConfig_cache != null)
+		return _getCrosscompileEnvvarAfterReconosConfig_cache
+
+	def value = backticks(". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$CROSS_COMPILE\"", "bash")
+	if (value == "")
+		throw new GradleException("\$CROSS_COMPILE is empty after running the reconOS config script")
+
+	_getCrosscompileEnvvarAfterReconosConfig_cache = value
+	return value
+}
+
+def getCrosscompileHostSpecAfterReconosConfig() {
+	// get CROSS_COMPILE environment variable and remove path and trailing minus
+	def crosscompile = new File(getCrosscompileEnvvarAfterReconosConfig()).getName().trim()
+	return (crosscompile =~ /-$/).replaceFirst("")
+}
+
+def getCrosscompileToolchainDirAfterReconosConfig() {
+	return new File(getCrosscompileEnvvarAfterReconosConfig()).getParentFile()
+}
+
+def configureDropbearCommandline() {
+	def host = getCrosscompileHostSpecAfterReconosConfig()
+	return ["./configure", "--prefix=$ROOTFS", "--host=$host",
+		"--enable-bundled-libtom", "--disable-utmp", "--disable-zlib"]
+}
+
+task configureDropbear(type: Exec) {
+	dependsOn reconosConfig
+	workingDir rootPath("dropbear")
+
+	inputs.files fileTree("dropbear") {
+		include "config*"
+		exclude "config.h" ; exclude "config.log" ; exclude "config.status"
+	}
+	inputs.property("commandLine") { configureDropbearCommandline() }
+	outputs.file file("dropbear/Makefile")
+	outputs.file file("dropbear/config.h")
+
+	doFirst {
+		commandLine configureDropbearCommandline()
+	}
+
+	mustRunAfter cleanDropbear
+}
+
+task applyConfigToDropbear {
+	// We could modify options.h
+
+	dependsOn configureDropbear
+}
+
+crosscompileMakeTask("compileDropbear", []) {
+	workingDir rootPath("dropbear")
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn applyConfigToDropbear
+
+	inputs.files fileTree("dropbear") {
+		exclude "**/*.log", "**/*.o", "**.a", "**/*.obj", "**/*.exe", "**/*.lib", "**/*.dll"
+		exclude "**/*.da", "**/*.bb", "**/*.bbg", "**/*.prof", "**/*.gcov", "**/*~"
+		exclude "**/*.ps", "**/*.pdf", "**/.xvpics"
+		exclude "dropbear", "dbclient", "dropbearkey", "dropbearconvert", "scp", "scp-progress", "dropbearmulti"
+
+		// removed by distclean, but nonetheless input to compile:
+		// config.h, Makefile
+
+		exclude(["test", "ltmtest", "mpitest", "mtest/mtest", "mtest/mtest.exe", "tommath.tex"].collect({
+			item -> path("libtommath", item).toString()
+		}))
+		def excludeInLibtommathEtc = ["pprime", "tune", "mersenne", "drprime", "tune86", "tune86l", "mont",
+			"2kprime", "pprime.dat"]
+		excludeInLibtommathEtc = excludeInLibtommathEtc.collect { item -> path("libtommath", "etc", item).toString() }
+		exclude(*excludeInLibtommathEtc)
+		exclude "**/*.dyn", "**/*.dpi", "**/*.lo", "**/*.la"
+		exclude "**/*.bat", "**/*.pdf"
+		exclude "**/.libs"
+	}
+	outputs.files fileTree("dropbear") {
+		include "dropbear", "dbclient", "dropbearkey", "dropbearconvert"
+		// include "scp", "scp-progress", "dropbearmulti"
+	}
+}
+
+crosscompileMakeTask("compileReconosDriver", []) {
+	workingDir rootPath("reconos", "linux", "driver")
+}
+crosscompileMakeTask("compileReconosLib", []) {
+	workingDir rootPath("reconos", "linux", "lib")
+}
+crosscompileMakeTask("compileReconosDemoLinux", []) {
+	ext.demo = "sort_demo"
+	workingDir rootPath("reconos", "demos", demo, "linux")
+
+	//requiredProperty "demo"
+}
+
+def demoHwDir(...suffix) {
+	def demo = compileReconosDemoLinux.demo
+	return rootPath("reconos", "demos", demo, "hw", *suffix)
+}
+
+task prepareReconosDemoHardware(type: Exec) {
+	def demo = compileReconosDemoLinux.demo
+	workingDir demoHwDir()
+
+	dependsOn reconosConfig
+
+	//TODO get design for 14.7 from Christoph
+	//     Then set version before executing the script.
+	//     sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
+
+	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && bash reconos_setup.sh setup_zynq"
+
+	mustRunAfter cleanReconos
+}
+
+import org.gradle.process.internal.ExecActionFactory
+def run_xps(project, commands, workingDir=null, task=null) {
+	project = escapeForShell(project)
+	commands = escapeForShell(commands + " ; exit")
+	def cmd = "echo $commands | xps -nw $project"
+	cmd = ". ${reconosConfig.reconosConfigScriptEscaped} && " + cmd
+	if (workingDir)
+		cmd = "cd " + escapeForShell(workingDir) + " && " + cmd
+	// try at most 3 times
+	for (i in [1,2,3]) {
+		def res = sh_test(cmd, "bash")
+		if (res == 0)
+			return
+		else if (res == 139)
+			logger.warn("xps failed. This may be due to a segfault, so we try again.")
+		else
+			break
+	}
+	// Either it didn't fail with a segfault or it failed too often
+	throw new GradleException("System command returned non-zero status (return value is $res): ${cmd.inspect()}")
+}
+
+task compileReconosDemoHardwareBitstream {
+	dependsOn reconosConfig, prepareReconosDemoHardware
+}
+compileReconosDemoHardwareBitstream << {
+	def demo = compileReconosDemoLinux.demo
+	def workingDir = demoHwDir("edk_zynq_linux")
+
+	//TODO keep __xps folder in git and use `make -f system.make bits`
+	//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
+	//     exits with status 35584). We should run it again in that case.
+
+	run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+}
+
+task copyReconosDeviceTree(type: Copy) {
+	def demo = compileReconosDemoLinux.demo
+	from path(FILES, "device_tree.dts")
+	into demoHwDir("edk_zynq_linux")
+}
+
+def nfsMountForDeviceTree() {
+	if (hasProperty("nfs_mount"))
+		return project.nfs_mount
+	else
+		return "$host_ip:$nfs_root"
+}
+
+sedTask("applyConfigToReconosDeviceTree", [
+		/s#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=/ + nfs_mount + /,tcp#/,
+		/s#\bip=[0-9.]\+:#ip=/ + board_ip + /:#/],
+		demoHwDir("edk_zynq_linux", "device_tree.dts")) {
+	dependsOn copyReconosDeviceTree
+}
+
+task prepareReconosDeviceTree {
+	dependsOn copyReconosDeviceTree, applyConfigToReconosDeviceTree
+}
+
+task compileReconosDeviceTree(type: Exec) {
+	//TODO depend on the task that builds dtc
+	dependsOn reconosConfig, prepareReconosDeviceTree, prepareReconosDemoHardware
+
+	workingDir demoHwDir("edk_zynq_linux")
+
+	commandLine rootPath("linux-xlnx", "scripts", "dtc", "dtc"),
+		"-I", "dts", "-O", "dtb", "-o", "device_tree.dtb", "device_tree.dts"
+}
+
+task compileReconosDemoHardware {
+	dependsOn compileReconosDemoHardwareBitstream, compileReconosDeviceTree
+}
+
+task compileReconos {
+	dependsOn compileReconosDriver, compileReconosLib, compileReconosDemoLinux, compileReconosDemoHardware
+}
+
+task buildRootfs { /*TODO*/ }
+
+task compile {
+	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos, buildRootfs
+}
+
+crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
+	workingDir rootPath("busybox")
+
+	doLast {
+		def tempfile_not_ignored = rootPath("busybox",  "busybox.links")
+		def tempfile_ignored     = rootPath("busybox", ".busybox.links")
+		if (tempfile_not_ignored.exists()) {
+			// hide this file, so it doesn't make the git dirty
+			// (unfortunately, it is not ignored in .gitignore)
+			tempfile_not_ignored.renameTo(tempfile_ignored)
+		}
+	}
 }
 
 /*
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def build_uboot():
-	if "CROSS_COMPILE" not in os.environ:
-		raise Exception("reconos_config didn't set CROSS_COMPILE")
-
-	cd_verbose(ROOT, "u-boot-xlnx")
-	sh(r'patch -N -p1 <"%s/u-boot-xlnx-zynq.patch"' % (FILES,))
-
-	sed_i([r's/^#define CONFIG_IPADDR\b.*$/#define CONFIG_IPADDR   %s/'   % reconos_build_options.board_ip,
-		   r's/^#define CONFIG_SERVERIP\b.*$/#define CONFIG_SERVERIP %s/' % reconos_build_options.host_ip,
-		   r's/\bethaddr=[0-9a-fA-F:]\+\\0/ethaddr=%s\\0/'                % reconos_build_options.mac_address],
-		   "include/configs/zynq_common.h")
-
-	cd_verbose(ROOT, "u-boot-xlnx")
-	make_parallel("zynq_zed")
-
-/*
-@task
-@needs("build_uboot", "build_kernel", "build_busybox", "build_dropbear",
-	"build_reconos", "build_rootfs")
-def build():
-	pass
-
-def long_operation(cmd):
-	if int(from_env("DEBUG_SKIP_EXPENSIVE_OPERATIONS", "0")) > 0:
-		logger.info("Skipping: " + str(cmd))
-	else:
-		if callable(cmd):
-			cmd()
-		else:
-			sh(cmd)
-
-def make(*targets):
-	long_operation("make " + escapeForShell(targets))
-
-def make_parallel(*targets):
-	long_operation(("make -j%s " % reconos_build_options.parallel_processes) + escapeForShell(targets))
-
 
 def sudo_cmd():
 	if reconos_build_options.nfs_no_sudo:
@@ -429,130 +644,8 @@ def run_xmd(commands):
 	commands = escapeForShell(str(commands) + " ; exit")
 	sh("echo %s | xmd" % commands)
 
-def run_xps(project, commands):
-	cmd = ShellEscaped("echo %s | xps -nw %s") % (str(commands) + " ; exit", project)
-	# try 3 times
-	for i in range(3):
-		res = sh_test(cmd)
-		if res == 0:
-			return
-		elif res == 35584:
-			logger.warn("xps failed. This may be due to a segfault, so we try again.")
-		else:
-			break
-	# Either it didn't fail with a segfault or it failed too often
-	raise IOError("System command returned non-zero status (return value is %d): %r"
-		% (res, cmd))
-
-def cd_verbose(*dir):
-	dir = Path(*dir)
-	logger.info("In directory: " + str(dir))
-	dir.chdir()
-
-def sed_i(expr, file):
-	if isinstance(expr, (tuple, list)):
-		exprs = map(escapeForShell, expr)
-		expr = "-e " + " -e ".join(exprs)
-	else:
-		expr = escapeForShell(expr)
-	file = escapeForShell(file)
-	sh('sed -i %s %s' % (expr, file))
 
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def build_kernel():
-	cd_verbose(ROOT, "linux-xlnx")
-	make("xilinx_zynq_defconfig")
-	make_parallel("uImage", "LOADADDR=0x00008000")
-	make_parallel("modules")
-
-
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def build_busybox():
-	cd_verbose(ROOT, "busybox")
-	Path(FILES, "busybox-config").copy(".config")
-	sed_i(r's#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\"%s\"#' % ROOTFS.replace("#", "\\#"),
-		".config")
-	make_parallel()
-
-
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def build_dropbear():
-	cd_verbose(ROOT, "dropbear")
-	CROSS_COMPILE = os.environ["CROSS_COMPILE"]
-	HOST = re.sub("-$", "", Path(CROSS_COMPILE).name)
-	sh("./configure --prefix=%s --host=%s --enable-bundled-libtom --disable-utmp --disable-zlib"
-			% (escapeForShell(ROOTFS), escapeForShell(HOST)))
-	
-	#NOTE We could modify options.h, now.
-
-	TOOLCHAIN_BIN_DIR = Path(CROSS_COMPILE).parent
-
-	#TODO does this work?
-	path_with_toolchain = TOOLCHAIN_BIN_DIR + ":" + os.environ["PATH"]
-	make_parallel(ShellEscaped("PATH=%s" % escapeForShell(path_with_toolchain)))
-
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def build_reconos():
-	cd_verbose(ROOT, "reconos", "linux", "driver")
-	make_parallel()
-	cd_verbose(ROOT, "reconos", "linux", "lib")
-	make_parallel()
-
-	cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "linux")
-	make_parallel()
-
-	cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "hw")
-
-	xil_version = xilinx_version()
-	#TODO get design for 14.7 from Christoph
-	#sed -i 's/zedboard_minimal_[0-9].* /zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
-	//TODO remove space               ^^^                                                    <---------------
-	logger.info("Not setting version")  #DEBUG
-
-	sh("bash reconos_setup.sh setup_zynq")
-
-	cd_verbose(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
-	#TODO keep __xps folder in git and use `make -f system.make bits`
-	#TODO This sometimes fails with a segfault (prints "Segmentation fault" and
-	#     exits with status 35584). We should run it again in that case.
-	def make_bitstream():
-		run_xps("system", "run bits")
-	long_operation(make_bitstream)
-
-	Path(FILES, "device_tree.dts").copy(Path(".", "device_tree.dts"))
-	if reconos_build_options.nfs_mount != "":
-		nfs_mount = reconos_build_options.nfs_mount
-	else:
-		nfs_mount = "%s:%s" % (reconos_build_options.host_ip, reconos_build_options.nfs_root)
-	sed_i([r's#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=%s,tcp#' % nfs_mount,
-		   r's#\bip=[0-9.]\+:#ip=%s:#' % reconos_build_options.board_ip],
-		   "device_tree.dts")
-	long_operation(escapeForShell([Path(ROOT, "linux-xlnx", "scripts", "dtc", "dtc"),
-		"-I", "dts", "-O", "dtb", "-o", "device_tree.dtb", "device_tree.dts"]))
-
-
-
-@task
-@cmdoptsgroup("reconos_build")
-def install_busybox():
-	cd_verbose(ROOT, "busybox")
-	make_parallel("CONFIG_PREFIX=%s" % ROOTFS, "install")
-
-	tempfile_not_ignored = Path(ROOT, "busybox",  "busybox.links")
-	tempfile_ignored     = Path(ROOT, "busybox", ".busybox.links")
-	if tempfile_not_ignored.exists():
-		# hide this file, so it doesn't make the git dirty
-		# (unfortunately, it is not ignored in .gitignore)
-		tempfile_not_ignored.move(tempfile_ignored)
 
 
 def sed_backticks(expr, file, noprint = False):
