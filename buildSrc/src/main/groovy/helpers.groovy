@@ -47,16 +47,20 @@ class helpers {
 		return doc
 	}
 
-	def sh(cmd) {
-		logger.info("sh: " + cmd.inspect())
-		def res = ["sh", "-c", cmd].execute().waitFor()
+	def sh(cmd, shell="sh") {
+		logger.info(shell + ": " + cmd.inspect())
+		def p = [shell, "-c", cmd].execute()
+		p.waitForProcessOutput(System.out, System.err)
+		def res = p.waitFor()
 		if (res != 0)
 			throw new GradleException("System command returned non-zero status (exit status is $res): " + cmd.inspect())
 	}
 
-	def sh_test(cmd) {
-		logger.info("sh?: " + cmd.inspect())
-		def res = ["sh", "-c", cmd].execute().waitFor()
+	def sh_test(cmd, shell="sh") {
+		logger.info(shell + "?: " + cmd.inspect())
+		def p = [shell, "-c", cmd].execute()
+		p.waitForProcessOutput(System.out, System.err)
+		def res = p.waitFor()
 		logger.debug("  -> $res")
 		return res
 	}
