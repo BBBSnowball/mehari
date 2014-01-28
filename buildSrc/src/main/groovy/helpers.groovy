@@ -99,7 +99,7 @@ class helpers {
 
 	def escapeForShell(args) {
 		if (args instanceof Collection)
-			return args.collect(escape_one_for_shell).join(" ")
+			return args.collect(this.&escape_one_for_shell).join(" ")
 		else
 			return escape_one_for_shell(args)
 	}
