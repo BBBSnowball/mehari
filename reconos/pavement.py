@@ -571,7 +571,7 @@ def install_base_system():
             Path(ROOTFS, "etc", "rc.d", "S%s%s" % (start_order, name)).make_relative_link_to(dst)
 
         if stop_order:
-            Path(ROOTFS, "etc", "rc.d", "K%s%s" % (start_order, name)).make_relative_link_to(dst)
+            Path(ROOTFS, "etc", "rc.d", "K%s%s" % (stop_order, name)).make_relative_link_to(dst)
 
     Path(ROOTFS, "etc", "default", "notify-host").write_file(
         "NOTIFY_HOST=" + escape_for_shell(reconos_build_options.host_ip) + "\n")

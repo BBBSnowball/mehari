@@ -16,6 +16,7 @@ import org.gradle.api.internal.file.copy.FileCopyDetailsInternal;
 import org.gradle.api.logging.Logger;
 import org.gradle.util.Path;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.GradleException
 
 import java.io.File;
 
@@ -93,7 +94,7 @@ public class FileLinkAction implements CopyAction {
 				return false;
 			} else {
 				if (!overwriteExisting)
-					throw GradleException("The target file '" + link + "' already exists.");
+					throw new GradleException("The target file '" + link + "' already exists.");
 			}
 		}
 
