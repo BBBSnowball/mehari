@@ -203,20 +203,6 @@ task reconosConfig {
 			out.writeLine("export KDIR=\"$ROOT/linux-xlnx\"")
 			out.writeLine("export PATH=\"$ROOT/u-boot-xlnx/tools:\$PATH\"")
 		}
-
-		//TODO
-		//ROOT.chdir()
-		//source_shell_file("./reconos/tools/environment/setup_reconos_toolchain.sh")
-
-		//return {
-		//	'xil_tools':    xil_tools,
-		//	'gnutools':     gnutools,
-		//	'libc_dir':     libc_dir,
-		//	'reconos_arch': "zynq",
-		//	'reconos_os':   "linux",
-		//	'reconos_mmu':  True,
-		//	'kernel_dir':   Path(ROOT, "linux-xlnx")
-		//}
 	}
 }
 
@@ -380,8 +366,10 @@ crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
 crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
+	// U-boot has the mkimage tool we need to package the kernel, so we have to build that first
+	dependsOn compileUboot
 }
-crosscompileMakeTask("compileKernelModules", ["uImage", "LOADADDR=0x00008000"]) {
+crosscompileMakeTask("compileKernelModules", ["modules"]) {
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
 	shouldRunAfter compileKernelImage
@@ -392,7 +380,10 @@ task compileKernel() {
 }
 
 task copyBusyboxConfig(type: Copy) {
-	from rootPath(FILES, "busybox-config")
+	from(FILES) {
+		include "busybox-config"
+		rename "busybox-config", ".config"
+	}
 	into rootPath("busybox")
 
 	mustRunAfter cleanBusybox
@@ -605,14 +596,15 @@ task compileReconos {
 	dependsOn compileReconosDriver, compileReconosLib, compileReconosDemoLinux, compileReconosDemoHardware
 }
 
-task buildRootfs { /*TODO*/ }
-
 task compile {
-	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos, buildRootfs
+	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos
 }
 
 crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
 	workingDir rootPath("busybox")
+
+	dependsOn compileBusybox
+	shouldRunAfter compile
 
 	doLast {
 		def tempfile_not_ignored = rootPath("busybox",  "busybox.links")
@@ -623,6 +615,246 @@ crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
 			tempfile_not_ignored.renameTo(tempfile_ignored)
 		}
 	}
+}
+
+def get_init_info(file, key) {
+	project.file(file).withReader { rd ->
+		boolean inInitInfo = false
+		String line = null
+		while (line = rd.readLine()) {
+			if (line ==~ /^#+\s*BEGIN INIT INFO\s*$/)
+				inInitInfo = true
+			else if (line ==~ /^#+\s*END INIT INFO\s*$/)
+				return null
+			else if (inInitInfo) {
+				def m = (line =~ /(?i)^#\s*/ + escapeForRegex(key) + /:\s*(.*)$/)
+				if (m)
+					return m.group(1).trim()
+			}
+		}
+		return null
+	}
+}
+
+def get_order(file, start_or_stop) {
+	def order = get_init_info(file, "${start_or_stop}-order")
+	if (order)
+		return order
+	else {
+		order = get_init_info(file, "order")
+
+		if (start_or_stop == "start")
+			return order
+		else {
+			if (order)
+				return String.format("%02d", 100 - order.toInteger())
+			else
+				return ""
+		}
+	}
+}
+
+import groovy.io.FileType
+
+def symlink(target, link) {
+	target = FileLinkAction.getRelativePath(file(target), file(link).parentFile)
+	sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
+}
+
+def touch(file) {
+	file.withWriterAppend { out -> out.write("") }
+}
+
+def chmod(file, permissions) {
+	permissions = String.format("0%o", permissions)
+	sh("chmod $permissions ${escapeForShell(file)}")
+}
+
+task installBaseSystem {
+	requiredProperty "host_ip"
+
+	doLast {
+		for (dir in ["dev", "dev/pts",
+				"etc", "etc/init.d", "etc/rc.d", "etc/default",
+				"lib", "mnt", "opt", "proc", "root", "sys", "tmp",
+				"var","var/run", "var/log"])
+			path(ROOTFS, *dir.split("/")).mkdirs()
+
+		def rc_script = path(ROOTFS, "etc", "rcS")
+		project.copyFile(path(FILES, "startup-script.sh"), rc_script)
+		chmod(rc_script, 0755)
+		project.copyFile(path(FILES, "inittab"), path(ROOTFS, "etc", "inittab"))
+		project.copyFile(path(FILES, "fstab"  ), path(ROOTFS, "etc", "fstab"  ))
+
+		for (dir in ["init.d", "rc.d"]) {
+			path(ROOTFS, "etc", dir).deleteDir()
+			path(ROOTFS, "etc", dir).mkdir()
+		}
+
+		path(FILES, "init.d").eachFile(FileType.FILES) { initd_script ->
+			def src = initd_script
+			def name = src.name
+			def dst = path(ROOTFS, "etc", "init.d", name)
+			project.copyFile(src, dst)
+			chmod(dst, 0755)
+
+			def start_order = get_order(dst, "start")
+			def stop_order  = get_order(dst, "stop")
+
+			if (start_order)
+				symlink(dst, path(ROOTFS, "etc", "rc.d", "S${start_order}${name}"))
+
+			if (stop_order)
+				symlink(dst, path(ROOTFS, "etc", "rc.d", "K${stop_order}${name}"))
+		}
+
+		path(ROOTFS, "etc", "default", "notify-host").withWriter { out ->
+			out.writeLine("NOTIFY_HOST=" + escapeForShell(host_ip))
+		}
+
+
+		path(ROOTFS, "etc", "passwd").withWriter { out ->
+			out.writeLine("root:x:0:0:root:/root:/bin/ash")
+		}
+		path(ROOTFS, "etc", "group").withWriter { out ->
+			out.writeLine("root:x:0:")
+		}
+
+		// see http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
+		path(ROOTFS, "etc", "nsswitch.conf").withWriter { out ->
+			out.write(heredoc("""
+				passwd: files
+				group: files
+				shadow: files
+
+				hosts: files dns
+				networks: files
+
+				protocols: files
+				services: files
+				ethers: files
+				rpc: files
+				"""))
+		}
+		
+		project.copyFile(path("/etc/localtime"), path(ROOTFS, "etc", "localtime"))
+
+		// eglibc doc (see above) suggest that we add `/usr/local/lib` and `/opt/lib`,
+		// but we don't use them
+		touch(path(ROOTFS, "etc", "ld.so.conf"))
+	}
+}
+
+task installLibc(type: Copy) {
+	dependsOn reconosConfig
+
+	from { reconosConfig.libc_dir }
+	into ROOTFS
+
+	include "."
+	exclude "usr/lib/locale"
+	exclude "usr/include"
+
+	// We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
+	// a list of the locales we do want.
+	// Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
+	ext.included_locales = ["en_US", "en_US.utf8", "de_DE.utf8"]
+	included_locales.each { locale ->
+		include "usr/lib/locale/"+locale
+	}
+}
+
+crosscompileMakeTask("installDropbearFiles", ["prefix="+ROOTFS, "install"]) {
+	workingDir rootPath("dropbear")
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn compileDropbear
+	shouldRunAfter compile
+
+	inputs.files compileDropbear.outputs
+	inputs.files fileTree("dropbear") { include "dropbear.8", "dropbearkey.1", "dbclient.1", "dropbearconvert.1" }
+	outputs.files fileTree(ROOTFS) {
+		include "bin/dbclient", "bin/dropbearkey", "bin/dropbearconvert"
+		include "sbin/dropbear"
+		include "share/man/**/dropbear*", "share/man/**/dbclient*"
+	}
+}
+
+task installDropbearConfig {
+	mustRunAfter installDropbearFiles
+
+	def ssh_dir = path(ROOTFS, "root", ".ssh")
+	def authorized_keys = path(ssh_dir, "authorized_keys")
+	def home_dir = System.getenv()["HOME"]
+	def public_key_file = path("$home_dir/.ssh/id_rsa.pub")
+	def shells_file = path(ROOTFS, "etc", "shells")
+
+	inputs.file public_key_file
+	inputs.property "HOME", home_dir
+	outputs.dir ssh_dir
+	outputs.file authorized_keys
+	outputs.file shells_file
+
+	doLast {
+		ssh_dir.mkdirs()
+		if (public_key_file.exists() && !authorized_keys.exists()) {
+			def public_key = public_key_file.text
+			authorized_keys.write(public_key)
+
+			chmod(ssh_dir, 0755)
+			chmod(authorized_keys, 0600)
+		}
+
+		def shells = ""
+		if (shells_file.exists())
+			shells = shells_file.text
+		if (!(shells ==~ '^/bin/ash$')) {
+			shells += "/bin/ash\n"
+			shells_file.parentFile.mkdirs()
+			shells_file.write(shells)
+		}
+	}
+}
+
+task installDropbear {
+	dependsOn installDropbearFiles, installDropbearConfig
+}
+
+crosscompileMakeTask("installKernelModules", ["INSTALL_MOD_PATH="+ROOTFS, "modules_install"]) {
+	workingDir rootPath("linux-xlnx")
+
+	dependsOn compileKernelModules
+}
+
+task installReconos {
+	dependsOn installKernelModules, compileReconosDriver, compileReconosDriver
+
+	doLast {
+		def KERNEL_RELEASE = path(ROOT, "linux-xlnx", "include", "config", "kernel.release").text.trim()
+		def RECONOS_MODULE = "kernel/drivers/mreconos.ko"
+		def MODULE_DIR = path(ROOTFS, "lib", "modules", KERNEL_RELEASE)
+		def src = path(ROOT, "reconos", "linux", "driver", "mreconos.ko")
+		def dst = path(MODULE_DIR, *RECONOS_MODULE.split("/"))
+		project.copyFile(src, dst)
+		path(MODULE_DIR, "modules.dep").withWriterAppend { out ->
+			out.writeLine(RECONOS_MODULE + ": ")
+		}
+	}
+}
+
+task buildRootfs {
+	dependsOn reconosConfig, installBusybox, installBaseSystem,
+		installLibc, installDropbear, installKernelModules,
+		installReconos
+
+	doFirst {
+		if (!ROOTFS.isDirectory())
+			ROOTFS.mkdirs()
+	}
+}
+
+task build {
+	dependsOn compile, buildRootfs
 }
 
 /*
@@ -644,190 +876,6 @@ def run_xmd(commands):
 	commands = escapeForShell(str(commands) + " ; exit")
 	sh("echo %s | xmd" % commands)
 
-
-
-
-
-def sed_backticks(expr, file, noprint = False):
-	if isinstance(expr, (tuple, list)):
-		exprs = map(escapeForShell, expr)
-		expr = "-e " + " -e ".join(exprs)
-	else:
-		expr = escapeForShell(expr)
-	file = escapeForShell(file)
-	if noprint:
-		flags = "-n"
-	else:
-		flags = ""
-	return backticks('sed %s %s <%s' % (flags, expr, file))
-
-
-def get_init_info(file, key):
-	return sed_backticks(
-		r'/^#\+\s*BEGIN INIT INFO\s*$/,/^#\+\s*END INIT INFO\s*$/ s/^#\s*%s:\s*\(.*\)$/\1/pi' % key,
-		file,
-		noprint=True).strip()
-
-def get_order(file, start_or_stop):
-	order = get_init_info(file, "%s-order" % start_or_stop)
-	if order:
-		return order
-	else:
-		order = get_init_info(file, "order")
-
-		if start_or_stop == "start":
-			return order
-		else:
-			if order:
-				return "%02u" % (100 - int(order))
-			else:
-				return ""
-
-@task
-@cmdoptsgroup("reconos_build")
-def install_base_system():
-	cd_verbose(ROOTFS)
-	for dir in ["dev", "dev/pts",
-			"etc", "etc/init.d", "etc/rc.d", "etc/default",
-			"lib", "mnt", "opt", "proc", "root", "sys", "tmp",
-			"var","var/run", "var/log"]:
-		Path(ROOTFS, *dir.split("/")).mkdir()
-
-	rc_script = Path("etc", "rcS")
-	Path(FILES, "startup-script.sh").copy(rc_script)
-	rc_script.chmod(0755)
-	Path(FILES, "inittab").copy(Path("etc", "inittab"))
-	Path(FILES, "fstab"  ).copy(Path("etc", "fstab"  ))
-
-	for dir in ["init.d", "rc.d"]:
-		Path(ROOTFS, "etc", dir).rmtree()
-		Path(ROOTFS, "etc", dir).mkdir()
-
-	for initd_script in glob.glob(Path(FILES, "init.d", "*")):
-		src = Path(initd_script)
-		name = src.name
-		dst = Path(ROOTFS, "etc", "init.d", name)
-		src.copy(dst)
-		dst.chmod(0755)
-
-		start_order = get_order(dst, "start")
-		stop_order  = get_order(dst, "stop")
-
-		if start_order:
-			Path(ROOTFS, "etc", "rc.d", "S%s%s" % (start_order, name)).make_relative_link_to(dst)
-
-		if stop_order:
-			Path(ROOTFS, "etc", "rc.d", "K%s%s" % (start_order, name)).make_relative_link_to(dst)
-
-	Path(ROOTFS, "etc", "default", "notify-host").write_file(
-		"NOTIFY_HOST=" + escapeForShell(reconos_build_options.host_ip) + "\n")
-
-
-	Path(ROOTFS, "etc", "passwd").write_file(
-		"root:x:0:0:root:/root:/bin/ash\n")
-	Path(ROOTFS, "etc", "group").write_file(
-		"root:x:0:\n")
-
-	# see http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
-	Path(ROOTFS, "etc", "nsswitch.conf").write_file(heredoc("""
-		passwd: files
-		group: files
-		shadow: files
-
-		hosts: files dns
-		networks: files
-
-		protocols: files
-		services: files
-		ethers: files
-		rpc: files
-		"""))
-	
-	Path("/etc/localtime").copy(Path(ROOTFS, "etc", "localtime"))
-
-	# eglibc doc (see above) suggest that we add `/usr/local/lib` and `/opt/lib`,
-	# but we don't use them
-	touch(Path(ROOTFS, "etc", "ld.so.conf"))
-
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def install_libc():
-	# We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
-	# a list of the locales we do want.
-	# Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
-	included_locales = ["en_US", "en_US.utf8", "de_DE.utf8"]
-	locale_directories = map(lambda locale: "usr/lib/locale/"+locale, included_locales)
-
-	# copy libc files
-	libc_dir = get_libc_dir_after_reconos_config()
-	sh("tar -c -C %s . --exclude=usr/lib/locale --exclude=usr/include | tar -x -C %s"
-		% (escapeForShell(libc_dir), escapeForShell(ROOTFS)))
-	sh("tar -c -C %s %s | tar -x -C %s"
-		% (escapeForShell(libc_dir), escapeForShell(locale_directories), escapeForShell(ROOTFS)))
-
-@task
-@cmdoptsgroup("reconos_build")
-def install_dropbear():
-	reconos_config()
-
-	CROSS_COMPILE = os.environ["CROSS_COMPILE"]
-	TOOLCHAIN_BIN_DIR = Path(CROSS_COMPILE).parent
-
-	cd_verbose(ROOT, "dropbear")
-
-	#TODO does this work?
-	make_parallel(
-		"PATH=%s" % escapeForShell(TOOLCHAIN_BIN_DIR + ":" + os.environ["PATH"]),
-		"prefix=%s" % ROOTFS,
-		"install")
-
-	ssh_dir = Path(ROOTFS, "root", ".ssh")
-	authorized_keys = Path(ssh_dir, "authorized_keys")
-	ssh_dir.mkdir(parents=True)
-	public_key_file = Path("~/.ssh/id_rsa.pub").expand_user()
-	if public_key_file.exists() and not authorized_keys.exists():
-		public_key = public_key_file.read_file()
-		authorized_keys.write_file(public_key)
-
-		ssh_dir.chmod(0755)
-		authorized_keys.chmod(0600)
-
-	shells_file = Path(ROOTFS, "etc", "shells")
-	shells = ""
-	if shells_file.exists():
-		shells = shells_file.read_file()
-	if not re.match("^/bin/ash$", shells):
-		shells += "/bin/ash\n"
-		shells_file.write_file(shells)
-
-@task
-@cmdoptsgroup("reconos_build")
-def install_kernel_modules():
-	cd_verbose(ROOT, "linux-xlnx")
-	make_parallel(
-		"INSTALL_MOD_PATH=%s" % ROOTFS,
-		"modules_install")
-
-@task
-@cmdoptsgroup("reconos_build")
-def install_reconos():
-	KERNEL_RELEASE=Path(ROOT, "linux-xlnx", "include", "config", "kernel.release").read_file().strip()
-	RECONOS_MODULE="kernel/drivers/mreconos.ko"
-	MODULE_DIR=Path(ROOTFS, "lib", "modules", KERNEL_RELEASE)
-	src = Path(ROOT, "reconos", "linux", "driver", "mreconos.ko")
-	dst = Path(MODULE_DIR, *RECONOS_MODULE.split("/"))
-	src.copy(dst)
-	append_file(Path(MODULE_DIR, "modules.dep"),
-		RECONOS_MODULE + ": \n")
-
-@task
-@needs("reconos_config", "install_busybox", "install_base_system",
-	"install_libc", "install_dropbear", "install_kernel_modules",
-	"install_reconos")
-def build_rootfs():
-	#TODO: Path(ROOTFS).mkdir(parents=True)
-	pass
 
 @task
 @cmdoptsgroup("reconos_build")
