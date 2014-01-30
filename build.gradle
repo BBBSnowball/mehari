@@ -73,7 +73,7 @@ if (hasProperty("sispm_outlet") && sispm_outlet) {
 		environment "SISPM_OUTLET", sispm_outlet
 	}
 
-	forAllNormalTestTasks {
+	forAllNormalTestTasks { task ->
 		task.mustRunAfter powercycleBoard
 	}
 
