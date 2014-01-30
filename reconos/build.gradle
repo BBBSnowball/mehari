@@ -830,8 +830,6 @@ task installDropbearConfig {
 
 			chmod(ssh_dir, 0755)
 			chmod(authorized_keys, 0600)
-
-			sh("chown root:root ${escapeForShell(authorized_keys)} ${escapeForShell(ssh_dir)} ${escapeForShell(home_dir)}")
 		}
 
 		def shells = ""
@@ -895,6 +893,23 @@ task copyFilesToNfsRoot(type: Copy) {
 	mustRunAfter buildRootfs
 }
 
+def fileAncestors(file) {
+	ancestors = []
+	while (file != null) {
+		ancestors.add(file)
+		file = file.parentFile
+	}
+	return ancestors
+}
+
+task fixPermissionsInNfsRoot(type: Exec) {
+	def authorized_keys_file = path(local_nfs_root, "root", ".ssh", "authorized_keys")
+	commandLine "chown", "root:root", *fileAncestors(authorized_keys_file).take(3)
+
+	mustRunAfter copyFilesToNfsRoot
+	requiredProperty "local_nfs_root"
+}
+
 task warnAboutAdditionalFilesInNfsRoot {
 	requiredProperty "local_nfs_root"
 
@@ -930,7 +945,7 @@ task warnAboutAdditionalFilesInNfsRoot {
 }
 
 task updateNfsRoot {
-	dependsOn copyFilesToNfsRoot, warnAboutAdditionalFilesInNfsRoot
+	dependsOn copyFilesToNfsRoot, fixPermissionsInNfsRoot, warnAboutAdditionalFilesInNfsRoot
 }
 
 task createPs7InitFile(type: Copy) {
