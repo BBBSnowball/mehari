@@ -253,7 +253,7 @@ task checkLibc {
 	}
 }
 
-task checkDigilentDriver {
+task checkDigilentDriverSimple {
 	dependsOn reconosConfig
 
 	doLast {
@@ -268,6 +268,27 @@ task checkDigilentDriver {
 				           sudo cp -r ~/.cse ~some_user/
 				           sudo chown -R some_user ~some_user/.cse
 				"""))
+		}
+	}
+}
+
+def doesFileBelongToRoot(file) {
+	return backticks("stat -c %u ~/.cse").trim() == "0"
+}
+
+task checkDigilentDriver {
+	dependsOn checkDigilentDriverSimple
+
+	doLast {
+		// The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
+		// have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
+		// we fix this.
+		def env = System.getenv()
+		def cse_dir = path(env["HOME"], ".cse")
+		if (cse_dir.exists() && doesFileBelongToRoot(cse_dir) && env["USER"] != "root") {
+			// try to fix permissions
+			logger.warn("Permissions on $cse_dir are wrong (it belongs to root). I will try to fix that.")
+			sh('chown -R "$USER" ~/.cse')
 		}
 	}
 }
@@ -493,14 +514,15 @@ crosscompileMakeTask("compileReconosLib", []) {
 }
 crosscompileMakeTask("compileReconosDemoLinux", []) {
 	ext.demo = "sort_demo"
-	workingDir rootPath("reconos", "demos", demo, "linux")
+	ext.demoDir = rootPath("reconos", "demos", demo)
+	workingDir path(demoDir, "linux")
 
 	//requiredProperty "demo"
 }
 
 def demoHwDir(...suffix) {
-	def demo = compileReconosDemoLinux.demo
-	return rootPath("reconos", "demos", demo, "hw", *suffix)
+	def demoDir = compileReconosDemoLinux.demoDir
+	return rootPath(demoDir, "hw", *suffix)
 }
 
 task prepareReconosDemoHardware(type: Exec) {
@@ -564,7 +586,7 @@ def nfsMountForDeviceTree() {
 	if (hasProperty("nfs_mount"))
 		return project.nfs_mount
 	else
-		return "$host_ip:$nfs_root"
+		return "$host_ip:$local_nfs_root"
 }
 
 sedTask("applyConfigToReconosDeviceTree", [
@@ -572,6 +594,8 @@ sedTask("applyConfigToReconosDeviceTree", [
 		/s#\bip=[0-9.]\+:#ip=/ + board_ip + /:#/],
 		demoHwDir("edk_zynq_linux", "device_tree.dts")) {
 	dependsOn copyReconosDeviceTree
+	requiredProperty "board_ip"
+	requiredProperty "nfs_mount"
 }
 
 task prepareReconosDeviceTree {
@@ -783,10 +807,11 @@ crosscompileMakeTask("installDropbearFiles", ["prefix="+ROOTFS, "install"]) {
 task installDropbearConfig {
 	mustRunAfter installDropbearFiles
 
-	def ssh_dir = path(ROOTFS, "root", ".ssh")
+	def home_dir_for_board = path(ROOTFS, "root")
+	def ssh_dir = path(home_dir_for_board, ".ssh")
 	def authorized_keys = path(ssh_dir, "authorized_keys")
 	def home_dir = System.getenv()["HOME"]
-	def public_key_file = path("$home_dir/.ssh/id_rsa.pub")
+	def public_key_file = path("$home_dir", ".ssh", "id_rsa.pub")
 	def shells_file = path(ROOTFS, "etc", "shells")
 
 	inputs.file public_key_file
@@ -803,6 +828,8 @@ task installDropbearConfig {
 
 			chmod(ssh_dir, 0755)
 			chmod(authorized_keys, 0600)
+
+			sh("chmod root:root ${escapeForShell(authorized_keys)} ${escapeForShell(ssh_dir)} ${escapeForShell(home_dir)}")
 		}
 
 		def shells = ""
@@ -857,211 +884,214 @@ task build {
 	dependsOn compile, buildRootfs
 }
 
-/*
+task copyFilesToNfsRoot(type: Copy) {
+	from ROOTFS
+	into local_nfs_root
 
-def sudo_cmd():
-	if reconos_build_options.nfs_no_sudo:
-		return ""
-	else:
-		return "sudo"
+	requiredProperty "local_nfs_root"
 
-def sudo_modify_by(file, *command):
-	x, tmpfile = tempfile.mkstemp()
-	Path(file).copy(tmpfile)
-	sh(ShellEscaped("%s <%s | %s tee %s >/dev/null")
-		% (command, tmpfile, sudo_cmd(), file))
-	Path(tmpfile).remove()
+	mustRunAfter buildRootfs
+}
 
-def run_xmd(commands):
+task warnAboutAdditionalFilesInNfsRoot {
+	requiredProperty "local_nfs_root"
+
+	mustRunAfter copyFilesToNfsRoot
+
+	doLast {
+		def exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
+		def exclude_pattern = "/\\(" + exclude.collect(project.&escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
+		def exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
+
+		def list_files = { directory, listfile ->
+			directory = escapeForShell(directory)
+			listfile = escapeForShell(listfile)
+			sh("cd $directory && find | $exclude_filter | sort >$listfile")
+		}
+
+		def files_in_rootfs = rootPath(temporaryDir, "files_in_rootfs")
+		def files_in_nfsroot = rootPath(temporaryDir, "files_in_nfsroot")
+		try {
+			list_files(ROOTFS, files_in_rootfs)
+			list_files(local_nfs_root, files_in_nfsroot)
+
+			files_in_rootfs = escapeForShell(files_in_rootfs)
+			files_in_nfsroot = escapeForShell(files_in_nfsroot)
+			def res = sh_test("diff -y --suppress-common-lines $files_in_rootfs $files_in_nfsroot")
+		} finally {
+			if (files_in_rootfs.exists())
+				files_in_rootfs.delete()
+			if (files_in_nfsroot.exists())
+				files_in_nfsroot.delete()
+		}
+	}
+}
+
+task updateNfsRoot {
+	dependsOn copyFilesToNfsRoot, warnAboutAdditionalFilesInNfsRoot
+}
+
+task createPs7InitFile(type: Copy) {
+	//TODO we shouldn't have to provide this file - it should be in the reconos git
+	def edk_project_dir = demoHwDir("edk_zynq_linux")
+	from FILES
+	into edk_project_dir
+	include "ps7_init.tcl"
+}
+
+task downloadImagesToZynq(type: Exec) {
+	//NOTE If this fails because it doesn't find the cable, install the cable drivers:
+	//     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
+	def edk_project_dir = demoHwDir("edk_zynq_linux")
+	commandLine "bash", "ynq_boot_tftp.sh",
+		path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
+		path(edk_project_dir, "device_tree.dtb"),
+		path(edk_project_dir, "ps7_init.tcl"),
+		path(ROOT, "u-boot-xlnx", "u-boot")
+	workingDir ROOT
+	doLast {
+		sh("cd ${escapeForShell(ROOT)} && " + escapeForShell([
+			"bash",
+			"zynq_boot_tftp.sh",
+			]))
+
+		logger.info("The board should be booting, now.")
+		logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
+	}
+
+	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
+	dependsOn compileKernelImage, compileReconosDeviceTree, compileUboot
+	dependsOn createPs7InitFile
+}
+
+def run_xmd(commands) {
 	commands = escapeForShell(str(commands) + " ; exit")
-	sh("echo %s | xmd" % commands)
+	sh("echo $commands | xmd")
+}
 
+task downloadBitfileToZynq {
+	doLast {
+		def edk_project_dir = demoHwDir("edk_zynq_linux")
+		def bitfile = path(edk_project_dir, "implementation", "system.bit")
+		run_xmd("fpga -f %s" % escapeForShell(bitfile))
+	}
+	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
+	dependsOn compileReconosDemoHardwareBitstream
+	dependsOn createPs7InitFile
+	shouldRunAfter downloadImagesToZynq
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-def update_nfsroot():
-	sh("%s mkdir -p %s" % (sudo_cmd(), escapeForShell(reconos_build_options.nfs_root)))
-	sh("%s cp -a %s %s" % (sudo_cmd(), escapeForShell(Path(ROOTFS, ".")), escapeForShell(reconos_build_options.nfs_root)))
-	
-	exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-	exclude_pattern = "/\\(" + "\\|".join(map(escape_for_regex, exclude)) + "\\)\\(/\|$\\)"
-	exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
-	# We could use <(...) syntax, but sh doesn't support it, so we use temporary files instead.
-	def sudo_list_files(dir):
-		_, tmpfile = tempfile.mkstemp()
-		cmd = "cd %s ; find | %s | sort >%s" % (escapeForShell(dir), exclude_filter, escapeForShell(tmpfile))
-		sh("%s sh -c %s" % (sudo_cmd(), escapeForShell(cmd)))
-		return tmpfile
+task waitForBootingBoard {
+	mustRunAfter downloadImagesToZynq, downloadBitfileToZynq
+	requiredProperty "host_ip"
 
-	file_list1 = None
-	file_list2 = None
-	try:
-		file_list1 = sudo_list_files(ROOTFS)
-		file_list2 = sudo_list_files(reconos_build_options.nfs_root)
-		res = sh_test("%s diff -y --suppress-common-lines %s %s"
-			% (sudo_cmd(), escapeForShell(file_list1), escapeForShell(file_list2)))
-		if res != 0:
-			logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
-	finally:
-		if file_list1:
-			Path(file_list1).remove()
-		if file_list2:
-			Path(file_list2).remove()
+	doLast {
+		logger.info("Wait for the board to contact us...")
+		if (sh_test("timeout 30 nc -l ${escapeForShell(host_ip)} 12342") != 0) {
+			logger.error(
+				"ERROR: The board didn't send the 'done' message within 30 seconds.")
 
-	authorized_keys_file = Path(reconos_build_options.nfs_root, "root", ".ssh", "authorized_keys")
-	ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
-	if authorized_keys_file.exists():
-		sh("%s chown root:root %s" % (sudo_cmd(), escapeForShell(ssh_dirs_and_files)))
-		if reconos_build_options.nfs_no_sudo:
-			st = os.stat(authorized_keys_file)
-			if st.st_uid != 0 or st.st_gid != 0:
+			if (!can_ping(host_ip)) {
 				logger.error(heredoc("""
-					ERROR: The authorized_keys file must belong to root, but it doesn't. We won't
-					       be able to connect to the board. Please make sure that the NFS options
-					       are correct (see help of --nfs-no-sudo).
+					ERROR: I cannot ping $host_ip, so I think for some reason your IP got reset.
+					  Please make sure that you use an ethernet switch (i.e. don't
+					  directly connect your PC to the board) or make sure that the IP
+					  settings survive a reset of the ethernet connection (i.e. set them
+					  in NetworkManager or similar).
 					"""))
-				sys.exit(1)
-		for file_or_dir in ssh_dirs_and_files:
-			if file_or_dir.isdir():
-				rights = "700"
-			else:
-				rights = "600"
-			sh("%s chmod %s %s" % (sudo_cmd(), rights, escapeForShell(file_or_dir)))
+				throw new GradleException("I cannot ping the local host ($host_ip).")
+			}
 
-def sudo_append_to(file, *lines):
-	text = "\n".join(lines) + "\n"
-	sh(ShellEscaped("echo %s | %s tee -a %s >/dev/null") % (text, sudo_cmd(), file))
+			if (!can_ping(board_ip)) {
+				logger.error(
+					"I cannot ping the board ($board_ip). This is a bad sign. I will try to continue anyway.")
+			} else {
+				logger.warn("I didn't get any reply from the board. I will try to continue anyway. " +
+					"However, you should fix the underlying problem, so I won't waste time waiting " +
+					" until the timeout.")
+			}
+		}
+	}
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "reconos_config", "update_nfsroot")
-def boot_zynq():
-	if reconos_build_options.nfs_mount == "":
-		if reconos_build_options.nfs_no_sudo:
-			logger.warn("WARNING: You have set --nfs-no-sudo, but not --nfs-mount. I will now try to create the "
-				+ "NFS share without using sudo. This will most likely fail!")
+task bootZynq {
+	dependsOn downloadImagesToZynq, downloadBitfileToZynq, waitForBootingBoard
+}
 
-		# create NFS share for the board
-		sudo_modify_by("/etc/exports",
-			ShellEscaped("grep -v %s") % reconos_build_options.nfs_root)
-		sudo_append_to("/etc/exports",
-			"%s %s(rw,no_root_squash,no_subtree_check)" % (reconos_build_options.nfs_root, reconos_build_options.board_ip))
-		sh("%s exportfs -rav" % sudo_cmd())
+def getBoardPubkey(keytype) {
+	def infofile = path(local_nfs_root, "etc", "dropbear", "dropbear_${keytype}_host_key.info")
+	return (infofile.text =~ /(?m)^ssh-\S+\s+\S+/)[0]
+}
 
-	#TODO this should be in git...
-	edk_project_dir = Path(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
-	Path(FILES, "ps7_init.tcl").copy(Path(edk_project_dir, "ps7_init.tcl"))
+def pubkeyIsInKnownHosts(hostname, pubkey) {
+	return 0 == sh_test("ssh-keygen -F ${escapeForShell(hostname)} | grep -q ${escapeForShell(pubkey)}")
+}
 
-	# The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
-	# have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
-	# we fix this.
-	cse_dir = Path("~/.cse").expand_user()
-	if cse_dir.exists() and cse_dir.stat().st_uid == 0:
-		if reconos_build_options.nfs_no_sudo:
-			logger.error("~/.cse is owned by root. Please run: sudo chown -R \"$USER\" ~/.cse")
-			sys.exit(1)
-		else:
-			sh('sudo chown -R "$USER" ~/.cse')
+task prepareSsh {
+	dependsOn checkHostIp
+	mustRunAfter bootZynq
 
-	#NOTE If this fails because it doesn't find the cable, install the cable drivers:
-	#     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
-	cd_verbose(ROOT)
-	sh(escapeForShell([
-		"bash",
-		"zynq_boot_tftp.sh",
-		Path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
-		Path(edk_project_dir, "device_tree.dtb"),
-		Path(edk_project_dir, "ps7_init.tcl"),
-		Path(ROOT, "u-boot-xlnx", "u-boot")
-		]))
+	requiredProperty "local_nfs_root"
 
-	bitfile = Path(edk_project_dir, "implementation", "system.bit")
-	run_xmd("fpga -f %s" % escapeForShell(bitfile))
+	doLast {
+		def pubkey = getBoardPubkey("rsa")
 
-	logger.info("The board should be booting, now.")
-	logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
+		if (pubkey && !pubkeyIsInKnownHosts(board_ip, pubkey)) {
+			// board key is not in known_hosts, so we remove any old ones and add the new one
+			sh("ssh-keygen -R ${escapeForShell(board_ip)}")
+			def home_dir = System.getenv()["HOME"]
+			path(home_dir, ".ssh", "known_hosts").withWriterAppend { out ->
+				out.write("$board_ip $pubkey\n")
+			}
+			// re-hash the file
+			sh("ssh-keygen -H")
+		}
+	}
+}
 
+def ssh_zynq_special(command, redirects="") {
+	sh("ssh -o PubkeyAuthentication=yes root@${board_ip} ${escapeForShell(command)} ${redirects}")
+}
 
-	# wait for the board to contact us
-	if sh_test(ShellEscaped("timeout 30 nc -l %s 12342") % reconos_build_options.host_ip) != 0:
-		logger.error(
-			"ERROR: The board didn't send the 'done' message within 30 seconds.")
-
-		if not can_ping(reconos_build_options.host_ip):
-			logger.error(heredoc("""
-				ERROR: I cannot ping %s, so I think for some reason your IP got reset.
-				  Please make sure that you use an ethernet switch (i.e. don't
-				  directly connect your PC to the board) or make sure that the IP
-				  settings survive a reset of the ethernet connection (i.e. set them
-				  in NetworkManager or similar).
-				""" % (reconos_build_options.host_ip)))
-			sys.exit(1)
-		if not can_ping(reconos_build_options.board_ip):
-			logger.warn(
-				"WARNING: I cannot ping the board (%s). This is a bad sign.", reconos_build_options.board_ip)
-
-		sys.exit(1)
-
-def get_board_pubkey(keytype):
-	infofile = Path(reconos_build_options.nfs_root, "etc", "dropbear", "dropbear_%s_host_key.info" % keytype)
-	text = infofile.read_file()
-	return re.search("^(ssh-\S+\s+\S+)", text, re.MULTILINE).group(1)
-
-def pubkey_is_in_known_hosts(hostname, pubkey):
-	return 0 == sh_test("ssh-keygen -F %s | grep -q %s" %
-		(escapeForShell(hostname), escapeForShell(pubkey)))
-
-@task
-@cmdoptsgroup("reconos_build")
-def prepare_ssh():
-	pubkey = get_board_pubkey("rsa")
-
-	if pubkey and not pubkey_is_in_known_hosts(reconos_build_options.board_ip, pubkey):
-		# board key is not in known_hosts, so we remove any old ones and add the new one
-		sh("ssh-keygen -R %s" % reconos_build_options.board_ip)
-		append_file(
-			Path("~", ".ssh", "known_hosts").expand_user(),
-			"%s %s\n" % (reconos_build_options.board_ip, pubkey))
-		# re-hash the file
-		sh("ssh-keygen -H")
-
-def ssh_zynq_special(command, redirects=""):
-	sh("ssh -o PubkeyAuthentication=yes root@%s %s %s"
-		% (reconos_build_options.board_ip, escapeForShell(command), redirects))
-
-def ssh_zynq(*command):
+def ssh_zynq(...command) {
 	return ssh_zynq_special(command)
+}
 
+def copy_to_zynq(local_file, file_on_zynq) {
+	ssh_zynq_special("cat >${escapeForShell(file_on_zynq)}", "<${escapeForShell(local_file)} >/dev/null")
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "prepare_ssh")
-def ssh_shell():
-	ssh_zynq()
+task sshShell {
+	dependsOn prepareSsh
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "prepare_ssh")
-def run_demo():
-	demo_args = from_env("DEMO_ARGS", "2 2 50")
+	doLast {
+		ssh_zynq()
+	}
+}
 
-	ssh_zynq_special("cat >%s" % escapeForShell(Path("/tmp", reconos_build_options.demo)),
-		"<%s" % escapeForShell(Path(ROOT, "reconos", "demos", reconos_build_options.demo, "linux", reconos_build_options.demo)))
-	ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (reconos_build_options.demo, reconos_build_options.demo, demo_args))
+task runDemo {
+	dependsOn prepareSsh
+	
+	doLast {
+		def demo_args = "2 2 50"
+		def demo = compileReconosDemoLinux.demo
+		def demo_binary = path(compileReconosDemoLinux.demoDir, "linux", demo)
+		def demo_on_target = path("/tmp", demo)
+		copy_to_zynq(demo_binary, demo_on_target)
 
-@task
-@needs("update_nfsroot", "boot_zynq", "run_demo")
-def boot_zynq_and_run_demo():
-	pass
+		demo_on_target = escapeForShell(demo_on_target)
+		ssh_zynq("chmod +x $demo_on_target && $demo_on_target $demo_args")
+	}
+}
 
-@task
-@needs("build", "boot_zynq_and_run_demo")
-def build_and_run():
-	pass
+task bootZynqAndRunDemo {
+	dependsOn updateNfsRoot, bootZynq, runDemo
+}
 
-@task
-@needs("clean", "build_and_run")
-def clean_build_and_run():
-	pass
+task compileAndRun {
+	dependsOn compile, buildRootfs, bootZynqAndRunDemo
+}
 
-*/
+task cleanCompileAndRun {
+	dependsOn clean, compileAndRun
+}
