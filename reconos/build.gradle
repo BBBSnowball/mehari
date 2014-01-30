@@ -831,7 +831,7 @@ task installDropbearConfig {
 			chmod(ssh_dir, 0755)
 			chmod(authorized_keys, 0600)
 
-			sh("chmod root:root ${escapeForShell(authorized_keys)} ${escapeForShell(ssh_dir)} ${escapeForShell(home_dir)}")
+			sh("chown root:root ${escapeForShell(authorized_keys)} ${escapeForShell(ssh_dir)} ${escapeForShell(home_dir)}")
 		}
 
 		def shells = ""
