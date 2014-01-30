@@ -53,6 +53,9 @@ check_program tar
 check_program cut
 check_program wc
 check_program realpath
+check_program timeout
+check_program stat
+check_program nc netcat-openbsd
 
 if ! which make >/dev/null || ! which gcc >/dev/null || ! which ld >/dev/null ; then
 	echo -n "We need a working build system. This usually means gcc, make, binutils and " >&2
@@ -82,10 +85,19 @@ if ! sed --version | grep -q "^GNU sed version" ; then
 	echo "Please install a GNU sed and make sure we get it, when we call 'sed' (not gsed)." >&2
 	exit 1
 fi
+
 if ! make --version | grep -q "^GNU Make [0-9]" ; then
 	# Mac OS has BSD tools by default and GNU tools have a 'g' prefix when installed by macports.
 	# Other systems may also have an incompatible make implementation, e.g. nmake on Windows.
 	echo "Please install a GNU make and make sure we get it, when we call 'make' (not gmake)." >&2
+	exit 1
+fi
+
+if ! nc -h | grep -q "^OpenBSD netcat" ; then
+	# Mac OS has BSD tools by default and GNU tools have a 'g' prefix when installed by macports.
+	# Other systems may also have an incompatible make implementation, e.g. nmake on Windows.
+	echo "Please install OpenBSD netcat. On Debian, you should use the netcat-openbsd package " >&2
+	echo "(do not install netcat-traditional)." >&2
 	exit 1
 fi
 
