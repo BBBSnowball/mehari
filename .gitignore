@@ -10,6 +10,7 @@
 
 # build results
 _install
+_build
 /buildSrc/build
 
 # llvm optimization results
