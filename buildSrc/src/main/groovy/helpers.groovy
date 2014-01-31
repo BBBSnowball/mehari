@@ -83,7 +83,8 @@ class helpers {
 		if (use_shell)
 			cmd = [shell, "-c", cmd]
 		def process = cmd.execute()
-		if (process.waitFor() == 0)
+		def res = process.waitFor()
+		if (res == 0)
 			return process.text
 		else
 			throw new GradleException("System command returned non-zero status (exit status is $res): " + cmd.inspect())
