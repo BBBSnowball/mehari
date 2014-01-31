@@ -325,6 +325,14 @@ task patchUboot(type: Exec) {
 	workingDir file("u-boot-xlnx")
 
 	mustRunAfter cleanUboot
+
+	doFirst {
+		def uboot_dir = escapeForShell(file("u-boot-xlnx"))
+		sh("cd $uboot_dir && git checkout include/configs/zynq_common.h include/configs/zynq_zed.h")
+	}
+
+	inputs.file path(FILES, 'u-boot-xlnx-zynq.patch')
+	outputs.files { fileTree(file("u-boot-xlnx")) { include "include/configs/zynq_common.h", "include/configs/zynq_zed.h" } }
 }
 
 def sedTask(name, expr, file, configClosure=null) {
@@ -339,7 +347,7 @@ def sedTask(name, expr, file, configClosure=null) {
 	task(name, type: Exec) {
 		commandLine(["sed", "-i"] + expr + [file])
 
-		inputs.file file
+		//inputs.file file  // task is not up-to-date, if output changes, so we don't need it as input
 		outputs.file file
 		inputs.property "sed-expressions", expr
 	}
@@ -373,10 +381,62 @@ def crosscompileMakeTask(name, targets, configClosure=null) {
 		tasks[name].configure(configClosure)
 }
 
+def eachDirRecurseIncludingSelf(directory, closure) {
+	closure(directory)
+	directory.eachDirRecurse(closure)
+}
+
+def filesInGit(directory) {
+	// I would use a fileTree to find .gitignore files, but fileTree seems to ignore hidden files.
+	// def gitignoreFiles = fileTree(directory).include("**/.gitignore")
+	directory = file(directory)
+	return fileTree(directory) {
+		eachDirRecurseIncludingSelf(directory) { subdir ->
+			def gitignoreFile = new File(subdir, ".gitignore")
+			if (gitignoreFile.exists()) {
+				//println(gitignoreFile)
+				def gitignorePath = (subdir.getPath() + "/").substring(directory.getPath().size()+1)
+				gitignoreFile.eachLine { line ->
+					if (line ==~ /^\s*#.*/ || line ==~ /^\s*$/) {
+						// ignore
+					} else {
+						line = line.trim()
+						String excludePattern
+						if (line.startsWith("/")) {
+							excludePattern = gitignorePath + line.substring(1)
+						} else {
+							excludePattern = gitignorePath + "**/" + line
+						}
+						//println("exclude: " + excludePattern)
+						exclude excludePattern
+					}
+				}
+			}
+		}
+	}
+}
+
 crosscompileMakeTask("compileUboot", "zynq_zed") {
 	workingDir file("u-boot-xlnx")
 
 	dependsOn patchUboot, applyConfigToUboot
+
+	inputs.files filesInGit("u-boot-xlnx")
+	outputs.files fileTree("u-boot-xlnx") {
+		//include "*.o", "*.su"
+		include "u-boot"		// used by downloadImagesToZynq
+		include "tools/mkimage"	// used by compileKernelImage
+
+		// some more files (but not all)
+		include "u-boot.bin"
+		include "u-boot.lds"
+		include "u-boot.map"
+		include "u-boot.srec"
+		include "System.map"
+		include "tools/gen_eth_addr", "tools/img2srec", "tools/kernel-doc/docproc",
+			"tools/mkenvimage", "tools/mkimage", "tools/proftool"
+
+	}
 }
 
 crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
@@ -389,11 +449,25 @@ crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
 	dependsOn configureKernel
 	// U-boot has the mkimage tool we need to package the kernel, so we have to build that first
 	dependsOn compileUboot
+
+	inputs.files filesInGit("linux-xlnx")
+	inputs.file rootPath("linux-xlnx", ".config")
+	outputs.files fileTree("linux-xlnx") {
+		include "arch/arm/boot/uImage"
+		include "scripts/dtc/dtc"	//TODO is it build by this?
+	}
 }
 crosscompileMakeTask("compileKernelModules", ["modules"]) {
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
 	shouldRunAfter compileKernelImage
+
+	inputs.files filesInGit("linux-xlnx")
+	inputs.file rootPath("linux-xlnx", ".config")
+	outputs.files fileTree("linux-xlnx") {
+		include "**/*.ko"
+		include "**/modules.order", "**/modules.builtin"
+	}
 }
 
 task compileKernel() {
@@ -418,6 +492,13 @@ sedTask("applyConfigToBusybox", "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\\\"${ROOTFS.
 crosscompileMakeTask("compileBusybox", []) {
 	dependsOn copyBusyboxConfig, applyConfigToBusybox
 	workingDir rootPath("busybox")
+
+	inputs.files filesInGit("busybox")
+	outputs.files fileTree("busybox") {
+		include "busybox"
+		include "busybox.links"
+		include "**/*.a"
+	}
 }
 
 ext._getCrosscompileEnvvarAfterReconosConfig_cache = null
@@ -527,19 +608,121 @@ def demoHwDir(...suffix) {
 	return rootPath(demoDir, "hw", *suffix)
 }
 
+def getVariablesFromShell(cmd, variablenames) {
+	variablenames.each { varname ->
+		cmd += " && echo \"${varname}=\$${varname}\""
+	}
+	def values = [:]
+	backticks(cmd, "bash").split("\n")*.split("=", 2).each { pair ->
+		values[pair[0]] = pair[1]
+	}
+	return values
+}
+
+ext._reconosInfoCache = null
+def getReconosInfo(varname=null) {
+	if (_reconosInfoCache == null) {
+		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null"
+		_reconosInfoCache = getVariablesFromShell(cmd, ["RECONOS", "RECONOS_ARCH", "RECONOS_OS"])
+	}
+
+	if (varname == null)
+		return _reconosInfoCache
+	else if (_reconosInfoCache.containsKey(varname))
+		return _reconosInfoCache[varname]
+	else
+		throw new GradleException("invalid reconOS variable name: $varname")
+}
+ext._reconosConfigurationFileCache = [:]
+def getReconosConfigFileInfo(configfile, varname=null) {
+	configfile = new File(configfile.toString()).canonicalPath
+	if (!_reconosConfigurationFileCache.containsKey(configfile)) {
+		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null && . ${escapeForShell(configfile)} >/dev/null"
+		def interesting_vars = ["base_design", "num_static_hwts", "static_hwts", "num_reconf_regions",
+			"num_reconf_hwts", "reconf_hwts"]
+		_reconosConfigurationFileCache[configfile] = getVariablesFromShell(cmd, interesting_vars)
+	}
+
+	if (varname == null)
+		return _reconosConfigurationFileCache[configfile]
+	else if (_reconosConfigurationFileCache[configfile].containsKey(varname))
+		return _reconosConfigurationFileCache[configfile][varname]
+	else
+		throw new GradleException("invalid reconOS config variable name: $varname")
+}
+
+class LazyValue {
+	private def value
+	private def closure
+
+	public LazyValue(closure) {
+		this.closure = closure
+	}
+
+	public def getValue() {
+		if (this.closure != null) {
+			this.value = this.closure()
+			this.closure = null
+		}
+
+		return this.value
+	}
+
+	@Override
+	public String toString() {
+		return this.getValue()
+	}
+}
+def lazyValue(closure) {
+	return new LazyValue(closure)
+}
+
 task prepareReconosDemoHardware(type: Exec) {
 	def demo = compileReconosDemoLinux.demo
 	workingDir demoHwDir()
 
 	dependsOn reconosConfig
+	mustRunAfter cleanReconos
 
 	//TODO get design for 14.7 from Christoph
 	//     Then set version before executing the script.
 	//     sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
+	//TODO Make sure that this change doesn't cause unnecessary recompiles.
 
-	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && bash reconos_setup.sh setup_zynq"
+	def setup_script = demoHwDir("setup_zynq")
+	def base_design = lazyValue { getReconosConfigFileInfo(setup_script, "base_design") }
+	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
+	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
+	def RECONOS      = lazyValue { getReconosInfo("RECONOS")      }
+	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
+	def usedHwThreads = lazyValue {
+		def all_hwts = getReconosConfigFileInfo(setup_script, "static_hwts") + " " +
+			getReconosConfigFileInfo(setup_script, "reconf_hwts")
+		all_hwts = all_hwts.tokenize()*.replaceFirst(/#.*$/, "").unique()
+	}
 
-	mustRunAfter cleanReconos
+	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+		"rm -rf edk_${RECONOS_ARCH}_${RECONOS_OS} && " +
+		"bash reconos_setup.sh setup_zynq"
+
+	inputs.file setup_script
+	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
+	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
+	inputs.property("base_design" ) { base_design.value }
+	inputs.dir { path(RECONOS.value, "tools") }
+	inputs.dir { path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
+	inputs.dir { path(RECONOS.value, "pcores") }
+	inputs.files { fileTree(demoHwDir("hw")) { usedHwThreads.value.each { hwt -> include hwt } } }
+	outputs.dir {
+		fileTree(edk_dir.toString()) {
+			exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
+			exclude "system.mhs.orig", "ps_clock_registers.log", "system.log"
+			exclude "device_tree.dts", "device_tree.dtb"
+
+			// created by this task, but changed later
+			exclude "system_incl.make", "system.make", "system.xmp"
+		}
+	}
 }
 
 import org.gradle.process.internal.ExecActionFactory
@@ -566,16 +749,26 @@ def run_xps(project, commands, workingDir=null, task=null) {
 
 task compileReconosDemoHardwareBitstream {
 	dependsOn reconosConfig, prepareReconosDemoHardware
-}
-compileReconosDemoHardwareBitstream << {
-	def demo = compileReconosDemoLinux.demo
-	def workingDir = demoHwDir("edk_zynq_linux")
 
-	//TODO keep __xps folder in git and use `make -f system.make bits`
-	//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
-	//     exits with status 35584). We should run it again in that case.
+	inputs.files { prepareReconosDemoHardware.outputs }
+	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
+	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
 
-	run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
+	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
+	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
+	outputs.files { fileTree(path(edk_dir, "implementation")) { include "*.bit" } }
+
+	doLast {
+		def demo = compileReconosDemoLinux.demo
+		def workingDir = demoHwDir("edk_zynq_linux")
+
+		//TODO keep __xps folder in git and use `make -f system.make bits`
+		//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
+		//     exits with status 35584). We should run it again in that case.
+
+		run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+	}
 }
 
 task copyReconosDeviceTree(type: Copy) {
@@ -894,7 +1087,7 @@ task copyFilesToNfsRoot(type: Copy) {
 }
 
 def fileAncestors(file) {
-	ancestors = []
+	def ancestors = []
 	while (file != null) {
 		ancestors.add(file)
 		file = file.parentFile
@@ -904,7 +1097,7 @@ def fileAncestors(file) {
 
 task fixPermissionsInNfsRoot(type: Exec) {
 	def authorized_keys_file = path(local_nfs_root, "root", ".ssh", "authorized_keys")
-	commandLine "chown", "root:root", *fileAncestors(authorized_keys_file).take(3)
+	commandLine("chown", "root:root", *fileAncestors(authorized_keys_file).take(3))
 
 	mustRunAfter copyFilesToNfsRoot
 	requiredProperty "local_nfs_root"
