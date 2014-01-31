@@ -1153,7 +1153,7 @@ task downloadImagesToZynq(type: Exec) {
 	//NOTE If this fails because it doesn't find the cable, install the cable drivers:
 	//     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
 	def edk_project_dir = demoHwDir("edk_zynq_linux")
-	commandLine "bash", "ynq_boot_tftp.sh",
+	commandLine "bash", "zynq_boot_tftp.sh",
 		path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
 		path(edk_project_dir, "device_tree.dtb"),
 		path(edk_project_dir, "ps7_init.tcl"),
