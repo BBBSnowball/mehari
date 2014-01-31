@@ -1110,7 +1110,7 @@ task warnAboutAdditionalFilesInNfsRoot {
 
 	doLast {
 		def exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-		def exclude_pattern = "/\\(" + exclude.collect(project.&escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
+		def exclude_pattern = "/\\(" + exclude.collect(escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
 		def exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
 
 		def list_files = { directory, listfile ->
@@ -1125,9 +1125,9 @@ task warnAboutAdditionalFilesInNfsRoot {
 			list_files(ROOTFS, files_in_rootfs)
 			list_files(local_nfs_root, files_in_nfsroot)
 
-			files_in_rootfs = escapeForShell(files_in_rootfs)
-			files_in_nfsroot = escapeForShell(files_in_nfsroot)
-			def res = sh_test("diff -y --suppress-common-lines $files_in_rootfs $files_in_nfsroot")
+			def files_in_rootfs_esc = escapeForShell(files_in_rootfs)
+			def files_in_nfsroot_esc = escapeForShell(files_in_nfsroot)
+			def res = sh_test("diff -y --suppress-common-lines $files_in_rootfs_esc $files_in_nfsroot_esc")
 		} finally {
 			if (files_in_rootfs.exists())
 				files_in_rootfs.delete()
