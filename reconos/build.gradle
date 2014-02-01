@@ -1209,7 +1209,7 @@ task waitForBootingBoard {
 
 	doLast {
 		logger.info("Wait for the board to contact us...")
-		if (sh_test("timeout 30 nc -l ${escapeForShell(host_ip)} 12342") != 0) {
+		if (sh_test("timeout 120 nc -l ${escapeForShell(host_ip)} 12342") != 0) {
 			logger.error(
 				"ERROR: The board didn't send the 'done' message within 30 seconds.")
 
