@@ -843,7 +843,7 @@ def get_init_info(file, key) {
 	project.file(file).withReader { rd ->
 		boolean inInitInfo = false
 		String line = null
-		while (line = rd.readLine()) {
+		while ((line = rd.readLine()) != null) {
 			if (line ==~ /^#+\s*BEGIN INIT INFO\s*$/)
 				inInitInfo = true
 			else if (line ==~ /^#+\s*END INIT INFO\s*$/)
