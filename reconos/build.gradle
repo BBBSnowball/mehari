@@ -1181,7 +1181,7 @@ task downloadImagesToZynq(type: Exec) {
 
 def run_xmd(commands) {
 	commands = escapeForShell(commands.toString() + " ; exit")
-	sh(". ${reconosConfig.reconosConfigScriptEscaped} && echo $commands | xmd")
+	sh(". ${reconosConfig.reconosConfigScriptEscaped} && echo $commands | xmd", "bash")
 }
 
 task downloadBitfileToZynq {
