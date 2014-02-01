@@ -96,6 +96,7 @@ task checkHostIp {
 
 task reconosConfig {
 	dependsOn checkSubmodules
+	mustRunAfter "cleanReconos"
 
 	recommendedProperty "xilinx_settings_script"
 	recommendedProperty "xilinx_version"

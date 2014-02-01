@@ -33,12 +33,6 @@ task prepareTools {
 	mustRunAfter checkSystemDependencies
 }
 
-task checkBeforeCompile {
-	dependsOn "reconos:checkBeforeCompile"
-
-	mustRunAfter checkSystemDependencies
-}
-
 forAllNormalTestTasks() { task ->
 	task.dependsOn prepareTools
 }
@@ -47,14 +41,20 @@ task clean {
 	dependsOn "llvm-optimizations-application:clean"
 	dependsOn "reconos:clean"
 
-	shouldRunAfter checkBeforeCompile
+	mustRunAfter checkSystemDependencies
+}
+
+task checkBeforeCompile {
+	dependsOn "reconos:checkBeforeCompile"
+
+	mustRunAfter checkSystemDependencies
 }
 
 task compile {
 	dependsOn "llvm-optimizations-application:createIrFiles"
 	dependsOn "reconos:compile"
 
-	mustRunAfter clean
+	mustRunAfter clean, checkBeforeCompile
 	shouldRunAfter checkBeforeCompile
 }
 
