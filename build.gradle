@@ -38,7 +38,6 @@ forAllNormalTestTasks() { task ->
 }
 
 task clean {
-	dependsOn "llvm-optimizations-application:clean"
 	dependsOn "reconos:clean"
 
 	mustRunAfter checkSystemDependencies
@@ -51,7 +50,6 @@ task checkBeforeCompile {
 }
 
 task compile {
-	dependsOn "llvm-optimizations-application:createIrFiles"
 	dependsOn "reconos:compile"
 
 	mustRunAfter clean, checkBeforeCompile
