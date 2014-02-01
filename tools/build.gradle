@@ -34,12 +34,6 @@ task testPythonCTemplate(type: Exec) {
 	outputs.file "python-ctemplate/python-ctemplate.tap"
 }
 
-task installPaver(type: SymLink) {
-	from "paver"
-	into "_install"
-	include "paver/**"
-}
-
 task installPythonHelpers(type: SymLink) {
 	from "python-helpers"
 	into "_install"

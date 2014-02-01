@@ -13,9 +13,6 @@
 [submodule "reconos/busybox"]
 	path = reconos/busybox
 	url = git://git.busybox.net/busybox
-[submodule "tools/paver"]
-	path = tools/paver
-	url = git@github.com:BBBSnowball/paver.git
 [submodule "tools/python-ctemplate"]
 	path = tools/python-ctemplate
 	url = git@github.com:BBBSnowball/ctemplate-python.git
