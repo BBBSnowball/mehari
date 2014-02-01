@@ -112,6 +112,8 @@ class helpers {
 	}
 
 	def escapeForShell(args) {
+		if (args != null && args.class.isArray())
+			args = args.toList()
 		if (args instanceof Collection)
 			return args.collect(this.&escapeOneForShell).join(" ")
 		else
