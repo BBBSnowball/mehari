@@ -1172,7 +1172,7 @@ task downloadImagesToZynq(type: Exec) {
 }
 
 def run_xmd(commands) {
-	commands = escapeForShell(str(commands) + " ; exit")
+	commands = escapeForShell(commands.toString() + " ; exit")
 	sh("echo $commands | xmd")
 }
 
