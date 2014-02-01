@@ -1173,7 +1173,7 @@ task downloadImagesToZynq(type: Exec) {
 
 def run_xmd(commands) {
 	commands = escapeForShell(commands.toString() + " ; exit")
-	sh("echo $commands | xmd")
+	sh(". ${reconosConfig.reconosConfigScriptEscaped} && echo $commands | xmd")
 }
 
 task downloadBitfileToZynq {
@@ -1182,8 +1182,8 @@ task downloadBitfileToZynq {
 		def bitfile = path(edk_project_dir, "implementation", "system.bit")
 		run_xmd("fpga -f ${escapeForShell(bitfile)}")
 	}
-	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
-	dependsOn compileReconosDemoHardwareBitstream
+	mustRunAfter checkHostIp, checkDigilentDriver, updateNfsRoot
+	dependsOn reconosConfig, compileReconosDemoHardwareBitstream
 	dependsOn createPs7InitFile
 	shouldRunAfter downloadImagesToZynq
 }
