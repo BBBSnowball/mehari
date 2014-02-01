@@ -1153,18 +1153,15 @@ task downloadImagesToZynq(type: Exec) {
 	//NOTE If this fails because it doesn't find the cable, install the cable drivers:
 	//     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
 	def edk_project_dir = demoHwDir("edk_zynq_linux")
-	commandLine "bash", "zynq_boot_tftp.sh",
+	def command = escapeForShell(["bash", "zynq_boot_tftp.sh",
 		path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
 		path(edk_project_dir, "device_tree.dtb"),
 		path(edk_project_dir, "ps7_init.tcl"),
-		path(ROOT, "u-boot-xlnx", "u-boot")
+		path(ROOT, "u-boot-xlnx", "u-boot")])
+	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && $command"
 	workingDir ROOT
-	doLast {
-		sh("cd ${escapeForShell(ROOT)} && " + escapeForShell([
-			"bash",
-			"zynq_boot_tftp.sh",
-			]))
 
+	doLast {
 		logger.info("The board should be booting, now.")
 		logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
 	}
