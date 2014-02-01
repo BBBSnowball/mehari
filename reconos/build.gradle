@@ -1044,6 +1044,13 @@ crosscompileMakeTask("installKernelModules", ["INSTALL_MOD_PATH="+ROOTFS, "modul
 	workingDir rootPath("linux-xlnx")
 
 	dependsOn compileKernelModules
+
+	doLast {
+		// "source" and "build" links don't make any sense on the target platform and
+		// they confuse some Gradle tasks (e.g. cleanRootfs and copyFilesToNfsRoot):
+		// They delete all files in linux-xlnx or truncate them.
+		sh("rm -f ${escapeForShell(ROOTFS)}/lib/modules/*/{source,build}", "bash")
+	}
 }
 
 task installReconos {
