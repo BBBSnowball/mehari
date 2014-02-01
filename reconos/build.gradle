@@ -543,7 +543,8 @@ task configureDropbear(type: Exec) {
 	outputs.file file("dropbear/config.h")
 
 	doFirst {
-		commandLine configureDropbearCommandline()
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			escapeForShell(configureDropbearCommandline())
 	}
 
 	mustRunAfter cleanDropbear
