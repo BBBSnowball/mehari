@@ -1,32 +1,3 @@
-ext.reconos_args = ["--host-ip", host_ip, "--board-ip", board_ip, "-j"+parallel_compilation_processes,
-	"--nfs-mount=" + nfs_mount, "--nfs-no-sudo", "--demo=sort_demo", "--nfs-root", local_nfs_root,
-	"--mac-address", board_mac_address]
-
-/*task clean(type: Exec) {
-	commandLine(["./pavement.py", "clean"] + reconos_args)
-
-	environmentFromConfig()
-}*/
-
-/*task compile(type: Exec) {
-	commandLine(["./pavement.py", "build"] + reconos_args)
-
-	environmentFromConfig()
-
-	mustRunAfter "clean"
-}*/
-
-task test(type: Exec) {
-	commandLine(["./pavement.py", "boot_zynq_and_run_demo"] + reconos_args)
-
-	environmentFromConfig()
-
-	dependsOn "compile"
-}
-
-
-
-
 ext.ROOT   = file(".")
 ext.FILES  = file("files")
 ext.ROOTFS = file("_install")
@@ -125,6 +96,7 @@ task checkHostIp {
 
 task reconosConfig {
 	dependsOn checkSubmodules
+	mustRunAfter "cleanReconos"
 
 	recommendedProperty "xilinx_settings_script"
 	recommendedProperty "xilinx_version"
@@ -203,20 +175,6 @@ task reconosConfig {
 			out.writeLine("export KDIR=\"$ROOT/linux-xlnx\"")
 			out.writeLine("export PATH=\"$ROOT/u-boot-xlnx/tools:\$PATH\"")
 		}
-
-		//TODO
-		//ROOT.chdir()
-		//source_shell_file("./reconos/tools/environment/setup_reconos_toolchain.sh")
-
-		//return {
-		//	'xil_tools':    xil_tools,
-		//	'gnutools':     gnutools,
-		//	'libc_dir':     libc_dir,
-		//	'reconos_arch': "zynq",
-		//	'reconos_os':   "linux",
-		//	'reconos_mmu':  True,
-		//	'kernel_dir':   Path(ROOT, "linux-xlnx")
-		//}
 	}
 }
 
@@ -267,7 +225,7 @@ task checkLibc {
 	}
 }
 
-task checkDigilentDriver {
+task checkDigilentDriverSimple {
 	dependsOn reconosConfig
 
 	doLast {
@@ -286,7 +244,28 @@ task checkDigilentDriver {
 	}
 }
 
-task check {
+def doesFileBelongToRoot(file) {
+	return backticks("stat -c %u ~/.cse").trim() == "0"
+}
+
+task checkDigilentDriver {
+	dependsOn checkDigilentDriverSimple
+
+	doLast {
+		// The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
+		// have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
+		// we fix this.
+		def env = System.getenv()
+		def cse_dir = path(env["HOME"], ".cse")
+		if (cse_dir.exists() && doesFileBelongToRoot(cse_dir) && env["USER"] != "root") {
+			// try to fix permissions
+			logger.warn("Permissions on $cse_dir are wrong (it belongs to root). I will try to fix that.")
+			sh('chown -R "$USER" ~/.cse')
+		}
+	}
+}
+
+task checkBeforeCompile {
 	dependsOn checkSubmodules, checkLibc, checkHostIp, checkDigilentDriver
 }
 
@@ -318,6 +297,14 @@ task patchUboot(type: Exec) {
 	workingDir file("u-boot-xlnx")
 
 	mustRunAfter cleanUboot
+
+	doFirst {
+		def uboot_dir = escapeForShell(file("u-boot-xlnx"))
+		sh("cd $uboot_dir && git checkout include/configs/zynq_common.h include/configs/zynq_zed.h")
+	}
+
+	inputs.file path(FILES, 'u-boot-xlnx-zynq.patch')
+	outputs.files { fileTree(file("u-boot-xlnx")) { include "include/configs/zynq_common.h", "include/configs/zynq_zed.h" } }
 }
 
 def sedTask(name, expr, file, configClosure=null) {
@@ -332,7 +319,7 @@ def sedTask(name, expr, file, configClosure=null) {
 	task(name, type: Exec) {
 		commandLine(["sed", "-i"] + expr + [file])
 
-		inputs.file file
+		//inputs.file file  // task is not up-to-date, if output changes, so we don't need it as input
 		outputs.file file
 		inputs.property "sed-expressions", expr
 	}
@@ -366,10 +353,62 @@ def crosscompileMakeTask(name, targets, configClosure=null) {
 		tasks[name].configure(configClosure)
 }
 
+def eachDirRecurseIncludingSelf(directory, closure) {
+	closure(directory)
+	directory.eachDirRecurse(closure)
+}
+
+def filesInGit(directory) {
+	// I would use a fileTree to find .gitignore files, but fileTree seems to ignore hidden files.
+	// def gitignoreFiles = fileTree(directory).include("**/.gitignore")
+	directory = file(directory)
+	return fileTree(directory) {
+		eachDirRecurseIncludingSelf(directory) { subdir ->
+			def gitignoreFile = new File(subdir, ".gitignore")
+			if (gitignoreFile.exists()) {
+				//println(gitignoreFile)
+				def gitignorePath = (subdir.getPath() + "/").substring(directory.getPath().size()+1)
+				gitignoreFile.eachLine { line ->
+					if (line ==~ /^\s*#.*/ || line ==~ /^\s*$/) {
+						// ignore
+					} else {
+						line = line.trim()
+						String excludePattern
+						if (line.startsWith("/")) {
+							excludePattern = gitignorePath + line.substring(1)
+						} else {
+							excludePattern = gitignorePath + "**/" + line
+						}
+						//println("exclude: " + excludePattern)
+						exclude excludePattern
+					}
+				}
+			}
+		}
+	}
+}
+
 crosscompileMakeTask("compileUboot", "zynq_zed") {
 	workingDir file("u-boot-xlnx")
 
 	dependsOn patchUboot, applyConfigToUboot
+
+	inputs.files filesInGit("u-boot-xlnx")
+	outputs.files fileTree("u-boot-xlnx") {
+		//include "*.o", "*.su"
+		include "u-boot"		// used by downloadImagesToZynq
+		include "tools/mkimage"	// used by compileKernelImage
+
+		// some more files (but not all)
+		include "u-boot.bin"
+		include "u-boot.lds"
+		include "u-boot.map"
+		include "u-boot.srec"
+		include "System.map"
+		include "tools/gen_eth_addr", "tools/img2srec", "tools/kernel-doc/docproc",
+			"tools/mkenvimage", "tools/mkimage", "tools/proftool"
+
+	}
 }
 
 crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
@@ -380,11 +419,27 @@ crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
 crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
+	// U-boot has the mkimage tool we need to package the kernel, so we have to build that first
+	dependsOn compileUboot
+
+	inputs.files filesInGit("linux-xlnx")
+	inputs.file rootPath("linux-xlnx", ".config")
+	outputs.files fileTree("linux-xlnx") {
+		include "arch/arm/boot/uImage"
+		include "scripts/dtc/dtc"	//TODO is it build by this?
+	}
 }
-crosscompileMakeTask("compileKernelModules", ["uImage", "LOADADDR=0x00008000"]) {
+crosscompileMakeTask("compileKernelModules", ["modules"]) {
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
 	shouldRunAfter compileKernelImage
+
+	inputs.files filesInGit("linux-xlnx")
+	inputs.file rootPath("linux-xlnx", ".config")
+	outputs.files fileTree("linux-xlnx") {
+		include "**/*.ko"
+		include "**/modules.order", "**/modules.builtin"
+	}
 }
 
 task compileKernel() {
@@ -392,7 +447,10 @@ task compileKernel() {
 }
 
 task copyBusyboxConfig(type: Copy) {
-	from rootPath(FILES, "busybox-config")
+	from(FILES) {
+		include "busybox-config"
+		rename "busybox-config", ".config"
+	}
 	into rootPath("busybox")
 
 	mustRunAfter cleanBusybox
@@ -406,6 +464,13 @@ sedTask("applyConfigToBusybox", "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\\\"${ROOTFS.
 crosscompileMakeTask("compileBusybox", []) {
 	dependsOn copyBusyboxConfig, applyConfigToBusybox
 	workingDir rootPath("busybox")
+
+	inputs.files filesInGit("busybox")
+	outputs.files fileTree("busybox") {
+		include "busybox"
+		include "busybox.links"
+		include "**/*.a"
+	}
 }
 
 ext._getCrosscompileEnvvarAfterReconosConfig_cache = null
@@ -450,7 +515,8 @@ task configureDropbear(type: Exec) {
 	outputs.file file("dropbear/config.h")
 
 	doFirst {
-		commandLine configureDropbearCommandline()
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			escapeForShell(configureDropbearCommandline())
 	}
 
 	mustRunAfter cleanDropbear
@@ -502,14 +568,86 @@ crosscompileMakeTask("compileReconosLib", []) {
 }
 crosscompileMakeTask("compileReconosDemoLinux", []) {
 	ext.demo = "sort_demo"
-	workingDir rootPath("reconos", "demos", demo, "linux")
+	ext.demoDir = rootPath("reconos", "demos", demo)
+	workingDir path(demoDir, "linux")
 
 	//requiredProperty "demo"
+
+	dependsOn compileReconosLib
 }
 
 def demoHwDir(...suffix) {
-	def demo = compileReconosDemoLinux.demo
-	return rootPath("reconos", "demos", demo, "hw", *suffix)
+	def demoDir = compileReconosDemoLinux.demoDir
+	return rootPath(demoDir, "hw", *suffix)
+}
+
+def getVariablesFromShell(cmd, variablenames) {
+	variablenames.each { varname ->
+		cmd += " && echo \"${varname}=\$${varname}\""
+	}
+	def values = [:]
+	backticks(cmd, "bash").split("\n")*.split("=", 2).each { pair ->
+		values[pair[0]] = pair[1]
+	}
+	return values
+}
+
+ext._reconosInfoCache = null
+def getReconosInfo(varname=null) {
+	if (_reconosInfoCache == null) {
+		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null"
+		_reconosInfoCache = getVariablesFromShell(cmd, ["RECONOS", "RECONOS_ARCH", "RECONOS_OS"])
+	}
+
+	if (varname == null)
+		return _reconosInfoCache
+	else if (_reconosInfoCache.containsKey(varname))
+		return _reconosInfoCache[varname]
+	else
+		throw new GradleException("invalid reconOS variable name: $varname")
+}
+ext._reconosConfigurationFileCache = [:]
+def getReconosConfigFileInfo(configfile, varname=null) {
+	configfile = new File(configfile.toString()).canonicalPath
+	if (!_reconosConfigurationFileCache.containsKey(configfile)) {
+		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null && . ${escapeForShell(configfile)} >/dev/null"
+		def interesting_vars = ["base_design", "num_static_hwts", "static_hwts", "num_reconf_regions",
+			"num_reconf_hwts", "reconf_hwts"]
+		_reconosConfigurationFileCache[configfile] = getVariablesFromShell(cmd, interesting_vars)
+	}
+
+	if (varname == null)
+		return _reconosConfigurationFileCache[configfile]
+	else if (_reconosConfigurationFileCache[configfile].containsKey(varname))
+		return _reconosConfigurationFileCache[configfile][varname]
+	else
+		throw new GradleException("invalid reconOS config variable name: $varname")
+}
+
+class LazyValue {
+	private def value
+	private def closure
+
+	public LazyValue(closure) {
+		this.closure = closure
+	}
+
+	public def getValue() {
+		if (this.closure != null) {
+			this.value = this.closure()
+			this.closure = null
+		}
+
+		return this.value
+	}
+
+	@Override
+	public String toString() {
+		return this.getValue()
+	}
+}
+def lazyValue(closure) {
+	return new LazyValue(closure)
 }
 
 task prepareReconosDemoHardware(type: Exec) {
@@ -517,14 +655,49 @@ task prepareReconosDemoHardware(type: Exec) {
 	workingDir demoHwDir()
 
 	dependsOn reconosConfig
+	mustRunAfter cleanReconos
 
 	//TODO get design for 14.7 from Christoph
 	//     Then set version before executing the script.
 	//     sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
+	//TODO Make sure that this change doesn't cause unnecessary recompiles.
 
-	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && bash reconos_setup.sh setup_zynq"
+	def setup_script = demoHwDir("setup_zynq")
+	def base_design = lazyValue { getReconosConfigFileInfo(setup_script, "base_design") }
+	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
+	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
+	def RECONOS      = lazyValue { getReconosInfo("RECONOS")      }
+	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
+	def usedHwThreads = lazyValue {
+		def all_hwts = getReconosConfigFileInfo(setup_script, "static_hwts") + " " +
+			getReconosConfigFileInfo(setup_script, "reconf_hwts")
+		all_hwts = all_hwts.tokenize()*.replaceFirst(/#.*$/, "").unique()
+	}
 
-	mustRunAfter cleanReconos
+	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+		"rm -rf edk_${RECONOS_ARCH}_${RECONOS_OS} && " +
+		"bash reconos_setup.sh setup_zynq"
+
+	inputs.file setup_script
+	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
+	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
+	inputs.property("base_design" ) { base_design.value }
+	inputs.dir { path(RECONOS.value, "tools") }
+	inputs.dir { path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
+	inputs.dir { path(RECONOS.value, "pcores") }
+	inputs.files { fileTree(demoHwDir()) { usedHwThreads.value.each { hwt -> include hwt } } }
+	outputs.dir {
+		fileTree(edk_dir.toString()) {
+			// created by other tasks
+			exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
+			exclude "system.mhs.orig", "ps_clock_registers.log", "system.log"
+			exclude "device_tree.dts", "device_tree.dtb"
+			exclude "ps7_init.tcl"
+
+			// created by this task, but changed later
+			exclude "system_incl.make", "system.make", "system.xmp"
+		}
+	}
 }
 
 import org.gradle.process.internal.ExecActionFactory
@@ -551,16 +724,26 @@ def run_xps(project, commands, workingDir=null, task=null) {
 
 task compileReconosDemoHardwareBitstream {
 	dependsOn reconosConfig, prepareReconosDemoHardware
-}
-compileReconosDemoHardwareBitstream << {
-	def demo = compileReconosDemoLinux.demo
-	def workingDir = demoHwDir("edk_zynq_linux")
 
-	//TODO keep __xps folder in git and use `make -f system.make bits`
-	//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
-	//     exits with status 35584). We should run it again in that case.
+	inputs.files { prepareReconosDemoHardware.outputs }
+	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
+	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
 
-	run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
+	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
+	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
+	outputs.files { fileTree(path(edk_dir, "implementation")) { include "*.bit" } }
+
+	doLast {
+		def demo = compileReconosDemoLinux.demo
+		def workingDir = demoHwDir("edk_zynq_linux")
+
+		//TODO keep __xps folder in git and use `make -f system.make bits`
+		//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
+		//     exits with status 35584). We should run it again in that case.
+
+		run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+	}
 }
 
 task copyReconosDeviceTree(type: Copy) {
@@ -573,7 +756,7 @@ def nfsMountForDeviceTree() {
 	if (hasProperty("nfs_mount"))
 		return project.nfs_mount
 	else
-		return "$host_ip:$nfs_root"
+		return "$host_ip:$local_nfs_root"
 }
 
 sedTask("applyConfigToReconosDeviceTree", [
@@ -581,6 +764,8 @@ sedTask("applyConfigToReconosDeviceTree", [
 		/s#\bip=[0-9.]\+:#ip=/ + board_ip + /:#/],
 		demoHwDir("edk_zynq_linux", "device_tree.dts")) {
 	dependsOn copyReconosDeviceTree
+	requiredProperty "board_ip"
+	requiredProperty "nfs_mount"
 }
 
 task prepareReconosDeviceTree {
@@ -605,14 +790,17 @@ task compileReconos {
 	dependsOn compileReconosDriver, compileReconosLib, compileReconosDemoLinux, compileReconosDemoHardware
 }
 
-task buildRootfs { /*TODO*/ }
-
 task compile {
-	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos, buildRootfs
+	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos
+
+	shouldRunAfter checkBeforeCompile
 }
 
 crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
 	workingDir rootPath("busybox")
+
+	dependsOn compileBusybox
+	shouldRunAfter compile
 
 	doLast {
 		def tempfile_not_ignored = rootPath("busybox",  "busybox.links")
@@ -625,395 +813,499 @@ crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
 	}
 }
 
-/*
+def get_init_info(file, key) {
+	project.file(file).withReader { rd ->
+		boolean inInitInfo = false
+		String line = null
+		while ((line = rd.readLine()) != null) {
+			if (line ==~ /^#+\s*BEGIN INIT INFO\s*$/)
+				inInitInfo = true
+			else if (line ==~ /^#+\s*END INIT INFO\s*$/)
+				return null
+			else if (inInitInfo) {
+				def m = (line =~ /(?i)^#\s*/ + escapeForRegex(key) + /:\s*(.*)$/)
+				if (m)
+					return m.group(1).trim()
+			}
+		}
+		return null
+	}
+}
 
-def sudo_cmd():
-	if reconos_build_options.nfs_no_sudo:
-		return ""
-	else:
-		return "sudo"
-
-def sudo_modify_by(file, *command):
-	x, tmpfile = tempfile.mkstemp()
-	Path(file).copy(tmpfile)
-	sh(ShellEscaped("%s <%s | %s tee %s >/dev/null")
-		% (command, tmpfile, sudo_cmd(), file))
-	Path(tmpfile).remove()
-
-def run_xmd(commands):
-	commands = escapeForShell(str(commands) + " ; exit")
-	sh("echo %s | xmd" % commands)
-
-
-
-
-
-def sed_backticks(expr, file, noprint = False):
-	if isinstance(expr, (tuple, list)):
-		exprs = map(escapeForShell, expr)
-		expr = "-e " + " -e ".join(exprs)
-	else:
-		expr = escapeForShell(expr)
-	file = escapeForShell(file)
-	if noprint:
-		flags = "-n"
-	else:
-		flags = ""
-	return backticks('sed %s %s <%s' % (flags, expr, file))
-
-
-def get_init_info(file, key):
-	return sed_backticks(
-		r'/^#\+\s*BEGIN INIT INFO\s*$/,/^#\+\s*END INIT INFO\s*$/ s/^#\s*%s:\s*\(.*\)$/\1/pi' % key,
-		file,
-		noprint=True).strip()
-
-def get_order(file, start_or_stop):
-	order = get_init_info(file, "%s-order" % start_or_stop)
-	if order:
+def get_order(file, start_or_stop) {
+	def order = get_init_info(file, "${start_or_stop}-order")
+	if (order)
 		return order
-	else:
+	else {
 		order = get_init_info(file, "order")
 
-		if start_or_stop == "start":
+		if (start_or_stop == "start")
 			return order
-		else:
-			if order:
-				return "%02u" % (100 - int(order))
-			else:
+		else {
+			if (order)
+				return String.format("%02d", 100 - order.toInteger())
+			else
 				return ""
+		}
+	}
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-def install_base_system():
-	cd_verbose(ROOTFS)
-	for dir in ["dev", "dev/pts",
-			"etc", "etc/init.d", "etc/rc.d", "etc/default",
-			"lib", "mnt", "opt", "proc", "root", "sys", "tmp",
-			"var","var/run", "var/log"]:
-		Path(ROOTFS, *dir.split("/")).mkdir()
+import groovy.io.FileType
 
-	rc_script = Path("etc", "rcS")
-	Path(FILES, "startup-script.sh").copy(rc_script)
-	rc_script.chmod(0755)
-	Path(FILES, "inittab").copy(Path("etc", "inittab"))
-	Path(FILES, "fstab"  ).copy(Path("etc", "fstab"  ))
+def symlink(target, link) {
+	target = FileLinkAction.getRelativePath(file(target), file(link).parentFile)
+	sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
+}
 
-	for dir in ["init.d", "rc.d"]:
-		Path(ROOTFS, "etc", dir).rmtree()
-		Path(ROOTFS, "etc", dir).mkdir()
+def touch(file) {
+	file.withWriterAppend { out -> out.write("") }
+}
 
-	for initd_script in glob.glob(Path(FILES, "init.d", "*")):
-		src = Path(initd_script)
-		name = src.name
-		dst = Path(ROOTFS, "etc", "init.d", name)
-		src.copy(dst)
-		dst.chmod(0755)
+def chmod(file, permissions) {
+	permissions = String.format("0%o", permissions)
+	sh("chmod $permissions ${escapeForShell(file)}")
+}
 
-		start_order = get_order(dst, "start")
-		stop_order  = get_order(dst, "stop")
+task installBaseSystem {
+	requiredProperty "host_ip"
 
-		if start_order:
-			Path(ROOTFS, "etc", "rc.d", "S%s%s" % (start_order, name)).make_relative_link_to(dst)
+	doLast {
+		for (dir in ["dev", "dev/pts",
+				"etc", "etc/init.d", "etc/rc.d", "etc/default",
+				"lib", "mnt", "opt", "proc", "root", "sys", "tmp",
+				"var","var/run", "var/log"])
+			path(ROOTFS, *dir.split("/")).mkdirs()
 
-		if stop_order:
-			Path(ROOTFS, "etc", "rc.d", "K%s%s" % (start_order, name)).make_relative_link_to(dst)
+		def rc_script = path(ROOTFS, "etc", "rcS")
+		project.copyFile(path(FILES, "startup-script.sh"), rc_script)
+		chmod(rc_script, 0755)
+		project.copyFile(path(FILES, "inittab"), path(ROOTFS, "etc", "inittab"))
+		project.copyFile(path(FILES, "fstab"  ), path(ROOTFS, "etc", "fstab"  ))
 
-	Path(ROOTFS, "etc", "default", "notify-host").write_file(
-		"NOTIFY_HOST=" + escapeForShell(reconos_build_options.host_ip) + "\n")
+		for (dir in ["init.d", "rc.d"]) {
+			path(ROOTFS, "etc", dir).deleteDir()
+			path(ROOTFS, "etc", dir).mkdir()
+		}
+
+		path(FILES, "init.d").eachFile(FileType.FILES) { initd_script ->
+			def src = initd_script
+			def name = src.name
+			def dst = path(ROOTFS, "etc", "init.d", name)
+			project.copyFile(src, dst)
+			chmod(dst, 0755)
+
+			def start_order = get_order(dst, "start")
+			def stop_order  = get_order(dst, "stop")
+
+			if (start_order)
+				symlink(dst, path(ROOTFS, "etc", "rc.d", "S${start_order}${name}"))
+
+			if (stop_order)
+				symlink(dst, path(ROOTFS, "etc", "rc.d", "K${stop_order}${name}"))
+		}
+
+		path(ROOTFS, "etc", "default", "notify-host").withWriter { out ->
+			out.writeLine("NOTIFY_HOST=" + escapeForShell(host_ip))
+		}
 
 
-	Path(ROOTFS, "etc", "passwd").write_file(
-		"root:x:0:0:root:/root:/bin/ash\n")
-	Path(ROOTFS, "etc", "group").write_file(
-		"root:x:0:\n")
+		path(ROOTFS, "etc", "passwd").withWriter { out ->
+			out.writeLine("root:x:0:0:root:/root:/bin/ash")
+		}
+		path(ROOTFS, "etc", "group").withWriter { out ->
+			out.writeLine("root:x:0:")
+		}
 
-	# see http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
-	Path(ROOTFS, "etc", "nsswitch.conf").write_file(heredoc("""
-		passwd: files
-		group: files
-		shadow: files
+		// see http://cross-lfs.org/view/clfs-sysroot/arm/cross-tools/eglibc.html
+		path(ROOTFS, "etc", "nsswitch.conf").withWriter { out ->
+			out.write(heredoc("""
+				passwd: files
+				group: files
+				shadow: files
 
-		hosts: files dns
-		networks: files
+				hosts: files dns
+				networks: files
 
-		protocols: files
-		services: files
-		ethers: files
-		rpc: files
-		"""))
-	
-	Path("/etc/localtime").copy(Path(ROOTFS, "etc", "localtime"))
+				protocols: files
+				services: files
+				ethers: files
+				rpc: files
+				"""))
+		}
+		
+		project.copyFile(path("/etc/localtime"), path(ROOTFS, "etc", "localtime"))
 
-	# eglibc doc (see above) suggest that we add `/usr/local/lib` and `/opt/lib`,
-	# but we don't use them
-	touch(Path(ROOTFS, "etc", "ld.so.conf"))
+		// eglibc doc (see above) suggest that we add `/usr/local/lib` and `/opt/lib`,
+		// but we don't use them
+		touch(path(ROOTFS, "etc", "ld.so.conf"))
+	}
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("reconos_config")
-def install_libc():
-	# We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
-	# a list of the locales we do want.
-	# Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
-	included_locales = ["en_US", "en_US.utf8", "de_DE.utf8"]
-	locale_directories = map(lambda locale: "usr/lib/locale/"+locale, included_locales)
+//TODO Copy tasks cannot handle symlinks, so we may want to switch to something else. However,
+//     we only have about 40 symlinks in /lib and /usr/lib.
+task installLibc(type: Copy) {
+	dependsOn reconosConfig
 
-	# copy libc files
-	libc_dir = get_libc_dir_after_reconos_config()
-	sh("tar -c -C %s . --exclude=usr/lib/locale --exclude=usr/include | tar -x -C %s"
-		% (escapeForShell(libc_dir), escapeForShell(ROOTFS)))
-	sh("tar -c -C %s %s | tar -x -C %s"
-		% (escapeForShell(libc_dir), escapeForShell(locale_directories), escapeForShell(ROOTFS)))
+	from { reconosConfig.libc_dir }
+	into ROOTFS
 
-@task
-@cmdoptsgroup("reconos_build")
-def install_dropbear():
-	reconos_config()
+	exclude "usr/include"
 
-	CROSS_COMPILE = os.environ["CROSS_COMPILE"]
-	TOOLCHAIN_BIN_DIR = Path(CROSS_COMPILE).parent
+	// We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
+	// a list of the locales we do want.
+	// Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
+	ext.includedLocales = ["en_US", "en_US.utf8", "de_DE.utf8"]
+	exclude {
+		def m = (it.relativePath =~ "^usr/(lib/)?locale/([^/]+).*")
+		def shouldExclude = (m && !includedLocales.contains(m[0][2]))
+		println("${shouldExclude?'exclude':'include'} ${it.relativePath}")
+		return shouldExclude
+	}
+}
 
-	cd_verbose(ROOT, "dropbear")
+crosscompileMakeTask("installDropbearFiles", ["prefix="+ROOTFS, "install"]) {
+	workingDir rootPath("dropbear")
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
-	#TODO does this work?
-	make_parallel(
-		"PATH=%s" % escapeForShell(TOOLCHAIN_BIN_DIR + ":" + os.environ["PATH"]),
-		"prefix=%s" % ROOTFS,
-		"install")
+	dependsOn compileDropbear
+	shouldRunAfter compile
 
-	ssh_dir = Path(ROOTFS, "root", ".ssh")
-	authorized_keys = Path(ssh_dir, "authorized_keys")
-	ssh_dir.mkdir(parents=True)
-	public_key_file = Path("~/.ssh/id_rsa.pub").expand_user()
-	if public_key_file.exists() and not authorized_keys.exists():
-		public_key = public_key_file.read_file()
-		authorized_keys.write_file(public_key)
+	inputs.files compileDropbear.outputs
+	inputs.files fileTree("dropbear") { include "dropbear.8", "dropbearkey.1", "dbclient.1", "dropbearconvert.1" }
+	outputs.files fileTree(ROOTFS) {
+		include "bin/dbclient", "bin/dropbearkey", "bin/dropbearconvert"
+		include "sbin/dropbear"
+		include "share/man/**/dropbear*", "share/man/**/dbclient*"
+	}
+}
 
-		ssh_dir.chmod(0755)
-		authorized_keys.chmod(0600)
+task installDropbearConfig {
+	mustRunAfter installDropbearFiles
 
-	shells_file = Path(ROOTFS, "etc", "shells")
-	shells = ""
-	if shells_file.exists():
-		shells = shells_file.read_file()
-	if not re.match("^/bin/ash$", shells):
-		shells += "/bin/ash\n"
-		shells_file.write_file(shells)
+	def home_dir_for_board = path(ROOTFS, "root")
+	def ssh_dir = path(home_dir_for_board, ".ssh")
+	def authorized_keys = path(ssh_dir, "authorized_keys")
+	def home_dir = System.getenv()["HOME"]
+	def public_key_file = path("$home_dir", ".ssh", "id_rsa.pub")
+	def shells_file = path(ROOTFS, "etc", "shells")
 
-@task
-@cmdoptsgroup("reconos_build")
-def install_kernel_modules():
-	cd_verbose(ROOT, "linux-xlnx")
-	make_parallel(
-		"INSTALL_MOD_PATH=%s" % ROOTFS,
-		"modules_install")
+	inputs.file public_key_file
+	inputs.property "HOME", home_dir
+	outputs.dir ssh_dir
+	outputs.file authorized_keys
+	outputs.file shells_file
 
-@task
-@cmdoptsgroup("reconos_build")
-def install_reconos():
-	KERNEL_RELEASE=Path(ROOT, "linux-xlnx", "include", "config", "kernel.release").read_file().strip()
-	RECONOS_MODULE="kernel/drivers/mreconos.ko"
-	MODULE_DIR=Path(ROOTFS, "lib", "modules", KERNEL_RELEASE)
-	src = Path(ROOT, "reconos", "linux", "driver", "mreconos.ko")
-	dst = Path(MODULE_DIR, *RECONOS_MODULE.split("/"))
-	src.copy(dst)
-	append_file(Path(MODULE_DIR, "modules.dep"),
-		RECONOS_MODULE + ": \n")
+	doLast {
+		ssh_dir.mkdirs()
+		if (public_key_file.exists() && !authorized_keys.exists()) {
+			def public_key = public_key_file.text
+			authorized_keys.write(public_key)
 
-@task
-@needs("reconos_config", "install_busybox", "install_base_system",
-	"install_libc", "install_dropbear", "install_kernel_modules",
-	"install_reconos")
-def build_rootfs():
-	#TODO: Path(ROOTFS).mkdir(parents=True)
-	pass
+			chmod(home_dir_for_board, 0755)
+			chmod(ssh_dir, 0755)
+			chmod(authorized_keys, 0600)
+		}
 
-@task
-@cmdoptsgroup("reconos_build")
-def update_nfsroot():
-	sh("%s mkdir -p %s" % (sudo_cmd(), escapeForShell(reconos_build_options.nfs_root)))
-	sh("%s cp -a %s %s" % (sudo_cmd(), escapeForShell(Path(ROOTFS, ".")), escapeForShell(reconos_build_options.nfs_root)))
-	
-	exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-	exclude_pattern = "/\\(" + "\\|".join(map(escape_for_regex, exclude)) + "\\)\\(/\|$\\)"
-	exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
-	# We could use <(...) syntax, but sh doesn't support it, so we use temporary files instead.
-	def sudo_list_files(dir):
-		_, tmpfile = tempfile.mkstemp()
-		cmd = "cd %s ; find | %s | sort >%s" % (escapeForShell(dir), exclude_filter, escapeForShell(tmpfile))
-		sh("%s sh -c %s" % (sudo_cmd(), escapeForShell(cmd)))
-		return tmpfile
+		def shells = ""
+		if (shells_file.exists())
+			shells = shells_file.text
+		if (!(shells ==~ '^/bin/ash$')) {
+			shells += "/bin/ash\n"
+			shells_file.parentFile.mkdirs()
+			shells_file.write(shells)
+		}
+	}
+}
 
-	file_list1 = None
-	file_list2 = None
-	try:
-		file_list1 = sudo_list_files(ROOTFS)
-		file_list2 = sudo_list_files(reconos_build_options.nfs_root)
-		res = sh_test("%s diff -y --suppress-common-lines %s %s"
-			% (sudo_cmd(), escapeForShell(file_list1), escapeForShell(file_list2)))
-		if res != 0:
-			logger.warn("WARNING: NFS root directory %s contains additional files!" % reconos_build_options.nfs_root)
-	finally:
-		if file_list1:
-			Path(file_list1).remove()
-		if file_list2:
-			Path(file_list2).remove()
+task installDropbear {
+	dependsOn installDropbearFiles, installDropbearConfig
+}
 
-	authorized_keys_file = Path(reconos_build_options.nfs_root, "root", ".ssh", "authorized_keys")
-	ssh_dirs_and_files = [ authorized_keys_file.ancestor(i) for i in range(3) ]
-	if authorized_keys_file.exists():
-		sh("%s chown root:root %s" % (sudo_cmd(), escapeForShell(ssh_dirs_and_files)))
-		if reconos_build_options.nfs_no_sudo:
-			st = os.stat(authorized_keys_file)
-			if st.st_uid != 0 or st.st_gid != 0:
+crosscompileMakeTask("installKernelModules", ["INSTALL_MOD_PATH="+ROOTFS, "modules_install"]) {
+	workingDir rootPath("linux-xlnx")
+
+	dependsOn compileKernelModules
+
+	doLast {
+		// "source" and "build" links don't make any sense on the target platform and
+		// they confuse some Gradle tasks (e.g. cleanRootfs and copyFilesToNfsRoot):
+		// They delete all files in linux-xlnx or truncate them.
+		sh("rm -f ${escapeForShell(ROOTFS)}/lib/modules/*/{source,build}", "bash")
+	}
+}
+
+task installReconos {
+	dependsOn installKernelModules, compileReconosDriver, compileReconosDriver
+
+	doLast {
+		def KERNEL_RELEASE = path(ROOT, "linux-xlnx", "include", "config", "kernel.release").text.trim()
+		def RECONOS_MODULE = "kernel/drivers/mreconos.ko"
+		def MODULE_DIR = path(ROOTFS, "lib", "modules", KERNEL_RELEASE)
+		def src = path(ROOT, "reconos", "linux", "driver", "mreconos.ko")
+		def dst = path(MODULE_DIR, *RECONOS_MODULE.split("/"))
+		project.copyFile(src, dst)
+		path(MODULE_DIR, "modules.dep").withWriterAppend { out ->
+			out.writeLine(RECONOS_MODULE + ": ")
+		}
+	}
+}
+
+task buildRootfs {
+	dependsOn reconosConfig, installBusybox, installBaseSystem,
+		installLibc, installDropbear, installKernelModules,
+		installReconos
+
+	doFirst {
+		if (!ROOTFS.isDirectory())
+			ROOTFS.mkdirs()
+	}
+}
+
+task build {
+	dependsOn compile, buildRootfs
+}
+
+// We cannot use a Copy task because it doesn't support symlinks.
+/*task copyFilesToNfsRoot(type: Copy) {
+	from ROOTFS
+	into local_nfs_root
+
+	requiredProperty "local_nfs_root"
+
+	mustRunAfter buildRootfs
+}*/
+task copyFilesToNfsRoot(type: Exec) {
+	commandLine "cp", "-afT", ROOTFS, local_nfs_root
+
+	requiredProperty "local_nfs_root"
+
+	mustRunAfter buildRootfs
+}
+
+def fileAncestors(file) {
+	def ancestors = []
+	while (file != null) {
+		ancestors.add(file)
+		file = file.parentFile
+	}
+	return ancestors
+}
+
+task fixPermissionsInNfsRoot(type: Exec) {
+	def authorized_keys_file = path(local_nfs_root, "root", ".ssh", "authorized_keys")
+	commandLine("chown", "root:root", *fileAncestors(authorized_keys_file).take(3))
+
+	mustRunAfter copyFilesToNfsRoot
+	requiredProperty "local_nfs_root"
+}
+
+task warnAboutAdditionalFilesInNfsRoot {
+	requiredProperty "local_nfs_root"
+
+	mustRunAfter copyFilesToNfsRoot
+
+	doLast {
+		def exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
+		def exclude_pattern = "/\\(" + exclude.collect(escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
+		def exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
+
+		def list_files = { directory, listfile ->
+			directory = escapeForShell(directory)
+			listfile = escapeForShell(listfile)
+			sh("cd $directory && find | $exclude_filter | sort >$listfile")
+		}
+
+		def files_in_rootfs = rootPath(temporaryDir, "files_in_rootfs")
+		def files_in_nfsroot = rootPath(temporaryDir, "files_in_nfsroot")
+		try {
+			list_files(ROOTFS, files_in_rootfs)
+			list_files(local_nfs_root, files_in_nfsroot)
+
+			def files_in_rootfs_esc = escapeForShell(files_in_rootfs)
+			def files_in_nfsroot_esc = escapeForShell(files_in_nfsroot)
+			def res = sh_test("diff -y --suppress-common-lines $files_in_rootfs_esc $files_in_nfsroot_esc")
+		} finally {
+			if (files_in_rootfs.exists())
+				files_in_rootfs.delete()
+			if (files_in_nfsroot.exists())
+				files_in_nfsroot.delete()
+		}
+	}
+}
+
+task updateNfsRoot {
+	dependsOn copyFilesToNfsRoot, fixPermissionsInNfsRoot, warnAboutAdditionalFilesInNfsRoot
+}
+
+task createPs7InitFile(type: Copy) {
+	//TODO we shouldn't have to provide this file - it should be in the reconos git
+	def edk_project_dir = demoHwDir("edk_zynq_linux")
+	from FILES
+	into edk_project_dir
+	include "ps7_init.tcl"
+}
+
+task downloadImagesToZynq(type: Exec) {
+	//NOTE If this fails because it doesn't find the cable, install the cable drivers:
+	//     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
+	def edk_project_dir = demoHwDir("edk_zynq_linux")
+	def command = escapeForShell(["bash", "zynq_boot_tftp.sh",
+		path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
+		path(edk_project_dir, "device_tree.dtb"),
+		path(edk_project_dir, "ps7_init.tcl"),
+		path(ROOT, "u-boot-xlnx", "u-boot")])
+	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && $command"
+	workingDir ROOT
+
+	doLast {
+		logger.info("The board should be booting, now.")
+		logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
+	}
+
+	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
+	// If we do this later, we may miss the 'done' message from the board.
+	//TODO Listen concurrently in a Java thread and only only query the result in waitForBootingBoard.
+	mustRunAfter compileReconosDemoHardwareBitstream
+	dependsOn compileKernelImage, compileReconosDeviceTree, compileUboot
+	dependsOn createPs7InitFile
+}
+
+def run_xmd(commands) {
+	commands = escapeForShell(commands.toString() + " ; exit")
+	sh(". ${reconosConfig.reconosConfigScriptEscaped} && echo $commands | xmd", "bash")
+}
+
+task downloadBitfileToZynq {
+	doLast {
+		def edk_project_dir = demoHwDir("edk_zynq_linux")
+		def bitfile = path(edk_project_dir, "implementation", "system.bit")
+		run_xmd("fpga -f ${escapeForShell(bitfile)}")
+	}
+	mustRunAfter checkHostIp, checkDigilentDriver, updateNfsRoot
+	dependsOn reconosConfig, compileReconosDemoHardwareBitstream
+	dependsOn createPs7InitFile
+	shouldRunAfter downloadImagesToZynq
+}
+
+task waitForBootingBoard {
+	mustRunAfter downloadImagesToZynq, downloadBitfileToZynq
+	requiredProperty "host_ip"
+
+	doLast {
+		logger.info("Wait for the board to contact us...")
+		if (sh_test("timeout 120 nc -l ${escapeForShell(host_ip)} 12342") != 0) {
+			logger.error(
+				"ERROR: The board didn't send the 'done' message within 30 seconds.")
+
+			if (!can_ping(host_ip)) {
 				logger.error(heredoc("""
-					ERROR: The authorized_keys file must belong to root, but it doesn't. We won't
-					       be able to connect to the board. Please make sure that the NFS options
-					       are correct (see help of --nfs-no-sudo).
+					ERROR: I cannot ping $host_ip, so I think for some reason your IP got reset.
+					  Please make sure that you use an ethernet switch (i.e. don't
+					  directly connect your PC to the board) or make sure that the IP
+					  settings survive a reset of the ethernet connection (i.e. set them
+					  in NetworkManager or similar).
 					"""))
-				sys.exit(1)
-		for file_or_dir in ssh_dirs_and_files:
-			if file_or_dir.isdir():
-				rights = "700"
-			else:
-				rights = "600"
-			sh("%s chmod %s %s" % (sudo_cmd(), rights, escapeForShell(file_or_dir)))
+				throw new GradleException("I cannot ping the local host ($host_ip).")
+			}
 
-def sudo_append_to(file, *lines):
-	text = "\n".join(lines) + "\n"
-	sh(ShellEscaped("echo %s | %s tee -a %s >/dev/null") % (text, sudo_cmd(), file))
+			if (!can_ping(board_ip)) {
+				logger.error(
+					"I cannot ping the board ($board_ip). This is a bad sign. I will try to continue anyway.")
+			} else {
+				logger.warn("I didn't get any reply from the board. I will try to continue anyway. " +
+					"However, you should fix the underlying problem, so I won't waste time waiting " +
+					" until the timeout.")
+			}
+		}
+	}
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "reconos_config", "update_nfsroot")
-def boot_zynq():
-	if reconos_build_options.nfs_mount == "":
-		if reconos_build_options.nfs_no_sudo:
-			logger.warn("WARNING: You have set --nfs-no-sudo, but not --nfs-mount. I will now try to create the "
-				+ "NFS share without using sudo. This will most likely fail!")
+task bootZynq {
+	dependsOn downloadImagesToZynq, downloadBitfileToZynq, waitForBootingBoard
+}
 
-		# create NFS share for the board
-		sudo_modify_by("/etc/exports",
-			ShellEscaped("grep -v %s") % reconos_build_options.nfs_root)
-		sudo_append_to("/etc/exports",
-			"%s %s(rw,no_root_squash,no_subtree_check)" % (reconos_build_options.nfs_root, reconos_build_options.board_ip))
-		sh("%s exportfs -rav" % sudo_cmd())
+def getBoardPubkey(keytype) {
+	def infofile = path(local_nfs_root, "etc", "dropbear", "dropbear_${keytype}_host_key.info")
+	return (infofile.text =~ /(?m)^ssh-\S+\s+\S+/)[0]
+}
 
-	#TODO this should be in git...
-	edk_project_dir = Path(ROOT, "reconos", "demos", reconos_build_options.demo, "hw", "edk_zynq_linux")
-	Path(FILES, "ps7_init.tcl").copy(Path(edk_project_dir, "ps7_init.tcl"))
+def pubkeyIsInKnownHosts(hostname, pubkey) {
+	return 0 == sh_test("ssh-keygen -F ${escapeForShell(hostname)} | grep -q ${escapeForShell(pubkey)}")
+}
 
-	# The Digilent driver installer makes ~/.cse owned by root (or probably we shouldn't
-	# have run it with sudo). xmd tries to put a temporary file into it and fails. Therefore,
-	# we fix this.
-	cse_dir = Path("~/.cse").expand_user()
-	if cse_dir.exists() and cse_dir.stat().st_uid == 0:
-		if reconos_build_options.nfs_no_sudo:
-			logger.error("~/.cse is owned by root. Please run: sudo chown -R \"$USER\" ~/.cse")
-			sys.exit(1)
-		else:
-			sh('sudo chown -R "$USER" ~/.cse')
+task prepareSsh {
+	dependsOn checkHostIp
+	mustRunAfter bootZynq
 
-	#NOTE If this fails because it doesn't find the cable, install the cable drivers:
-	#     cd $XILINX/bin/lin64/digilent ; ./install_digilent.sh
-	cd_verbose(ROOT)
-	sh(escapeForShell([
-		"bash",
-		"zynq_boot_tftp.sh",
-		Path(ROOT, "linux-xlnx", "arch", "arm", "boot", "uImage"),
-		Path(edk_project_dir, "device_tree.dtb"),
-		Path(edk_project_dir, "ps7_init.tcl"),
-		Path(ROOT, "u-boot-xlnx", "u-boot")
-		]))
+	requiredProperty "local_nfs_root"
 
-	bitfile = Path(edk_project_dir, "implementation", "system.bit")
-	run_xmd("fpga -f %s" % escapeForShell(bitfile))
+	doLast {
+		def pubkey = getBoardPubkey("rsa")
 
-	logger.info("The board should be booting, now.")
-	logger.info("If you abort u-boot for some reason, enter 'jtagboot' or 'bootm 0x3000000 - 0x2A00000'.")
+		if (pubkey && !pubkeyIsInKnownHosts(board_ip, pubkey)) {
+			// board key is not in known_hosts, so we remove any old ones and add the new one
+			sh("ssh-keygen -R ${escapeForShell(board_ip)}")
+			def home_dir = System.getenv()["HOME"]
+			path(home_dir, ".ssh", "known_hosts").withWriterAppend { out ->
+				out.write("$board_ip $pubkey\n")
+			}
+			// re-hash the file
+			sh("ssh-keygen -H")
+		}
+	}
+}
 
+def ssh_zynq_special(command, redirects="") {
+	sh("ssh -o PubkeyAuthentication=yes root@${board_ip} ${escapeForShell(command)} ${redirects}")
+}
 
-	# wait for the board to contact us
-	if sh_test(ShellEscaped("timeout 30 nc -l %s 12342") % reconos_build_options.host_ip) != 0:
-		logger.error(
-			"ERROR: The board didn't send the 'done' message within 30 seconds.")
-
-		if not can_ping(reconos_build_options.host_ip):
-			logger.error(heredoc("""
-				ERROR: I cannot ping %s, so I think for some reason your IP got reset.
-				  Please make sure that you use an ethernet switch (i.e. don't
-				  directly connect your PC to the board) or make sure that the IP
-				  settings survive a reset of the ethernet connection (i.e. set them
-				  in NetworkManager or similar).
-				""" % (reconos_build_options.host_ip)))
-			sys.exit(1)
-		if not can_ping(reconos_build_options.board_ip):
-			logger.warn(
-				"WARNING: I cannot ping the board (%s). This is a bad sign.", reconos_build_options.board_ip)
-
-		sys.exit(1)
-
-def get_board_pubkey(keytype):
-	infofile = Path(reconos_build_options.nfs_root, "etc", "dropbear", "dropbear_%s_host_key.info" % keytype)
-	text = infofile.read_file()
-	return re.search("^(ssh-\S+\s+\S+)", text, re.MULTILINE).group(1)
-
-def pubkey_is_in_known_hosts(hostname, pubkey):
-	return 0 == sh_test("ssh-keygen -F %s | grep -q %s" %
-		(escapeForShell(hostname), escapeForShell(pubkey)))
-
-@task
-@cmdoptsgroup("reconos_build")
-def prepare_ssh():
-	pubkey = get_board_pubkey("rsa")
-
-	if pubkey and not pubkey_is_in_known_hosts(reconos_build_options.board_ip, pubkey):
-		# board key is not in known_hosts, so we remove any old ones and add the new one
-		sh("ssh-keygen -R %s" % reconos_build_options.board_ip)
-		append_file(
-			Path("~", ".ssh", "known_hosts").expand_user(),
-			"%s %s\n" % (reconos_build_options.board_ip, pubkey))
-		# re-hash the file
-		sh("ssh-keygen -H")
-
-def ssh_zynq_special(command, redirects=""):
-	sh("ssh -o PubkeyAuthentication=yes root@%s %s %s"
-		% (reconos_build_options.board_ip, escapeForShell(command), redirects))
-
-def ssh_zynq(*command):
+def ssh_zynq(...command) {
 	return ssh_zynq_special(command)
+}
 
+def copy_to_zynq(local_file, file_on_zynq) {
+	ssh_zynq_special("cat >${escapeForShell(file_on_zynq)}", "<${escapeForShell(local_file)} >/dev/null")
+}
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "prepare_ssh")
-def ssh_shell():
-	ssh_zynq()
+task sshShell {
+	dependsOn prepareSsh
 
-@task
-@cmdoptsgroup("reconos_build")
-@needs("check_host_ip", "prepare_ssh")
-def run_demo():
-	demo_args = from_env("DEMO_ARGS", "2 2 50")
+	doLast {
+		ssh_zynq()
+	}
+}
 
-	ssh_zynq_special("cat >%s" % escapeForShell(Path("/tmp", reconos_build_options.demo)),
-		"<%s" % escapeForShell(Path(ROOT, "reconos", "demos", reconos_build_options.demo, "linux", reconos_build_options.demo)))
-	ssh_zynq("chmod +x /tmp/%s && /tmp/%s %s" % (reconos_build_options.demo, reconos_build_options.demo, demo_args))
+task runDemo {
+	dependsOn prepareSsh
+	
+	doLast {
+		def demo_args = "2 2 50"
+		def demo = compileReconosDemoLinux.demo
+		def demo_binary = path(compileReconosDemoLinux.demoDir, "linux", demo)
+		def demo_on_target = path("/tmp", demo)
+		copy_to_zynq(demo_binary, demo_on_target)
 
-@task
-@needs("update_nfsroot", "boot_zynq", "run_demo")
-def boot_zynq_and_run_demo():
-	pass
+		demo_on_target = escapeForShell(demo_on_target)
+		ssh_zynq("chmod +x $demo_on_target && $demo_on_target $demo_args")
+	}
+}
 
-@task
-@needs("build", "boot_zynq_and_run_demo")
-def build_and_run():
-	pass
+task bootZynqAndRunDemo {
+	dependsOn updateNfsRoot, bootZynq, runDemo
+}
 
-@task
-@needs("clean", "build_and_run")
-def clean_build_and_run():
-	pass
+task compileAndRun {
+	dependsOn checkBeforeCompile, compile, buildRootfs, bootZynqAndRunDemo
+}
 
-*/
+task cleanCompileAndRun {
+	dependsOn clean, compileAndRun
+}
+
+task prepareTest {
+	dependsOn buildRootfs, updateNfsRoot, bootZynq
+}
+
+task test {
+	dependsOn runDemo
+}

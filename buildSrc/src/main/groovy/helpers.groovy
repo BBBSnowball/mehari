@@ -83,7 +83,8 @@ class helpers {
 		if (use_shell)
 			cmd = [shell, "-c", cmd]
 		def process = cmd.execute()
-		if (process.waitFor() == 0)
+		def res = process.waitFor()
+		if (res == 0)
 			return process.text
 		else
 			throw new GradleException("System command returned non-zero status (exit status is $res): " + cmd.inspect())
@@ -101,7 +102,7 @@ class helpers {
 		}
 	}
 
-	def escape_one_for_shell(arg) {
+	def escapeOneForShell(arg) {
 		if (arg instanceof ShellEscaped)
 			return arg
 		else {
@@ -111,13 +112,15 @@ class helpers {
 	}
 
 	def escapeForShell(args) {
+		if (args != null && args.class.isArray())
+			args = args.toList()
 		if (args instanceof Collection)
-			return args.collect(this.&escape_one_for_shell).join(" ")
+			return args.collect(this.&escapeOneForShell).join(" ")
 		else
-			return escape_one_for_shell(args)
+			return escapeOneForShell(args)
 	}
 
-	def escape_for_regex(text) {
+	def escapeForRegex(text) {
 		for (special_char in "\\[].*")
 			text = text.replace(special_char, "\\" + special_char)
 		return text
@@ -132,9 +135,15 @@ class helpers {
 		}
 	}
 
-	def copy_tree(src, dst) {
-		src = escape_for_shell(new File(src, "."))
-		dst = escape_for_shell(dst)
+	def copyTree(src, dst) {
+		src = escapeForShell(new File(src, "."))
+		dst = escapeForShell(dst)
+		sh("cp -a $src $dst")
+	}
+
+	def copyFile(src, dst) {
+		src = escapeForShell(src)
+		dst = escapeForShell(dst)
 		sh("cp -a $src $dst")
 	}
 
