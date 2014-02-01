@@ -1180,7 +1180,7 @@ task downloadBitfileToZynq {
 	doLast {
 		def edk_project_dir = demoHwDir("edk_zynq_linux")
 		def bitfile = path(edk_project_dir, "implementation", "system.bit")
-		run_xmd("fpga -f %s" % escapeForShell(bitfile))
+		run_xmd("fpga -f ${escapeForShell(bitfile)}")
 	}
 	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
 	dependsOn compileReconosDemoHardwareBitstream
