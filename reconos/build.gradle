@@ -1329,10 +1329,3 @@ task compileAndRun {
 task cleanCompileAndRun {
 	dependsOn clean, compileAndRun
 }
-
-tasks.all { task ->
-	task.doLast {
-		if (!file("linux-xlnx/Makefile").exists() || file("linux-xlnx/Makefile").length() < 100)
-			throw new GradleException("We lost linux-xlnx/Makefile !!!")
-	}
-}
