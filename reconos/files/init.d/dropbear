@@ -26,6 +26,7 @@ ARGS="-s -p 22 -p 2222 -b /etc/motd"
 dropbear_generate_key_if_it_doesnt_exist() {
   keytype="$1"
   if [ ! -e "/etc/dropbear/dropbear_${keytype}_host_key" ] ; then
+    echo -n "generateKey "
     dropbearkey -t "${keytype}" -f "/etc/dropbear/dropbear_${keytype}_host_key" \
       | tee "/etc/dropbear/dropbear_${keytype}_host_key.info"
   fi
@@ -50,10 +51,10 @@ dropbear_make_sure_lastlog_exists() {
 case "$1" in
   start)
     echo -n "Starting $DESC: "
-    echo -n "$NAME"
     dropbear_update_motd
     dropbear_generate_keys
     dropbear_make_sure_lastlog_exists
+    echo -n "$NAME"
     start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
       --exec $DAEMON > /dev/null 2>&1 -- $ARGS
     echo "."
