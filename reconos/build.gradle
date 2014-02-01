@@ -1178,6 +1178,9 @@ task downloadImagesToZynq(type: Exec) {
 	}
 
 	mustRunAfter checkHostIp, checkDigilentDriver, reconosConfig, updateNfsRoot
+	// If we do this later, we may miss the 'done' message from the board.
+	//TODO Listen concurrently in a Java thread and only only query the result in waitForBootingBoard.
+	mustRunAfter compileReconosDemoHardwareBitstream
 	dependsOn compileKernelImage, compileReconosDeviceTree, compileUboot
 	dependsOn createPs7InitFile
 }
