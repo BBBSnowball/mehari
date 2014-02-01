@@ -970,16 +970,17 @@ task installLibc(type: Copy) {
 	from { reconosConfig.libc_dir }
 	into ROOTFS
 
-	include "."
-	exclude "usr/lib/locale"
 	exclude "usr/include"
 
 	// We do not copy all the locales (which are many times bigger than the whole rootfs), so we prepare
 	// a list of the locales we do want.
 	// Actually, there is more locale data in /usr/share/locale, but this is small, so we don't care.
-	ext.included_locales = ["en_US", "en_US.utf8", "de_DE.utf8"]
-	included_locales.each { locale ->
-		include "usr/lib/locale/"+locale
+	ext.includedLocales = ["en_US", "en_US.utf8", "de_DE.utf8"]
+	exclude {
+		def m = (it.relativePath =~ "^usr/(lib/)?locale/([^/]+).*")
+		def shouldExclude = (m && !includedLocales.contains(m[0][2]))
+		println("${shouldExclude?'exclude':'include'} ${it.relativePath}")
+		return shouldExclude
 	}
 }
 
