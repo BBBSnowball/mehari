@@ -1,32 +1,3 @@
-ext.reconos_args = ["--host-ip", host_ip, "--board-ip", board_ip, "-j"+parallel_compilation_processes,
-	"--nfs-mount=" + nfs_mount, "--nfs-no-sudo", "--demo=sort_demo", "--nfs-root", local_nfs_root,
-	"--mac-address", board_mac_address]
-
-/*task clean(type: Exec) {
-	commandLine(["./pavement.py", "clean"] + reconos_args)
-
-	environmentFromConfig()
-}*/
-
-/*task compile(type: Exec) {
-	commandLine(["./pavement.py", "build"] + reconos_args)
-
-	environmentFromConfig()
-
-	mustRunAfter "clean"
-}*/
-
-task test(type: Exec) {
-	commandLine(["./pavement.py", "boot_zynq_and_run_demo"] + reconos_args)
-
-	environmentFromConfig()
-
-	dependsOn "compile"
-}
-
-
-
-
 ext.ROOT   = file(".")
 ext.FILES  = file("files")
 ext.ROOTFS = file("_install")
@@ -293,7 +264,7 @@ task checkDigilentDriver {
 	}
 }
 
-task checkBeforeBuild {
+task checkBeforeCompile {
 	dependsOn checkSubmodules, checkLibc, checkHostIp, checkDigilentDriver
 }
 
@@ -821,7 +792,7 @@ task compileReconos {
 task compile {
 	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos
 
-	shouldRunAfter checkBeforeBuild
+	shouldRunAfter checkBeforeCompile
 }
 
 crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
@@ -1323,9 +1294,17 @@ task bootZynqAndRunDemo {
 }
 
 task compileAndRun {
-	dependsOn checkBeforeBuild, compile, buildRootfs, bootZynqAndRunDemo
+	dependsOn checkBeforeCompile, compile, buildRootfs, bootZynqAndRunDemo
 }
 
 task cleanCompileAndRun {
 	dependsOn clean, compileAndRun
+}
+
+task prepareTest {
+	dependsOn buildRootfs, updateNfsRoot, bootZynq
+}
+
+task test {
+	dependsOn runDemo
 }

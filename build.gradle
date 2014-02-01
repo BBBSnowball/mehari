@@ -33,6 +33,12 @@ task prepareTools {
 	mustRunAfter checkSystemDependencies
 }
 
+task checkBeforeCompile {
+	dependsOn "reconos:checkBeforeCompile"
+
+	mustRunAfter checkSystemDependencies
+}
+
 forAllNormalTestTasks() { task ->
 	task.dependsOn prepareTools
 }
@@ -40,6 +46,8 @@ forAllNormalTestTasks() { task ->
 task clean {
 	dependsOn "llvm-optimizations-application:clean"
 	dependsOn "reconos:clean"
+
+	shouldRunAfter checkBeforeCompile
 }
 
 task compile {
@@ -47,19 +55,28 @@ task compile {
 	dependsOn "reconos:compile"
 
 	mustRunAfter clean
+	shouldRunAfter checkBeforeCompile
+}
+
+task prepareTest {
+	dependsOn "reconos:prepareTest"
+
+	mustRunAfter compile
 }
 
 task test {
 	dependsOn "single-pendulum-vhdl:test"
 	dependsOn "reconos:test"
 
-	mustRunAfter clean
+	mustRunAfter prepareTest
 }
 
 task allCI {
 	dependsOn checkSystemDependencies
+	dependsOn checkBeforeCompile
 	dependsOn clean
 	dependsOn compile
+	dependsOn prepareTest
 	dependsOn test
 }
 defaultTasks "allCI"
@@ -78,4 +95,6 @@ if (hasProperty("sispm_outlet") && sispm_outlet) {
 	}
 
 	allCI.dependsOn powercycleBoard
+
+	prepareTest.shouldRunAfter powercycleBoard
 }
