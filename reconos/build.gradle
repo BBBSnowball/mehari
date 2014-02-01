@@ -967,6 +967,8 @@ task installBaseSystem {
 	}
 }
 
+//TODO Copy tasks cannot handle symlinks, so we may want to switch to something else. However,
+//     we only have about 40 symlinks in /lib and /usr/lib.
 task installLibc(type: Copy) {
 	dependsOn reconosConfig
 
@@ -1089,9 +1091,17 @@ task build {
 	dependsOn compile, buildRootfs
 }
 
-task copyFilesToNfsRoot(type: Copy) {
+// We cannot use a Copy task because it doesn't support symlinks.
+/*task copyFilesToNfsRoot(type: Copy) {
 	from ROOTFS
 	into local_nfs_root
+
+	requiredProperty "local_nfs_root"
+
+	mustRunAfter buildRootfs
+}*/
+task copyFilesToNfsRoot(type: Exec) {
+	commandLine "cp", "-afT", ROOTFS, local_nfs_root
 
 	requiredProperty "local_nfs_root"
 
