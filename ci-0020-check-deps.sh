@@ -93,7 +93,7 @@ if ! make --version | grep -q "^GNU Make [0-9]" ; then
 	exit 1
 fi
 
-if ! nc -h | grep -q "^OpenBSD netcat" ; then
+if ! nc -h 2>&1 | grep -q "^OpenBSD netcat" ; then
 	# Mac OS has BSD tools by default and GNU tools have a 'g' prefix when installed by macports.
 	# Other systems may also have an incompatible make implementation, e.g. nmake on Windows.
 	echo "Please install OpenBSD netcat. On Debian, you should use the netcat-openbsd package " >&2
