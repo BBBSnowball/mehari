@@ -293,7 +293,7 @@ task checkDigilentDriver {
 	}
 }
 
-task check {
+task checkBeforeBuild {
 	dependsOn checkSubmodules, checkLibc, checkHostIp, checkDigilentDriver
 }
 
@@ -820,6 +820,8 @@ task compileReconos {
 
 task compile {
 	dependsOn compileUboot, compileKernel, compileBusybox, compileDropbear, compileReconos
+
+	shouldRunAfter checkBeforeBuild
 }
 
 crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
@@ -1321,7 +1323,7 @@ task bootZynqAndRunDemo {
 }
 
 task compileAndRun {
-	dependsOn compile, buildRootfs, bootZynqAndRunDemo
+	dependsOn checkBeforeBuild, compile, buildRootfs, bootZynqAndRunDemo
 }
 
 task cleanCompileAndRun {
