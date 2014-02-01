@@ -1,6 +1,3 @@
-[submodule "llvm"]
-	path = llvm
-	url = git@github.com:BBBSnowball/mehari-llvm.git
 [submodule "private"]
 	path = private
 	url = git@github.com:pc2/mehari-private
@@ -22,3 +19,6 @@
 [submodule "tools/python-ctemplate"]
 	path = tools/python-ctemplate
 	url = git@github.com:BBBSnowball/ctemplate-python.git
+[submodule "llvm/llvmpy/graph-llvm-ir"]
+	path = llvm/llvmpy/graph-llvm-ir
+	url = git@github.com:ssurmund/mehari-graph-llvm-ir.git
