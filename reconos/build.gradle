@@ -713,12 +713,14 @@ task prepareReconosDemoHardware(type: Exec) {
 	inputs.dir { path(RECONOS.value, "tools") }
 	inputs.dir { path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
 	inputs.dir { path(RECONOS.value, "pcores") }
-	inputs.files { fileTree(demoHwDir("hw")) { usedHwThreads.value.each { hwt -> include hwt } } }
+	inputs.files { fileTree(demoHwDir()) { usedHwThreads.value.each { hwt -> include hwt } } }
 	outputs.dir {
 		fileTree(edk_dir.toString()) {
+			// created by other tasks
 			exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
 			exclude "system.mhs.orig", "ps_clock_registers.log", "system.log"
 			exclude "device_tree.dts", "device_tree.dtb"
+			exclude "ps7_init.tcl"
 
 			// created by this task, but changed later
 			exclude "system_incl.make", "system.make", "system.xmp"
