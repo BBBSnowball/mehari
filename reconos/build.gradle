@@ -1025,6 +1025,7 @@ task installDropbearConfig {
 			def public_key = public_key_file.text
 			authorized_keys.write(public_key)
 
+			chmod(home_dir_for_board, 0755)
 			chmod(ssh_dir, 0755)
 			chmod(authorized_keys, 0600)
 		}
