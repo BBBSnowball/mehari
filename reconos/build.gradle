@@ -1255,38 +1255,32 @@ task prepareSsh {
 	}
 }
 
-def ssh_zynq_special(command, redirects="") {
-	sh("ssh -o PubkeyAuthentication=yes root@${board_ip} ${escapeForShell(command)} ${redirects}")
-}
-
-def ssh_zynq(...command) {
-	return ssh_zynq_special(command)
-}
-
-def copy_to_zynq(local_file, file_on_zynq) {
-	ssh_zynq_special("cat >${escapeForShell(file_on_zynq)}", "<${escapeForShell(local_file)} >/dev/null")
-}
-
-task sshShell {
+task sshShell(type: MySshTask) {
 	dependsOn prepareSsh
 
-	doLast {
-		ssh_zynq()
+	session(remotes.board) {
+		def channel=session.openChannel("shell");
+		channel.setInputStream(System.in, true);                                                                                                       
+		channel.setOutputStream(System.out, true);
+		channel.setPty(true);
+		channel.connect(3*1000);
+		channel.run();
 	}
 }
 
-task runDemo {
+task runDemo(type: MySshTask) {
 	dependsOn prepareSsh
 	
-	doLast {
+	session(remotes.board) {
 		def demo_args = "2 2 50"
 		def demo = compileReconosDemoLinux.demo
 		def demo_binary = path(compileReconosDemoLinux.demoDir, "linux", demo)
 		def demo_on_target = path("/tmp", demo)
-		copy_to_zynq(demo_binary, demo_on_target)
+		sshPutFile(session, demo_binary.toString(), demo_on_target.toString())
 
 		demo_on_target = escapeForShell(demo_on_target)
-		ssh_zynq("chmod +x $demo_on_target && $demo_on_target $demo_args")
+		execute("chmod +x $demo_on_target")
+		execute("$demo_on_target $demo_args")
 	}
 }
 

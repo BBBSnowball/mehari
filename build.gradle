@@ -4,17 +4,27 @@ buildscript {
 	}
 	dependencies {
 		classpath 'net.saliman:gradle-properties-plugin:1.2.0'
+		classpath 'org.hidetake:gradle-ssh-plugin:0.2.2'
 	}
 }
 
-// use properties plugin -> local settings (e.g. Xilinx path and version) are in gradle-local.properties
 allprojects {
+	// use properties plugin -> local settings (e.g. Xilinx path and version) are in gradle-local.properties
 	apply plugin: 'properties'
+	apply plugin: 'ssh'
 	apply plugin: HelpersPlugin
 
 	task console {
 		doLast {
 			groovy.ui.Console.main([] as String[])
+		}
+	}
+
+	remotes {
+		board {
+			host = project.hasProperty("board_ip") ? board_ip : null
+			user = "root"
+			identity = sshIdentityFile()
 		}
 	}
 }

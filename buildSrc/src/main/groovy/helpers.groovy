@@ -161,6 +161,35 @@ class helpers {
 		return project.file(segments*.toString().join(File.separator))
 	}
 
+	def userHomeDir() {
+		return System.getenv()["HOME"]
+	}
+
+	def sshIdentityFile() {
+		if (project.hasProperty("ssh_identity"))
+			return file((project.ssh_identity =~ /^~/).replaceFirst(userHomeDir()))
+		else {
+			def ssh_identity = path(userHomeDir(), ".ssh", "id_rsa")
+			if (ssh_identity.exists())
+				return ssh_identity
+			else
+				return null
+		}
+	}
+
+	// This works like OperationHandler#put method in gradle-ssh-plugin, but it doesn't need SCP or SFTP.
+	def sshPutFile(session, localFile, remoteFile) {
+			String command = "sh -c " + escapeForShell("cat >" + escapeForShell(remoteFile))
+			def channel = session.openChannel("exec")
+			channel.setCommand(command)
+			channel.setInputStream(new FileInputStream(localFile))
+			channel.setOutputStream(System.out, true)
+			channel.connect(3*1000)
+			while (!channel.closed) {
+					sleep(100)
+			}
+	}
+
 
 	def addExtensions() {
 		for (method in this.metaClass.methods) {
