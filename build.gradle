@@ -4,39 +4,13 @@ buildscript {
 	}
 	dependencies {
 		classpath 'net.saliman:gradle-properties-plugin:1.2.0'
-		classpath 'jline:jline:1.0'
 	}
-}
-
-repositories {
-	mavenCentral()
-}
-configurations {
-	repl
-}
-dependencies {
-	repl 'jline:jline:1.0'
 }
 
 // use properties plugin -> local settings (e.g. Xilinx path and version) are in gradle-local.properties
 allprojects {
 	apply plugin: 'properties'
 	apply plugin: HelpersPlugin
-
-
-
-	task repl {
-		doLast {
-			// make sure the Groovy classloader can access jline
-			URLClassLoader loader = GroovyObject.class.classLoader
-			configurations.repl.each {File file ->
-				loader.addURL(file.toURL())
-			}
-
-			//new jline.History()
-			new org.codehaus.groovy.tools.shell.Groovysh().run("")
-		}
-	}
 
 	task console {
 		doLast {
