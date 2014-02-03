@@ -6,6 +6,26 @@ buildscript {
 		classpath 'net.saliman:gradle-properties-plugin:1.2.0'
 		classpath 'org.hidetake:gradle-ssh-plugin:0.2.2'
 	}
+
+	repositories {
+		maven {
+			if (project.hasProperty('artifactory_contextUrl')) {
+				url "$artifactory_contextUrl/plugins-release"
+
+				if (project.hasProperty("artifactory_user")) {
+					credentials {
+						username = "${artifactory_user}"
+						password = "${artifactory_password}"
+					}
+				}
+			} else {
+				url 'http://dl.bintray.com/jfrog/jfrog-jars'
+			}
+		}
+	}
+	dependencies {
+		classpath(group: 'org.jfrog.buildinfo', name: 'build-info-extractor-gradle', version: '2.0.9')
+	}
 }
 
 allprojects {
@@ -28,6 +48,35 @@ allprojects {
 		}
 	}
 }
+
+if (project.hasProperty("artifactory_contextUrl")) {
+	allprojects {
+		apply plugin: 'artifactory'
+	}
+
+	artifactory {
+		contextUrl = "${artifactory_contextUrl}"   //The base Artifactory URL if not overridden by the publisher/resolver
+		/*publish {
+			repository {
+				repoKey = 'mehari-build'
+				username = "${artifactory_user}"
+				password = "${artifactory_password}"
+				maven = true
+				
+			}
+		}*/
+		resolve {
+			repository {
+				repoKey = 'mehari-extern-sources'
+				username = "${artifactory_user}"
+				password = "${artifactory_password}"
+				maven = true
+				
+			}
+		}
+	}
+}
+
 
 task checkSystemDependencies(type:Exec) {
 	description "Make sure that the system has everything we need."
