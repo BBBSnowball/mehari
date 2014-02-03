@@ -1043,10 +1043,10 @@ task installBaseSystem {
 			def stop_order  = get_order(dst, "stop")
 
 			if (start_order)
-				symlink(dst, path(ROOTFS, "etc", "rc.d", "S${start_order}${name}"))
+				project.symlink(dst, path(ROOTFS, "etc", "rc.d", "S${start_order}${name}"))
 
 			if (stop_order)
-				symlink(dst, path(ROOTFS, "etc", "rc.d", "K${stop_order}${name}"))
+				project.symlink(dst, path(ROOTFS, "etc", "rc.d", "K${stop_order}${name}"))
 		}
 
 		path(ROOTFS, "etc", "default", "notify-host").withWriter { out ->

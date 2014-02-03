@@ -167,7 +167,7 @@ class HelpersPluginConvention {
 
 	def useDefaultIdentityFile(it) {
 		if (project.hasProperty("ssh_identity"))
-			it.identity = file((project.ssh_identity =~ /^~/).replaceFirst(userHomeDir()))
+			it.identity = project.file((project.ssh_identity =~ /^~/).replaceFirst(userHomeDir()))
 		else {
 			def ssh_identity = path(userHomeDir(), ".ssh", "id_rsa")
 			if (ssh_identity.exists())
@@ -183,7 +183,7 @@ class HelpersPluginConvention {
 	}
 
 	def symlink(target, link) {
-		target = FileLinkAction.getRelativePath(file(target), file(link).parentFile)
+		target = FileLinkAction.getRelativePath(project.file(target), project.file(link).parentFile)
 		sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
 	}
 
@@ -194,6 +194,10 @@ class HelpersPluginConvention {
 	def chmod(file, permissions) {
 		permissions = String.format("0%o", permissions)
 		sh("chmod $permissions ${escapeForShell(file)}")
+	}
+
+	def doesFileBelongToRoot(file) {
+		return backticks("stat -c %u ~/.cse").trim() == "0"
 	}
 
 
