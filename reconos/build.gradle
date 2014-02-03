@@ -623,7 +623,7 @@ task configureZlib(type: Exec) {
 
 	inputs.files fileTree(extractZlibSource.targetDir) {
 		include "config*"
-		exclude "config.h" ; exclude "config.log" ; exclude "config.status"
+		exclude "config.h" ; exclude "config*.log" ; exclude "config*.status"
 	}
 	inputs.property("commandLine") { configureSftpCommandline() }
 	outputs.file path(extractZlibSource.targetDir, "Makefile")
@@ -654,7 +654,16 @@ crosscompileMakeTask("installZlib", "install") {
 	workingDir extractZlibSource.targetDir
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
-	dependsOn configureZlib
+	dependsOn compileZlib
+
+	inputs.files compileZlib.outputs
+	inputs.file path(extractZlibSource.targetDir, "zlib.h")
+	inputs.file path(extractZlibSource.targetDir, "zconf.h")
+	outputs.files fileTree(ROOTFS) {
+		include "lib/libz**"
+		include "include/zlib.h"
+		include "include/zconf.h"
+	}
 }
 
 def configureSftpCommandline() {
