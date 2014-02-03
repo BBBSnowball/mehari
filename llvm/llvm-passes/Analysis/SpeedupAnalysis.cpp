@@ -115,6 +115,6 @@ namespace {
   };
 }
 
-char FirstPass::ID = 0;
+char MehariSpeedupAnalysis::ID = 0;
 static RegisterPass<MehariSpeedupAnalysis>
 Y("m-speedup", "Analysis of the possible speedup by instructions in parallel as much as possible.");

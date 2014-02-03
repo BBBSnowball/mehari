@@ -1,1 +1,1 @@
-include "tools", "single-pendulum-vhdl", "llvm", "reconos"
+include "tools", "single-pendulum-vhdl", "reconos"
