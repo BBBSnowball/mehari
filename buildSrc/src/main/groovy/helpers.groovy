@@ -200,6 +200,10 @@ class HelpersPluginConvention {
 			}
 	}
 
+	def lazyValue(closure) {
+		return new LazyValue(closure)
+	}
+
 
 	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
