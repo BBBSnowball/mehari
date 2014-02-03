@@ -572,25 +572,26 @@ def fetchAndExtractSource(name, dependencyNotation, targetDir, configClosure=nul
 	def configuration = project.configurations.create configurationName
 	project.dependencies.add configurationName, dependencyNotation
 
-	def extractTask = task("extract${name.capitalize()}Source", type: Exec) {
+	def extractTask = task("extract${name.capitalize()}Source", type: Copy) {
 		ext.targetDir = rootPath(targetDir)
-
-		doFirst {
-			it.targetDir.mkdirs()
-		}
-
-		doFirst {
-			def sourceFile = configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+		ext.tarFile = lazyValue {
+			def sourceFiles = configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
 				artifact.file
 			}
-			assert sourceFile.size == 1, "More than one source file for ${configurationName} configuration!"
+			assert sourceFiles.size == 1, "More than one source file for ${configurationName} configuration!"
 
-			commandLine "tar", "-C", it.targetDir, "--strip-components=1", "-xzf", sourceFile[0]
+			sourceFiles[0]
 		}
 
-		inputs.files configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
-			artifact.file
+		from { println(tarFile.value.inspect()) ; tarTree(resources.gzip(tarFile.value)) }
+		into targetDir
+
+		eachFile { file ->
+			// strip first component of paths (--strip-components=1)
+			file.relativePath = new RelativePath(file.isFile(), file.segments[1..-1])
 		}
+
+		inputs.file { tarFile.value }
 	}
 
 	if (configClosure != null)
@@ -744,32 +745,6 @@ def getReconosConfigFileInfo(configfile, varname=null) {
 		return _reconosConfigurationFileCache[configfile][varname]
 	else
 		throw new GradleException("invalid reconOS config variable name: $varname")
-}
-
-class LazyValue {
-	private def value
-	private def closure
-
-	public LazyValue(closure) {
-		this.closure = closure
-	}
-
-	public def getValue() {
-		if (this.closure != null) {
-			this.value = this.closure()
-			this.closure = null
-		}
-
-		return this.value
-	}
-
-	@Override
-	public String toString() {
-		return this.getValue()
-	}
-}
-def lazyValue(closure) {
-	return new LazyValue(closure)
 }
 
 task prepareReconosDemoHardware(type: Exec) {
