@@ -135,15 +135,6 @@ class HelpersPluginConvention {
 		return text
 	}
 
-	def touch(file) {
-		file = new File(file);
-		if (!file.isFile()) {
-			file.withWriter { out ->
-				out.write("")
-			}
-		}
-	}
-
 	def copyTree(src, dst) {
 		src = escapeForShell(new File(src, "."))
 		dst = escapeForShell(dst)
@@ -202,6 +193,20 @@ class HelpersPluginConvention {
 
 	def lazyValue(closure) {
 		return new LazyValue(closure)
+	}
+
+	def symlink(target, link) {
+		target = FileLinkAction.getRelativePath(file(target), file(link).parentFile)
+		sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
+	}
+
+	def touch(file) {
+		file.withWriterAppend { out -> out.write("") }
+	}
+
+	def chmod(file, permissions) {
+		permissions = String.format("0%o", permissions)
+		sh("chmod $permissions ${escapeForShell(file)}")
 	}
 
 

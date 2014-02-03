@@ -668,34 +668,81 @@ crosscompileMakeTask("installZlib", "install") {
 
 def configureSftpCommandline() {
 	def host = getCrosscompileHostSpecAfterReconosConfig()
-	return ["./configure", "--prefix=$ROOTFS", "--host=$host",
+	return ["./configure-sftp", "--prefix=$ROOTFS", "--host=$host",
 		"--disable-utmp", "--disable-utmpx", "--disable-wtmp", "--disable-wtmpx",
-		"--with-zlib=$ROOTFS", "--without-openssl-header-check", "--with-ssl-dir=/usr/include"]
+		"--with-zlib=$ROOTFS", "--without-openssl-header-check"]
 }
 
-task configureSftp(type: Exec) {
+task configureSftp {
 	dependsOn extractSftpSource, reconosConfig, installZlib
-	workingDir extractSftpSource.targetDir
+
+	ext.sources = ["sftp-common.c", "sftp-server.c", "sftp-server-main.c", "buffer.c", "bufaux.c",
+		"xmalloc.c", "log.c", "misc.c", "openbsd-compat/getopt.c", "openbsd-compat/strlcat.c",
+		"openbsd-compat/strtonum.c", "openbsd-compat/strlcpy.c", "openbsd-compat/port-tun.c",
+		"openbsd-compat/strmode.c", "openbsd-compat/pwcache.c", "openbsd-compat/fmt_scaled.c",
+		"openbsd-compat/bsd-misc.c", "fatal.c", "openbsd-compat/vis.c"]
+
+	doLast {
+		// The configure script demands too many dependencies. Fortunately, we know that we have
+		// all the dependencies we need, so we don't configure at all.
+
+		// However, we have to fake a few headers because they are included (but never used).
+		path(extractSftpSource.targetDir, "openssl").mkdirs()
+		path(extractSftpSource.targetDir, "openssl", "opensslv.h").write("")
+		path(extractSftpSource.targetDir, "openssl", "bn.h").write("#define BIGNUM int")
+		path(extractSftpSource.targetDir, "config.h").write("")
+
+		// We use a Makefile, but we have to create it ourselves.
+		path(extractSftpSource.targetDir, "Makefile-sftp").withWriter { out ->
+			def cflags = "-g -O2 -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -fno-builtin-memset -fstack-protector-all -DHAVE_CONFIG_H -I. -I.. -I. -I./.. -I" + escapeForShell(path(ROOTFS, "include"))
+			def ldflags = "-L" + escapeForShell(path(ROOTFS, "lib"))
+
+			out.writeLine("%.o: %.c")
+			out.writeLine("\tarm-xilinx-linux-gnueabi-gcc $cflags -c \$< -o \$@")
+			out.writeLine("")
+
+			out.writeLine("sftp-server: " + sources*.replace(".c", ".o").join(" "))
+			out.writeLine("\tarm-xilinx-linux-gnueabi-gcc $ldflags -o \$@ \$^ -ldl -lutil -lnsl")
+		}
+
+		// We still have to run configure to create the config.h file. However, we modify it a bit, so it
+		// won't complain about missing OpenSSH libraries.
+		exec {
+			commandLine "sh", "-c", "sed " + escapeForShell('s/^\\s*as_fn_error.*\\bOpenSSL\\b.*[0-9]\\+\\s*\$/true/') +
+				"<configure >configure-sftp"
+			workingDir extractSftpSource.targetDir
+		}
+
+		chmod(path(extractSftpSource.targetDir, "configure-sftp"), 0755)
+
+		exec {
+			commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+				escapeForShell(configureSftpCommandline())
+			workingDir extractSftpSource.targetDir
+		}
+	}
 
 	inputs.files fileTree(extractSftpSource.targetDir) {
-		include "config*"
-		exclude "config.h" ; exclude "config.log" ; exclude "config.status"
+			include "config*"
+			exclude "config.h" ; exclude "config.log" ; exclude "config.status"
 	}
 	inputs.property("commandLine") { configureSftpCommandline() }
-	outputs.file path(extractSftpSource.targetDir, "Makefile")
-	outputs.file path(extractSftpSource.targetDir, "config.h")
 
-	doFirst {
-		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
-			escapeForShell(configureSftpCommandline())
-	}
+	outputs.dir path(extractSftpSource.targetDir, "openssl")
+	outputs.file path(extractSftpSource.targetDir, "config.h")
+	outputs.file path(extractSftpSource.targetDir, "configure-sftp")
+	outputs.file path(extractSftpSource.targetDir, "Makefile-sftp")
 }
 
-crosscompileMakeTask("compileSftp", "sftp-server") {
+crosscompileMakeTask("compileSftp", ["-f", "Makefile-sftp", "sftp-server"]) {
 	workingDir extractSftpSource.targetDir
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
 	dependsOn configureSftp
+
+	inputs.files configureSftp.sources.collect { source -> rootPath(extractSftpSource.targetDir, source.split("/")) }
+	inputs.file rootPath(extractSftpSource.targetDir, "Makefile-sftp")
+	outputs.file rootPath(extractSftpSource.targetDir, "sftp-server")
 }
 
 crosscompileMakeTask("compileReconosDriver", []) {
@@ -963,20 +1010,6 @@ def get_order(file, start_or_stop) {
 }
 
 import groovy.io.FileType
-
-def symlink(target, link) {
-	target = FileLinkAction.getRelativePath(file(target), file(link).parentFile)
-	sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
-}
-
-def touch(file) {
-	file.withWriterAppend { out -> out.write("") }
-}
-
-def chmod(file, permissions) {
-	permissions = String.format("0%o", permissions)
-	sh("chmod $permissions ${escapeForShell(file)}")
-}
 
 task installBaseSystem {
 	requiredProperty "host_ip"
