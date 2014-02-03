@@ -531,7 +531,9 @@ task applyConfigToDropbear {
 	dependsOn configureDropbear
 }
 
-crosscompileMakeTask("compileDropbear", []) {
+def dropbearConfig = ["PROGRAMS=dropbear dbclient dropbearkey dropbearconvert scp", "SCPPROGRESS=1"]
+
+crosscompileMakeTask("compileDropbear", dropbearConfig) {
 	workingDir rootPath("dropbear")
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -966,7 +968,7 @@ task installLibc(type: Copy) {
 	}
 }
 
-crosscompileMakeTask("installDropbearFiles", ["prefix="+ROOTFS, "install"]) {
+crosscompileMakeTask("installDropbearFiles", dropbearConfig + ["prefix="+ROOTFS, "install"]) {
 	workingDir rootPath("dropbear")
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -976,7 +978,7 @@ crosscompileMakeTask("installDropbearFiles", ["prefix="+ROOTFS, "install"]) {
 	inputs.files compileDropbear.outputs
 	inputs.files fileTree("dropbear") { include "dropbear.8", "dropbearkey.1", "dbclient.1", "dropbearconvert.1" }
 	outputs.files fileTree(ROOTFS) {
-		include "bin/dbclient", "bin/dropbearkey", "bin/dropbearconvert"
+		include "bin/dbclient", "bin/dropbearkey", "bin/dropbearconvert", "bin/scp"
 		include "sbin/dropbear"
 		include "share/man/**/dropbear*", "share/man/**/dbclient*"
 	}
