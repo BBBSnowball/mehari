@@ -289,10 +289,11 @@ task cleanBusybox  << { cleanRepository("busybox") }
 task cleanDropbear << { cleanWithDistclean("dropbear") }
 task cleanReconos  << { cleanRepository("reconos") }
 task cleanRootfs(type: Delete) { delete ROOTFS }
+task cleanZlib(type: Delete) { delete { tasks["extractZlibSource"].targetDir } }
 task cleanSftp(type: Delete) { delete { tasks["extractSftpSource"].targetDir } }
 
 task clean {
-	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanSftp, cleanReconos, cleanRootfs
+	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanZlib, cleanSftp, cleanReconos, cleanRootfs
 }
 
 task patchUboot(type: Exec) {
@@ -566,40 +567,98 @@ crosscompileMakeTask("compileDropbear", dropbearConfig) {
 	}
 }
 
-configurations { sftpSource }
-dependencies {
-	//sftpSource group: "org.openssh", name: "openssh", version: "5.9p1", classifier: "sources", ext: "tar.gz"
-	sftpSource "org.openssh:openssh:5.9p1:sources@tar.gz"
-}
+def fetchAndExtractSource(name, dependencyNotation, targetDir, configClosure=null) {
+	def configurationName = "${name}Source"
+	def configuration = project.configurations.create configurationName
+	project.dependencies.add configurationName, dependencyNotation
 
-task extractSftpSource(type: Exec) {
-	ext.targetDir = rootPath("_sftp")
+	def extractTask = task("extract${name.capitalize()}Source", type: Exec) {
+		ext.targetDir = rootPath(targetDir)
 
-	doFirst {
-		targetDir.mkdirs()
-	}
+		doFirst {
+			it.targetDir.mkdirs()
+		}
 
-	doFirst {
-		def sourceFile = configurations.sftpSource.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+		doFirst {
+			def sourceFile = configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+				artifact.file
+			}
+			assert sourceFile.size == 1, "More than one source file for ${configurationName} configuration!"
+
+			commandLine "tar", "-C", it.targetDir, "--strip-components=1", "-xzf", sourceFile[0]
+		}
+
+		inputs.files configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
 			artifact.file
 		}
-		assert sourceFile.size == 1, "More than one source file for sftpSource configuration!"
-
-		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
-			escapeForShell(["tar", "-C", targetDir, "--strip-components=1", "-xzf", sourceFile[0]])
 	}
 
+	if (configClosure != null)
+		extractTask.configure(configClosure)
+}
+
+fetchAndExtractSource("zlib", "net.zlib:zlib:1.2.8:sources@tar.gz", "_zlib") {
+	mustRunAfter cleanZlib
+}
+
+fetchAndExtractSource("sftp", "org.openssh:openssh:5.9p1:sources@tar.gz", "_sftp") {
 	mustRunAfter cleanSftp
+}
+
+def configureZlibCommandline() {
+	def host = getCrosscompileHostSpecAfterReconosConfig()
+	return "CC=${host}-gcc " + escapeForShell(["./configure", "--prefix=$ROOTFS"])
+}
+
+task configureZlib(type: Exec) {
+	dependsOn extractZlibSource, reconosConfig
+	workingDir extractZlibSource.targetDir
+
+	inputs.files fileTree(extractZlibSource.targetDir) {
+		include "config*"
+		exclude "config.h" ; exclude "config.log" ; exclude "config.status"
+	}
+	inputs.property("commandLine") { configureSftpCommandline() }
+	outputs.file path(extractZlibSource.targetDir, "Makefile")
+	outputs.file path(extractZlibSource.targetDir, "config.h")
+
+	doFirst {
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			configureZlibCommandline()
+	}
+}
+
+crosscompileMakeTask("compileZlib", []) {
+	workingDir extractZlibSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn configureZlib
+
+	inputs.files fileTree(extractZlibSource.targetDir) {
+		include "**/*.c", "**/*.h", "Makefile"
+		exclude "contrib", "examples"
+	}
+	outputs.files fileTree(extractZlibSource.targetDir) {
+		include "libz.a", "libz.so*"
+	}
+}
+
+crosscompileMakeTask("installZlib", "install") {
+	workingDir extractZlibSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn configureZlib
 }
 
 def configureSftpCommandline() {
 	def host = getCrosscompileHostSpecAfterReconosConfig()
 	return ["./configure", "--prefix=$ROOTFS", "--host=$host",
-		"--disable-utmp", "--disable-utmpx", "--disable-wtmp", "--disable-wtmpx"]
+		"--disable-utmp", "--disable-utmpx", "--disable-wtmp", "--disable-wtmpx",
+		"--with-zlib=$ROOTFS", "--without-openssl-header-check", "--with-ssl-dir=/usr/include"]
 }
 
 task configureSftp(type: Exec) {
-	dependsOn extractSftpSource, reconosConfig
+	dependsOn extractSftpSource, reconosConfig, installZlib
 	workingDir extractSftpSource.targetDir
 
 	inputs.files fileTree(extractSftpSource.targetDir) {
