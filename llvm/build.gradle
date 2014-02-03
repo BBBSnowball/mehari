@@ -1,0 +1,161 @@
+ext {
+	LLVM_PASSES = file("$projectDir/llvm-passes")
+	DEFAULT_LLVM_VERSION = "3.4"
+	LLVMPY = file("$projectDir/llvmpy")
+	GRAPH_LLVM_IR = file("$LLVMPY/graph-llvm-ir")
+
+	parallel_compilation_processes = 4
+}
+
+
+def get_llvm(version) {
+	def llvm_dir = file("$projectDir/_build/$version")
+	llvm_dir.mkdirs()
+	// TODO get llvm and clang version from artifactory
+}
+
+def get_llvmpy(target_dir) {
+	target_dir.mkdirs()
+	// TODO get llvmpy from artifactory
+}
+
+def check_llvm(version) {
+	def llvm_dir = file("$projectDir/_build/$version")
+	if (!llvm_dir.exists()) {
+		get_llvm(version)
+	}
+}
+
+task check_llvm_3_2 << { check_llvm("3.2") }
+task check_llvm_3_4 << { check_llvm("3.4") }
+
+task check_llvmpy << {
+	def llvmpy_dir = file("$LLVMPY/_build")
+	if (!llvmpy_dir.exists()) {
+		get_llvmpy(llvmpy_dir)
+	}
+}
+
+// TODO add task to clean LLVM etc
+
+def prepare_build_llvm(name, version, configClosure=null) {
+	def source_dir = file("$projectDir/_build/$version/sources")
+	def build_dir = file("$projectDir/_build/$version/build")
+	def install_dir = file("$projectDir/_build/$version/install")
+
+	def configuration_required = !build_dir.exists()
+
+	build_dir.mkdirs()
+	install_dir.mkdirs()
+
+	def build_mode = "RELEASE" 	// TODO make this configurable
+	def build_targets = "X86" 	// TODO do we need more targets? ARM?
+
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	task(name, type: Exec) {
+		workingDir build_dir
+		if (configuration_required) {
+			commandLine "bash", "-c", "cmake -j$parallel_processes -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+		}
+		else
+			commandLine "bash", "-c", "echo No configuration required."
+	}
+	if (configClosure)
+		tasks[name].configure(configClosure)
+}
+
+def build_llvm(name, version, configClosure=null) {
+	
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	def make_additional_flags = ""
+	// set version specific configuration
+	if (version == "3.2") {
+		make_additional_flags = "REQUIRES_RTTI=1"
+	}
+	else if (version == "3.4") {
+	}
+
+	task(name, type: Exec) {
+		workingDir file("$projectDir/_build/$version/build")
+		commandLine "bash", "-c", "$make_additional_flags gmake -j$parallel_processes"
+	}
+	if (configClosure)
+		tasks[name].configure(configClosure)
+}
+
+def install_llvm(name, version, configClosure=null) {
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	task(name, type: Exec) {
+		workingDir file("$projectDir/_build/$version/build")
+		commandLine "bash", "-c", "gmake -j$parallel_processes install"
+	}
+	if (configClosure)
+		tasks[name].configure(configClosure)
+}
+
+
+prepare_build_llvm("prepare_build_llvm_3_2", "3.2") {
+	dependsOn check_llvm_3_2
+}
+
+build_llvm("build_llvm_3_2", "3.2") {
+	dependsOn prepare_build_llvm_3_2
+}
+
+install_llvm("install_llvm_3_2", "3.2") {
+	dependsOn build_llvm_3_2
+}
+
+prepare_build_llvm("prepare_build_llvm_3_4", "3.4") {
+	dependsOn check_llvm_3_4
+}
+
+build_llvm("build_llvm_3_4", "3.4") {
+	dependsOn prepare_build_llvm_3_4
+}
+
+install_llvm("install_llvm_3_4", "3.4") {
+	dependsOn build_llvm_3_4
+}
+
+
+task build_llvmpy(type: Exec) {
+	dependsOn check_llvmpy, install_llvm_3_2
+
+	def used_llvm_version = "3.2"
+
+	def source_dir = path(LLVMPY, "_build", "sources")
+	def install_dir = path(LLVMPY, "_build", "install")
+	install_dir.mkdirs()
+
+	def llvm_config_path = "LLVM_CONFIG_PATH=$projectDir/_build/$used_llvm_version/install/bin/llvm-config"
+
+	workingDir source_dir
+
+	commandLine "bash", "-c", "$llvm_config_path python setup.py install --prefix=$install_dir"
+}
+
+
+task prepare_build_llvm_passes(type: Exec) {
+	dependsOn install_llvm_3_4
+	
+	def build_dir = path(LLVM_PASSES, "_build")
+	build_dir.mkdirs()
+
+	workingDir build_dir
+
+	commandLine "bash", "-c", "cmake $LLVM_PASSES"
+}
+
+task build_llvm_passes(type: Exec) {
+	dependsOn prepare_build_llvm_passes
+
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	workingDir path(LLVM_PASSES, "_build")
+
+	commandLine "bash", "-c", "make -j$parallel_processes"
+}
