@@ -272,7 +272,10 @@ task checkBeforeCompile {
 def cleanRepository(dir) {
 	if (!rootPath(dir, ".git").exists())
 		throw new GradleException("'$dir' is not the root of a git repository")
-	sh('cd ' + escapeForShell(rootPath(dir)) + ' && git reset --hard && git clean -f -x -d')
+	exec {
+		commandLine "sh", "-c", "git reset --hard && git clean -f -x -d"
+		workingDir rootPath(dir)
+	}
 }
 
 def cleanWithDistclean(dir) {
