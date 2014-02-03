@@ -4,8 +4,17 @@ import org.gradle.api.GradleException
 import java.util.regex.Pattern
 import org.gradle.api.tasks.Exec
 
-class helpers {
-	private Project project;
+class HelpersPluginConvention {
+	private Project project
+
+	public final String pythonInstallPath
+
+	public HelpersPluginConvention(Project project) {
+		this.project = project
+		this.pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
+
+		this.addExtensions()
+	}
 
 	private def getLogger() {
 		return project.logger
@@ -165,15 +174,16 @@ class helpers {
 		return System.getenv()["HOME"]
 	}
 
-	def sshIdentityFile() {
+	def useDefaultIdentityFile(it) {
 		if (project.hasProperty("ssh_identity"))
-			return file((project.ssh_identity =~ /^~/).replaceFirst(userHomeDir()))
+			it.identity = file((project.ssh_identity =~ /^~/).replaceFirst(userHomeDir()))
 		else {
 			def ssh_identity = path(userHomeDir(), ".ssh", "id_rsa")
 			if (ssh_identity.exists())
-				return ssh_identity
-			else
-				return null
+				it.identity = ssh_identity
+			else {
+				logger.info("I won't add '~/.ssh/id_rsa' to $it because I cannot find it.")
+			}
 		}
 	}
 
@@ -191,17 +201,7 @@ class helpers {
 	}
 
 
-	def addExtensions() {
-		for (method in this.metaClass.methods) {
-			if (Object.metaClass.respondsTo(method.name) || method.name.startsWith("_")
-					|| method.name.equals("getProject") || method.name.equals("addExtensions"))
-				continue;
-			project.extensions.extraProperties[method.name] = this.&"$method.name"
-		}
-
-		String pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
-		project.extensions.extraProperties.pythonInstallPath = pythonInstallPath
-
+	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
 			task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
 			task.environment "XILINX_VERSION",         propertyOrDefault("xilinx_version", "14.6")
@@ -225,7 +225,6 @@ class helpers {
 
 public class HelpersPlugin implements Plugin<Project> {
 	void apply(Project project) {
-		def helpers_instance = new helpers(project: project);
-		helpers_instance.addExtensions()
+        project.convention.plugins.put('helpers', new HelpersPluginConvention(project))
 	}
 }

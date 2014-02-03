@@ -24,7 +24,7 @@ allprojects {
 		board {
 			host = project.hasProperty("board_ip") ? board_ip : null
 			user = "root"
-			identity = sshIdentityFile()
+			useDefaultIdentityFile(it)
 		}
 	}
 }
