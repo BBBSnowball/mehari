@@ -1430,7 +1430,7 @@ task runDemo(type: MySshTask) {
 		def demo = compileReconosDemoLinux.demo
 		def demo_binary = path(compileReconosDemoLinux.demoDir, "linux", demo)
 		def demo_on_target = path("/tmp", demo)
-		sshPutFile(session, demo_binary.toString(), demo_on_target.toString())
+		put(demo_binary.toString(), demo_on_target.toString())
 
 		demo_on_target = escapeForShell(demo_on_target)
 		execute("chmod +x $demo_on_target")

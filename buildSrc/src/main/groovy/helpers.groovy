@@ -178,19 +178,6 @@ class HelpersPluginConvention {
 		}
 	}
 
-	// This works like OperationHandler#put method in gradle-ssh-plugin, but it doesn't need SCP or SFTP.
-	def sshPutFile(session, localFile, remoteFile) {
-			String command = "sh -c " + escapeForShell("cat >" + escapeForShell(remoteFile))
-			def channel = session.openChannel("exec")
-			channel.setCommand(command)
-			channel.setInputStream(new FileInputStream(localFile))
-			channel.setOutputStream(System.out, true)
-			channel.connect(3*1000)
-			while (!channel.closed) {
-					sleep(100)
-			}
-	}
-
 	def lazyValue(closure) {
 		return new LazyValue(closure)
 	}
