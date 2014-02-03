@@ -23,3 +23,6 @@ _build
 
 # local Gradle properties
 /gradle-local.properties
+
+# temporary source folders
+/reconos/_sftp/

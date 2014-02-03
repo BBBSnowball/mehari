@@ -289,9 +289,10 @@ task cleanBusybox  << { cleanRepository("busybox") }
 task cleanDropbear << { cleanWithDistclean("dropbear") }
 task cleanReconos  << { cleanRepository("reconos") }
 task cleanRootfs(type: Delete) { delete ROOTFS }
+task cleanSftp(type: Delete) { delete { tasks["extractSftpSource"].targetDir } }
 
 task clean {
-	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanReconos, cleanRootfs
+	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanSftp, cleanReconos, cleanRootfs
 }
 
 task patchUboot(type: Exec) {
@@ -563,6 +564,63 @@ crosscompileMakeTask("compileDropbear", dropbearConfig) {
 		include "dropbear", "dbclient", "dropbearkey", "dropbearconvert"
 		// include "scp", "scp-progress", "dropbearmulti"
 	}
+}
+
+configurations { sftpSource }
+dependencies {
+	//sftpSource group: "org.openssh", name: "openssh", version: "5.9p1", classifier: "sources", ext: "tar.gz"
+	sftpSource "org.openssh:openssh:5.9p1:sources@tar.gz"
+}
+
+task extractSftpSource(type: Exec) {
+	ext.targetDir = rootPath("_sftp")
+
+	doFirst {
+		targetDir.mkdirs()
+	}
+
+	doFirst {
+		def sourceFile = configurations.sftpSource.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+			artifact.file
+		}
+		assert sourceFile.size == 1, "More than one source file for sftpSource configuration!"
+
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			escapeForShell(["tar", "-C", targetDir, "--strip-components=1", "-xzf", sourceFile[0]])
+	}
+
+	mustRunAfter cleanSftp
+}
+
+def configureSftpCommandline() {
+	def host = getCrosscompileHostSpecAfterReconosConfig()
+	return ["./configure", "--prefix=$ROOTFS", "--host=$host",
+		"--disable-utmp", "--disable-utmpx", "--disable-wtmp", "--disable-wtmpx"]
+}
+
+task configureSftp(type: Exec) {
+	dependsOn extractSftpSource, reconosConfig
+	workingDir extractSftpSource.targetDir
+
+	inputs.files fileTree(extractSftpSource.targetDir) {
+		include "config*"
+		exclude "config.h" ; exclude "config.log" ; exclude "config.status"
+	}
+	inputs.property("commandLine") { configureSftpCommandline() }
+	outputs.file path(extractSftpSource.targetDir, "Makefile")
+	outputs.file path(extractSftpSource.targetDir, "config.h")
+
+	doFirst {
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			escapeForShell(configureSftpCommandline())
+	}
+}
+
+crosscompileMakeTask("compileSftp", "sftp-server") {
+	workingDir extractSftpSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn configureSftp
 }
 
 crosscompileMakeTask("compileReconosDriver", []) {
@@ -1022,8 +1080,17 @@ task installDropbearConfig {
 	}
 }
 
+task installSftp(type: Copy) {
+	from extractSftpSource.targetDir
+	into path(ROOTFS, "usr", "libexec")
+
+	include "sftp-server"
+
+	 dependsOn compileSftp
+}
+
 task installDropbear {
-	dependsOn installDropbearFiles, installDropbearConfig
+	dependsOn installDropbearFiles, installDropbearConfig, installSftp
 }
 
 crosscompileMakeTask("installKernelModules", ["INSTALL_MOD_PATH="+ROOTFS, "modules_install"]) {
