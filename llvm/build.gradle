@@ -1,137 +1,161 @@
 ext {
 	LLVM_PASSES = file("$projectDir/llvm-passes")
-	DEFAULT_LLVM_VERSION = "3.4"
-	LLVMPY = file("$projectDir/llvmpy")
-	GRAPH_LLVM_IR = file("$LLVMPY/graph-llvm-ir")
-
-	parallel_compilation_processes = 4
+	DEFAULT_LLVM_VERSION = "3_4"
+	GRAPH_LLVM_IR = file("$projectDir/graph-llvm-ir")
 }
 
 
-def get_llvm(version) {
-	def llvm_dir = file("$projectDir/_build/$version")
-	llvm_dir.mkdirs()
-	// TODO get llvm and clang version from artifactory
-}
-
-def get_llvmpy(target_dir) {
-	target_dir.mkdirs()
-	// TODO get llvmpy from artifactory
-}
-
-def check_llvm(version) {
-	def llvm_dir = file("$projectDir/_build/$version")
-	if (!llvm_dir.exists()) {
-		get_llvm(version)
+def cleanLLVM(version) {
+	task("cleanLLVM_$version", type: Delete) {
+		delete { tasks["extractLLVMSource_$version"].targetDir }
 	}
 }
 
-task check_llvm_3_2 << { check_llvm("3.2") }
-task check_llvm_3_4 << { check_llvm("3.4") }
+cleanLLVM("3_2")
+cleanLLVM("3_4")
 
-task check_llvmpy << {
-	def llvmpy_dir = file("$LLVMPY/_build")
-	if (!llvmpy_dir.exists()) {
-		get_llvmpy(llvmpy_dir)
+task cleanLLVM(type: Delete) { delete "_llvm"}
+
+task cleanLLVMPY(type: Delete) { delete { tasks["extractLLVMPYSource"].targetDir } }
+
+task clean(type: Delete) {
+	dependsOn cleanLLVM, cleanLLVMPY
+	delete "_build", "_install"
+}
+
+
+def extractClangSource(version) {
+	task("extractClangSource_$version", type: FetchAndExtractSourceTask) {
+		def norm_version = version.replaceAll("_", ".")
+		artifact "llvm:clang:$norm_version:sources@tar.gz"
+		into "_llvm/$norm_version/tools/clang"
+
+		mustRunAfter tasks["cleanLLVM_$version"]
+	}	
+}
+
+extractClangSource("3_2")
+extractClangSource("3_4")
+
+def extractLLVMSource(version) {
+	task("extractLLVMSource_$version", type: FetchAndExtractSourceTask) {
+		dependsOn tasks["extractClangSource_$version"]
+		def norm_version = version.replaceAll("_", ".")
+		artifact "llvm:llvm:$norm_version:sources@tar.gz"
+		into "_llvm/$norm_version"
+
+		mustRunAfter tasks["cleanLLVM_$version"]
 	}
 }
 
-// TODO add task to clean LLVM etc
+extractLLVMSource("3_2")
+extractLLVMSource("3_4")
 
-def prepare_build_llvm(name, version, configClosure=null) {
-	def source_dir = file("$projectDir/_build/$version/sources")
-	def build_dir = file("$projectDir/_build/$version/build")
-	def install_dir = file("$projectDir/_build/$version/install")
 
-	def configuration_required = !build_dir.exists()
+task extractLLVMPYSource(type: FetchAndExtractSourceTask) {
+	artifact "llvm:llvmpy:0.11.2:sources@tar.gz"
+	into "_llvmpy"
 
-	build_dir.mkdirs()
-	install_dir.mkdirs()
+	mustRunAfter cleanLLVMPY
+}
+
+
+def prepareBuildLLVM(version, configClosure=null) {
+	def norm_version = version.replaceAll("_", ".")
+	def source_dir = tasks["extractLLVMSource_$version"].targetDir
+	def build_dir = file("$projectDir/_build/llvm/$norm_version")
+	def install_dir = file("$projectDir/_install/llvm/$norm_version")
 
 	def build_mode = "RELEASE" 	// TODO make this configurable
 	def build_targets = "X86" 	// TODO do we need more targets? ARM?
 
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
-	task(name, type: Exec) {
-		workingDir build_dir
-		if (configuration_required) {
-			commandLine "bash", "-c", "cmake -j$parallel_processes -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+	def taskname = "prepareBuildLLVM_$version"
+
+	task(taskname, type: Exec) {
+		dependsOn tasks["extractLLVMSource_$version"]
+
+		doFirst {
+			build_dir.mkdirs()
+			install_dir.mkdirs()	
 		}
-		else
-			commandLine "bash", "-c", "echo No configuration required."
+
+		workingDir build_dir
+		commandLine "bash", "-c", "cmake -j$parallel_processes -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+
 	}
 	if (configClosure)
-		tasks[name].configure(configClosure)
+		tasks[taskname].configure(configClosure)
 }
 
-def build_llvm(name, version, configClosure=null) {
-	
-	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+prepareBuildLLVM("3_2")
+prepareBuildLLVM("3_4")
 
-	def make_additional_flags = ""
+
+def buildLLVM(version, configClosure=null) {
+	def norm_version = version.replaceAll("_", ".")
+	def build_dir = file("$projectDir/_build/llvm/$norm_version")
+
 	// set version specific configuration
-	if (version == "3.2") {
+	def make_additional_flags = ""
+	if (version == "3_2") {
 		make_additional_flags = "REQUIRES_RTTI=1"
 	}
-	else if (version == "3.4") {
+	else if (version == "3_4") {
 	}
 
-	task(name, type: Exec) {
-		workingDir file("$projectDir/_build/$version/build")
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	def taskname = "buildLLVM_$version"
+
+	task(taskname, type: Exec) {
+		dependsOn tasks["prepareBuildLLVM_$version"]
+		workingDir build_dir
 		commandLine "bash", "-c", "$make_additional_flags gmake -j$parallel_processes"
 	}
 	if (configClosure)
-		tasks[name].configure(configClosure)
+		tasks[taskname].configure(configClosure)
 }
 
-def install_llvm(name, version, configClosure=null) {
+buildLLVM("3_2")
+buildLLVM("3_4")
+
+
+def installLLVM(version, configClosure=null) {
+	def norm_version = version.replaceAll("_", ".")
+	def build_dir = file("$projectDir/_build/llvm/$norm_version")
+
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
-	task(name, type: Exec) {
-		workingDir file("$projectDir/_build/$version/build")
+	def taskname = "installLLVM_$version"
+
+	task(taskname, type: Exec) {
+		dependsOn tasks["buildLLVM_$version"]
+		workingDir build_dir
 		commandLine "bash", "-c", "gmake -j$parallel_processes install"
 	}
 	if (configClosure)
-		tasks[name].configure(configClosure)
+		tasks[taskname].configure(configClosure)
 }
 
-
-prepare_build_llvm("prepare_build_llvm_3_2", "3.2") {
-	dependsOn check_llvm_3_2
-}
-
-build_llvm("build_llvm_3_2", "3.2") {
-	dependsOn prepare_build_llvm_3_2
-}
-
-install_llvm("install_llvm_3_2", "3.2") {
-	dependsOn build_llvm_3_2
-}
-
-prepare_build_llvm("prepare_build_llvm_3_4", "3.4") {
-	dependsOn check_llvm_3_4
-}
-
-build_llvm("build_llvm_3_4", "3.4") {
-	dependsOn prepare_build_llvm_3_4
-}
-
-install_llvm("install_llvm_3_4", "3.4") {
-	dependsOn build_llvm_3_4
-}
+installLLVM("3_2")
+installLLVM("3_4")
 
 
-task build_llvmpy(type: Exec) {
-	dependsOn check_llvmpy, install_llvm_3_2
+task buildLLVMPY(type: Exec) {
+	dependsOn extractLLVMPYSource, installLLVM_3_2
 
 	def used_llvm_version = "3.2"
 
-	def source_dir = path(LLVMPY, "_build", "sources")
-	def install_dir = path(LLVMPY, "_build", "install")
-	install_dir.mkdirs()
+	def source_dir = tasks["extractLLVMPYSource"].targetDir
+	def install_dir = file("$projectDir/_install/llvmpy")
 
-	def llvm_config_path = "LLVM_CONFIG_PATH=$projectDir/_build/$used_llvm_version/install/bin/llvm-config"
+	def llvm_config_path = "LLVM_CONFIG_PATH=$projectDir/_install/llvm/$used_llvm_version/bin/llvm-config"
+
+	doFirst {
+		install_dir.mkdirs()
+	}
 
 	workingDir source_dir
 
@@ -139,23 +163,32 @@ task build_llvmpy(type: Exec) {
 }
 
 
-task prepare_build_llvm_passes(type: Exec) {
-	dependsOn install_llvm_3_4
+task prepareBuildLLVMPasses(type: Exec) {
+	dependsOn tasks["installLLVM_$DEFAULT_LLVM_VERSION"]
 	
-	def build_dir = path(LLVM_PASSES, "_build")
-	build_dir.mkdirs()
+	def build_dir = file("$projectDir/_build/llvm-passes")
+
+	doFirst {
+		build_dir.mkdirs()
+	}
 
 	workingDir build_dir
 
 	commandLine "bash", "-c", "cmake $LLVM_PASSES"
 }
 
-task build_llvm_passes(type: Exec) {
-	dependsOn prepare_build_llvm_passes
+task buildLLVMPasses(type: Exec) {
+	dependsOn prepareBuildLLVMPasses
 
+	def build_dir = file("$projectDir/_build/llvm-passes")
+	
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
-	workingDir path(LLVM_PASSES, "_build")
+	workingDir build_dir
 
 	commandLine "bash", "-c", "make -j$parallel_processes"
+}
+
+task compile {
+	dependsOn buildLLVMPY, buildLLVMPasses
 }

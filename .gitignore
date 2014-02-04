@@ -27,3 +27,5 @@ _build
 # temporary source folders
 /reconos/_sftp/
 /reconos/_zlib/
+/llvm/_llvm
+/llvm/_llvmpy

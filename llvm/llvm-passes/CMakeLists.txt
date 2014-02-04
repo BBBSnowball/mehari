@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(USED_LLVM_VERSION "3.4")
 
 # The target LLVM installation
-set(LLVM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../_build/${USED_LLVM_VERSION}/install" CACHE PATH "Root of LLVM install.")
+set(LLVM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../_install/llvm/${USED_LLVM_VERSION}" CACHE PATH "Root of LLVM install.")
 
 # A bit of a sanity check
 if( NOT EXISTS ${LLVM_ROOT}/include/llvm )
