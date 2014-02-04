@@ -843,7 +843,7 @@ def getInitInfo(file, key) {
 			else if (line ==~ /^#+\s*END INIT INFO\s*$/)
 				return null
 			else if (inInitInfo) {
-				def m = (line =~ /(?i)^#\s*/ + escapeForRegex(key) + /:\s*(.*)$/)
+				def m = (line =~ /(?i)^#\s*/ + project.escapeForRegex(key) + /:\s*(.*)$/)
 				if (m)
 					return m.group(1).trim()
 			}
@@ -1123,7 +1123,7 @@ task warnAboutAdditionalFilesInNfsRoot {
 
 	doLast {
 		def exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-		def exclude_pattern = "/\\(" + exclude.collect(project.escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
+		def exclude_pattern = "/\\(" + exclude.collect(project.&escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
 		def exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
 
 		def list_files = { directory, listfile ->
