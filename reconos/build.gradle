@@ -1123,7 +1123,7 @@ task warnAboutAdditionalFilesInNfsRoot {
 
 	doLast {
 		def exclude = [".ash_history", "dropbear", "motd", "log", "run", "lost+found"]
-		def exclude_pattern = "/\\(" + exclude.collect(project.&escapeForRegex).join("\\|") + "\\)\\(/\\|\$\\)"
+		def exclude_pattern = "/\\(" + exclude.collect({ x -> project.escapeForRegex(x) }).join("\\|") + "\\)\\(/\\|\$\\)"
 		def exclude_filter = "grep -v " + escapeForShell(exclude_pattern)
 
 		def list_files = { directory, listfile ->
