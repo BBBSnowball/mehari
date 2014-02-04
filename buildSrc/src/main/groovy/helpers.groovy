@@ -3,6 +3,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.GradleException
 import java.util.regex.Pattern
 import org.gradle.api.tasks.Exec
+import java.util.concurrent.Callable
 
 class HelpersPluginConvention {
 	private Project project
@@ -200,6 +201,62 @@ class HelpersPluginConvention {
 		return backticks("stat -c %u ~/.cse").trim() == "0"
 	}
 
+	def nestedStringList(item) {
+		if (item instanceof Callable)
+			return item()
+		else if (item instanceof Collection || item != null && item.class.isArray())
+			return item.toList().collect { item2 ->
+				nestedStringList(item2)
+			}
+		else if (item instanceof LazyValue)
+			return nestedStringList(item.value)
+		else
+			return item.toString()
+	}
+
+	def stringList(list) {
+		list = nestedStringList(list)
+		if (!(list instanceof Collection))
+			return [list]
+		else
+			return list.flatten()
+	}
+
+	def eachDirRecurseIncludingSelf(directory, closure) {
+		closure(directory)
+		directory.eachDirRecurse(closure)
+	}
+
+	def filesInGit(directory) {
+		// I would use a fileTree to find .gitignore files, but fileTree seems to ignore hidden files.
+		// def gitignoreFiles = fileTree(directory).include("**/.gitignore")
+		directory = project.file(directory)
+		return project.fileTree(directory) {
+			eachDirRecurseIncludingSelf(directory) { subdir ->
+				def gitignoreFile = new File(subdir, ".gitignore")
+				if (gitignoreFile.exists()) {
+					//println(gitignoreFile)
+					def gitignorePath = (subdir.getPath() + "/").substring(directory.getPath().size()+1)
+					gitignoreFile.eachLine { line ->
+						if (line ==~ /^\s*#.*/ || line ==~ /^\s*$/) {
+							// ignore
+						} else {
+							line = line.trim()
+							String excludePattern
+							if (line.startsWith("/")) {
+								excludePattern = gitignorePath + line.substring(1)
+							} else {
+								excludePattern = gitignorePath + "**/" + line
+							}
+							//println("exclude: " + excludePattern)
+							exclude excludePattern
+						}
+					}
+				}
+			}
+		}
+	}
+
 
 	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
@@ -219,6 +276,13 @@ class HelpersPluginConvention {
 			def oldPath = System.getenv()["PATH"]
 			task.environment "PATH", paths.collect(project.&file).findAll().join(File.pathSeparator) \
 				+ File.pathSeparator + oldPath
+		}
+
+		// We cannot do this in CrossCompileMakeTask because we must wait until the properties plugin
+		// has been applied. Fortunately, the helpers plugin is applied after the properties plugin.
+		project.tasks.all { task ->
+			if (task instanceof CrossCompileMakeTask)
+				task.recommendedProperty "parallel_compilation_processes"
 		}
 	}
 }

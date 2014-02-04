@@ -1,37 +1,27 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Exec
 
 // This will most likely only work with the :reconos project because
 // it is tightly coupled to the reconosConfig task.
 
-//TODO support everything that Exec support, e.g. extend Exec and only change commandLine
-
-public class CrossCompileMakeTask2 extends DefaultTask {
+public class CrossCompileMakeTask extends Exec {
 	private ArrayList<Object> targets = []
-	private Object dir = null
 
-	public CrossCompileMakeTask2() {
-		//recommendedProperty "parallel_compilation_processes"
-
+	public CrossCompileMakeTask() {
 		dependsOn "reconosConfig"
 	}
 
 	public void target(...targets) {
 		this.targets.addAll(targets)
-	}
 
-	public void workingDir(dir) {
-		this.dir = dir
+		doFirst { updateCommandLine() }
 	}
 
 	@Input
 	public List<String> getTargets() {
 		return project.stringList(this.targets).findAll { item -> item != "" }
-	}
-
-	public File getWorkingDir() {
-		return project.file(this.dir)
 	}
 
 	public int getParallelCompilationProcesses() {
@@ -41,19 +31,12 @@ public class CrossCompileMakeTask2 extends DefaultTask {
 			4
 	}
 
-	@TaskAction
-	void process() {
+	void updateCommandLine() {
 		def targets = project.escapeForShell(getTargets())
 
 		def parallel_processes = getParallelCompilationProcesses()
-		def dir = this.dir
 		def reconosConfig = project.tasks["reconosConfig"]
 
-		project.exec {
-			commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && make -j$parallel_processes $targets"
-
-			if (dir != null)
-				workingDir dir
-		}
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && make -j$parallel_processes $targets"
 	}
 }

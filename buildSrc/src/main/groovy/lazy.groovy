@@ -16,6 +16,10 @@ public class LazyValue {
 		return this.value
 	}
 
+	public def call() {
+		return getValue()
+	}
+
 	@Override
 	public String toString() {
 		return this.getValue()

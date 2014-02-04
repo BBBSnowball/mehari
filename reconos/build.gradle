@@ -2,43 +2,6 @@ ext.ROOT   = file(".")
 ext.FILES  = file("files")
 ext.ROOTFS = file("_install")
 
-//TODO move to example properties file and update it (e.g. we cannot use sudo with Gradle)
-// To be honest, all those options are quite confusing, so I will try to explain them. There are two
-// scenarios to consider:
-// 1. Your system can run an NFS server and you can use sudo to copy the files to the NFS share
-//    and chown them to root.
-// 2. You don't have an NFS server on this host or you don't have root permissions.
-//
-// The first case is quite simple: You set host-ip and board-ip to appropriate values and run this script.
-// It will export the NFS share and use sudo whenever appropriate. You may have to enter your password for
-// sudo. If you want the script to run unattended, change /etc/sudoers to not require a password.
-//
-// In addition, you may have to change your IP settings. Simply use the host-ip and board-ip parameters
-// to tell the script which addresses it should use. Only IPv4 is supported. Both IPs must be in the same
-// subnet assuming a netmask of 255.255.255.0 (.../24).
-//
-//
-// The second case needs a bit more work. You may wonder why somebody would want to jump to so many hoops, if
-// they could simply use the other solution. My continuous integration runs in an LXC container and my kernel
-// is too old to support NFS inside containers. Furthermore, I don't want the tests to run with root priviledges.
-//
-// You have to prepare the NFS server:
-// (I assume the NFS server has the IP 192.168.24.20 and host-ip and board-ip are the defaults.)
-//   in /etc/exports on the NFS server:
-//   /media/zynq-rootfs 192.168.24.17(rw,async,all_squash,anongid=0,anonuid=0,secure,no_subtree_check) \
-//                      192.168.24.23(rw,async,no_root_squash,secure,no_subtree_check)
-// Make sure that an appropriate file system lives at /media/zynq-rootfs. After changing /etc/exports
-// you have to run something like 'exportfs -rav'.
-//
-// You have to mount the NFS share on the build host, i.e.
-// ssh root@192.168.24.17 mount -t nfs 192.168.24.20:/media/zynq-rootfs /nfs/zynqn -o soft,vers=3
-// You should add the mount to /etc/fstab, so it will be remounted after a reboot.
-//
-// The mounted NFS share provides full access for every user, so you should make sure that only trusted users
-// can access it, e.g. chown jenkins /nfs ; chmod 700 /nfs
-//
-// Use these options: --nfs-mount=192.168.24.20:/media/zynq-rootfs --nfs-no-sudo
-
 task checkSubmodules << {
 	["busybox", "linux-xlnx", "reconos", "u-boot-xlnx"].each { source_dir ->
 		if (!file(source_dir).isDirectory()) {
@@ -58,11 +21,11 @@ task checkSubmodules << {
 	}
 }
 
-def host_has_ip(ip) {
+def hostHasIp(ip) {
 	return sh_test("ifconfig | grep -q \"inet addr6\\?:$ip[/ ]\"") == 0
 }
 
-def can_ping(host) {
+def canPing(host) {
 	return sh_test("ping -c1 \"$host\" >/dev/null") == 0
 }
 
@@ -72,7 +35,7 @@ task checkHostIp {
 	requiredProperty "host_ip"
 
 	doLast {
-		if (!host_has_ip(host_ip) || !can_ping(host_ip)) {
+		if (!hostHasIp(host_ip) || !canPing(host_ip)) {
 			logger.error(heredoc("""
 				ERROR: Host IP is $host_ip, but none of your interfaces has that IP.
 				  You have several options:
@@ -162,7 +125,7 @@ task reconosConfig {
 		else
 			libc_dir = path(gnutools.parentFile.parentFile, "arm-xilinx-linux-gnueabi", "libc")
 
-		do_check_libc(libc_dir)
+		doCheckLibc(libc_dir)
 
 		reconos_config.withWriter { out ->
 			out.writeLine("xil_tools=\"$xil_tools\"")
@@ -178,10 +141,6 @@ task reconosConfig {
 	}
 }
 
-def get_libc_dir_after_reconos_config() {
-	return reconosConfig.libc_dir
-}
-
 ext.xilinxVersionCache = hasProperty("xilinx_version") ? xilinx_version : null
 def determineXilinxVersionAfterReconosConfig() {
 	if (!xilinxVersionCache)
@@ -192,7 +151,7 @@ def determineXilinxVersionAfterReconosConfig() {
 	return xilinxVersionCache
 }
 
-def do_check_libc(libc_dir) {
+def doCheckLibc(libc_dir) {
 	// make sure we have the most important libc files
 
 	if (!libc_dir.isDirectory())
@@ -218,10 +177,8 @@ def do_check_libc(libc_dir) {
 task checkLibc {
 	dependsOn reconosConfig
 
-	//inputs.property("libcDir") { reconosConfig.libc_dir }
-
 	doLast {
-		do_check_libc(reconosConfig.libc_dir)
+		doCheckLibc(reconosConfig.libc_dir)
 	}
 }
 
@@ -242,10 +199,6 @@ task checkDigilentDriverSimple {
 				"""))
 		}
 	}
-}
-
-def doesFileBelongToRoot(file) {
-	return backticks("stat -c %u ~/.cse").trim() == "0"
 }
 
 task checkDigilentDriver {
@@ -269,7 +222,7 @@ task checkBeforeCompile {
 	dependsOn checkSubmodules, checkLibc, checkHostIp, checkDigilentDriver
 }
 
-def cleanRepository(dir) {
+def cleanGitRepository(dir) {
 	if (!rootPath(dir, ".git").exists())
 		throw new GradleException("'$dir' is not the root of a git repository")
 	exec {
@@ -283,11 +236,11 @@ def cleanWithDistclean(dir) {
 	sh("cd $dir ; [ -e \"Makefile\" ] && make distclean || true")
 }
 
-task cleanUboot    << { cleanRepository("u-boot-xlnx") }
-task cleanKernel   << { cleanRepository("linux-xlnx") }
-task cleanBusybox  << { cleanRepository("busybox") }
+task cleanUboot    << { cleanGitRepository("u-boot-xlnx") }
+task cleanKernel   << { cleanGitRepository("linux-xlnx") }
+task cleanBusybox  << { cleanGitRepository("busybox") }
 task cleanDropbear << { cleanWithDistclean("dropbear") }
-task cleanReconos  << { cleanRepository("reconos") }
+task cleanReconos  << { cleanGitRepository("reconos") }
 task cleanRootfs(type: Delete) { delete ROOTFS }
 task cleanZlib(type: Delete) { delete { tasks["extractZlibSource"].targetDir } }
 task cleanSftp(type: Delete) { delete { tasks["extractSftpSource"].targetDir } }
@@ -296,47 +249,20 @@ task clean {
 	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanZlib, cleanSftp, cleanReconos, cleanRootfs
 }
 
-task patchUboot(type: Exec) {
-	commandLine "sh", "-c", "patch -N -p1 <${escapeForShell(path(FILES, 'u-boot-xlnx-zynq.patch'))}"
-
+task patchUboot(type: PatchTask) {
+	patch path(FILES, 'u-boot-xlnx-zynq.patch'), "-p1"
 	workingDir file("u-boot-xlnx")
+	resetWithGit()
 
 	mustRunAfter cleanUboot
-
-	doFirst {
-		def uboot_dir = escapeForShell(file("u-boot-xlnx"))
-		sh("cd $uboot_dir && git checkout include/configs/zynq_common.h include/configs/zynq_zed.h")
-	}
-
-	inputs.file path(FILES, 'u-boot-xlnx-zynq.patch')
-	outputs.files { fileTree(file("u-boot-xlnx")) { include "include/configs/zynq_common.h", "include/configs/zynq_zed.h" } }
 }
 
-def sedTask(name, expr, file, configClosure=null) {
-	if (expr instanceof Collection) {
-		expr = expr.collect { e -> "-e" + e }
-	} else
-		expr = [expr]
-
-	file = project.file(file)
-	def file_for_shell = escapeForShell(file)
-
-	task(name, type: Exec) {
-		commandLine(["sed", "-i"] + expr + [file])
-
-		//inputs.file file  // task is not up-to-date, if output changes, so we don't need it as input
-		outputs.file file
-		inputs.property "sed-expressions", expr
-	}
-	if (configClosure)
-		tasks[name].configure(configClosure)
-}
-
-sedTask("applyConfigToUboot", [
-		"s/^#define CONFIG_IPADDR\\b.*\$/#define CONFIG_IPADDR   $board_ip/",
+task applyConfigToUboot(type: SedTask) {
+	expression "s/^#define CONFIG_IPADDR\\b.*\$/#define CONFIG_IPADDR   $board_ip/",
 		"s/^#define CONFIG_SERVERIP\\b.*\$/#define CONFIG_SERVERIP $host_ip/",
-		"s/\\bethaddr=[0-9a-fA-F:]\\+\\\\0/ethaddr=$board_mac_address\\\\0/"],
-		"u-boot-xlnx/include/configs/zynq_common.h") {
+		"s/\\bethaddr=[0-9a-fA-F:]\\+\\\\0/ethaddr=$board_mac_address\\\\0/"
+	workOn file("u-boot-xlnx/include/configs/zynq_common.h")
+
 	mustRunAfter patchUboot
 
 	requiredProperty "board_ip"
@@ -344,56 +270,8 @@ sedTask("applyConfigToUboot", [
 	requiredProperty "board_mac_address"
 }
 
-def crosscompileMakeTask(name, targets, configClosure=null) {
-	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
-	targets = escapeForShell(targets)
-	task(name, type: Exec) {
-		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && make -j$parallel_processes $targets"
-
-		recommendedProperty "parallel_compilation_processes"
-
-		dependsOn reconosConfig
-	}
-	if (configClosure)
-		tasks[name].configure(configClosure)
-}
-
-def eachDirRecurseIncludingSelf(directory, closure) {
-	closure(directory)
-	directory.eachDirRecurse(closure)
-}
-
-def filesInGit(directory) {
-	// I would use a fileTree to find .gitignore files, but fileTree seems to ignore hidden files.
-	// def gitignoreFiles = fileTree(directory).include("**/.gitignore")
-	directory = file(directory)
-	return fileTree(directory) {
-		eachDirRecurseIncludingSelf(directory) { subdir ->
-			def gitignoreFile = new File(subdir, ".gitignore")
-			if (gitignoreFile.exists()) {
-				//println(gitignoreFile)
-				def gitignorePath = (subdir.getPath() + "/").substring(directory.getPath().size()+1)
-				gitignoreFile.eachLine { line ->
-					if (line ==~ /^\s*#.*/ || line ==~ /^\s*$/) {
-						// ignore
-					} else {
-						line = line.trim()
-						String excludePattern
-						if (line.startsWith("/")) {
-							excludePattern = gitignorePath + line.substring(1)
-						} else {
-							excludePattern = gitignorePath + "**/" + line
-						}
-						//println("exclude: " + excludePattern)
-						exclude excludePattern
-					}
-				}
-			}
-		}
-	}
-}
-
-crosscompileMakeTask("compileUboot", "zynq_zed") {
+task compileUboot(type: CrossCompileMakeTask) {
+	target "zynq_zed"
 	workingDir file("u-boot-xlnx")
 
 	dependsOn patchUboot, applyConfigToUboot
@@ -416,12 +294,14 @@ crosscompileMakeTask("compileUboot", "zynq_zed") {
 	}
 }
 
-crosscompileMakeTask("configureKernel", "xilinx_zynq_defconfig") {
+task configureKernel(type: CrossCompileMakeTask) {
+	target "xilinx_zynq_defconfig"
 	workingDir file("linux-xlnx")
 
 	mustRunAfter cleanKernel
 }
-crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
+task compileKernelImage(type: CrossCompileMakeTask) {
+	target "uImage", "LOADADDR=0x00008000"
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
 	// U-boot has the mkimage tool we need to package the kernel, so we have to build that first
@@ -434,7 +314,8 @@ crosscompileMakeTask("compileKernelImage", ["uImage", "LOADADDR=0x00008000"]) {
 		include "scripts/dtc/dtc"	//TODO is it build by this?
 	}
 }
-crosscompileMakeTask("compileKernelModules", ["modules"]) {
+task compileKernelModules(type: CrossCompileMakeTask) {
+	target "modules"
 	workingDir file("linux-xlnx")
 	dependsOn configureKernel
 	shouldRunAfter compileKernelImage
@@ -461,12 +342,15 @@ task copyBusyboxConfig(type: Copy) {
 	mustRunAfter cleanBusybox
 }
 
-sedTask("applyConfigToBusybox", "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\\\"${ROOTFS.toString().replace("#", "\\#")}\\\"#",
-		rootPath("busybox", ".config")) {
+task applyConfigToBusybox(type: SedTask) {
+	expression "s#^CONFIG_PREFIX=.*#CONFIG_PREFIX=\\\"${ROOTFS.toString().replace("#", "\\#")}\\\"#"
+	workOn rootPath("busybox", ".config")
+
 	dependsOn copyBusyboxConfig
 }
 
-crosscompileMakeTask("compileBusybox", []) {
+task compileBusybox(type: CrossCompileMakeTask) {
+	target ""
 	dependsOn copyBusyboxConfig, applyConfigToBusybox
 	workingDir rootPath("busybox")
 
@@ -478,17 +362,15 @@ crosscompileMakeTask("compileBusybox", []) {
 	}
 }
 
-ext._getCrosscompileEnvvarAfterReconosConfig_cache = null
-def getCrosscompileEnvvarAfterReconosConfig() {
-	if (_getCrosscompileEnvvarAfterReconosConfig_cache != null)
-		return _getCrosscompileEnvvarAfterReconosConfig_cache
-
+ext._getCrosscompileEnvvarAfterReconosConfig_cache = lazyValue {
 	def value = backticks(". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$CROSS_COMPILE\"", "bash")
 	if (value == "")
 		throw new GradleException("\$CROSS_COMPILE is empty after running the reconOS config script")
 
-	_getCrosscompileEnvvarAfterReconosConfig_cache = value
 	return value
+}
+def getCrosscompileEnvvarAfterReconosConfig() {
+	return _getCrosscompileEnvvarAfterReconosConfig_cache.value
 }
 
 def getCrosscompileHostSpecAfterReconosConfig() {
@@ -535,7 +417,8 @@ task applyConfigToDropbear {
 
 def dropbearConfig = ["PROGRAMS=dropbear dbclient dropbearkey dropbearconvert scp", "SCPPROGRESS=1"]
 
-crosscompileMakeTask("compileDropbear", dropbearConfig) {
+task compileDropbear(type: CrossCompileMakeTask) {
+	target dropbearConfig
 	workingDir rootPath("dropbear")
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -567,48 +450,17 @@ crosscompileMakeTask("compileDropbear", dropbearConfig) {
 	}
 }
 
-def fetchAndExtractSource(name, dependencyNotation, targetDir, configClosure=null) {
-	def configurationName = "${name}Source"
-	def configuration = project.configurations.create configurationName
-	project.dependencies.add configurationName, dependencyNotation
+task extractZlibSource(type: FetchAndExtractSourceTask) {
+	artifact "net.zlib:zlib:1.2.8:sources@tar.gz"
+	into "_zlib"
 
-	def extractTask = task("extract${name.capitalize()}Source", type: Exec) {
-		ext.targetDir = rootPath(targetDir)
-		ext.tarFile = lazyValue {
-			def sourceFiles = configuration.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
-				artifact.file
-			}
-			assert sourceFiles.size == 1, "There must be exactly one source file for ${configurationName} configuration!"
-
-			sourceFiles[0]
-		}
-
-		doFirst {
-			it.targetDir.mkdirs()
-		}
-
-		doFirst {
-			commandLine "tar", "-C", it.targetDir, "--strip-components=1", "-xzf", tarFile
-		}
-
-		inputs.files { tarFile.toString() }
-		outputs.files {
-			// '--strip-components=1' doesn't work here, so we remove the first component ourselves
-			["tar", "-tzf", tarFile].execute().text.readLines()*.split("/").collect { segments ->
-				path([targetDir] + (segments.size() > 1 ? segments[1..-1] : []))
-			}
-		}
-	}
-
-	if (configClosure != null)
-		extractTask.configure(configClosure)
-}
-
-fetchAndExtractSource("zlib", "net.zlib:zlib:1.2.8:sources@tar.gz", "_zlib") {
 	mustRunAfter cleanZlib
 }
 
-fetchAndExtractSource("sftp", "org.openssh:openssh:5.9p1:sources@tar.gz", "_sftp") {
+task extractSftpSource(type: FetchAndExtractSourceTask) {
+	artifact "org.openssh:openssh:5.9p1:sources@tar.gz"
+	into "_sftp"
+
 	mustRunAfter cleanSftp
 }
 
@@ -635,7 +487,8 @@ task configureZlib(type: Exec) {
 	}
 }
 
-crosscompileMakeTask("compileZlib", []) {
+task compileZlib(type: CrossCompileMakeTask) {
+	target ""
 	workingDir extractZlibSource.targetDir
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -650,7 +503,8 @@ crosscompileMakeTask("compileZlib", []) {
 	}
 }
 
-crosscompileMakeTask("installZlib", "install") {
+task installZlib(type: CrossCompileMakeTask) {
+	target "install"
 	workingDir extractZlibSource.targetDir
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -734,7 +588,8 @@ task configureSftp {
 	outputs.file path(extractSftpSource.targetDir, "Makefile-sftp")
 }
 
-crosscompileMakeTask("compileSftp", ["-f", "Makefile-sftp", "sftp-server"]) {
+task compileSftp(type: CrossCompileMakeTask) {
+	target "-f", "Makefile-sftp", "sftp-server"
 	workingDir extractSftpSource.targetDir
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -745,13 +600,16 @@ crosscompileMakeTask("compileSftp", ["-f", "Makefile-sftp", "sftp-server"]) {
 	outputs.file rootPath(extractSftpSource.targetDir, "sftp-server")
 }
 
-crosscompileMakeTask("compileReconosDriver", []) {
+task compileReconosDriver(type: CrossCompileMakeTask) {
+	target ""
 	workingDir rootPath("reconos", "linux", "driver")
 }
-crosscompileMakeTask("compileReconosLib", []) {
+task compileReconosLib(type: CrossCompileMakeTask) {
+	target ""
 	workingDir rootPath("reconos", "linux", "lib")
 }
-crosscompileMakeTask("compileReconosDemoLinux", []) {
+task compileReconosDemoLinux(type: CrossCompileMakeTask) {
+	target ""
 	ext.demo = "sort_demo"
 	ext.demoDir = rootPath("reconos", "demos", demo)
 	workingDir path(demoDir, "linux")
@@ -918,10 +776,12 @@ def nfsMountForDeviceTree() {
 		return "$host_ip:$local_nfs_root"
 }
 
-sedTask("applyConfigToReconosDeviceTree", [
+task applyConfigToReconosDeviceTree(type: SedTask) {
+	expression { [
 		/s#\(nfsroot=[0-9.]\+\):[^,]*,tcp#nfsroot=/ + nfs_mount + /,tcp#/,
-		/s#\bip=[0-9.]\+:#ip=/ + board_ip + /:#/],
-		demoHwDir("edk_zynq_linux", "device_tree.dts")) {
+		/s#\bip=[0-9.]\+:#ip=/ + board_ip + /:#/ ] }
+	workOn demoHwDir("edk_zynq_linux", "device_tree.dts")
+
 	dependsOn copyReconosDeviceTree
 	requiredProperty "board_ip"
 	requiredProperty "nfs_mount"
@@ -955,7 +815,8 @@ task compile {
 	shouldRunAfter checkBeforeCompile
 }
 
-crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
+task installBusybox(type: CrossCompileMakeTask) {
+	target "CONFIG_PREFIX=$ROOTFS", "install"
 	workingDir rootPath("busybox")
 
 	dependsOn compileBusybox
@@ -972,7 +833,7 @@ crosscompileMakeTask("installBusybox", ["CONFIG_PREFIX=$ROOTFS", "install"]) {
 	}
 }
 
-def get_init_info(file, key) {
+def getInitInfo(file, key) {
 	project.file(file).withReader { rd ->
 		boolean inInitInfo = false
 		String line = null
@@ -991,12 +852,12 @@ def get_init_info(file, key) {
 	}
 }
 
-def get_order(file, start_or_stop) {
-	def order = get_init_info(file, "${start_or_stop}-order")
+def getOrder(file, start_or_stop) {
+	def order = getInitInfo(file, "${start_or_stop}-order")
 	if (order)
 		return order
 	else {
-		order = get_init_info(file, "order")
+		order = getInitInfo(file, "order")
 
 		if (start_or_stop == "start")
 			return order
@@ -1039,8 +900,8 @@ task installBaseSystem {
 			project.copyFile(src, dst)
 			chmod(dst, 0755)
 
-			def start_order = get_order(dst, "start")
-			def stop_order  = get_order(dst, "stop")
+			def start_order = getOrder(dst, "start")
+			def stop_order  = getOrder(dst, "stop")
 
 			if (start_order)
 				project.symlink(dst, path(ROOTFS, "etc", "rc.d", "S${start_order}${name}"))
@@ -1108,7 +969,8 @@ task installLibc(type: Copy) {
 	}
 }
 
-crosscompileMakeTask("installDropbearFiles", dropbearConfig + ["prefix="+ROOTFS, "install"]) {
+task installDropbearFiles(type: CrossCompileMakeTask) {
+	target dropbearConfig + ["prefix="+ROOTFS, "install"]
 	workingDir rootPath("dropbear")
 	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
 
@@ -1175,7 +1037,8 @@ task installDropbear {
 	dependsOn installDropbearFiles, installDropbearConfig, installSftp
 }
 
-crosscompileMakeTask("installKernelModules", ["INSTALL_MOD_PATH="+ROOTFS, "modules_install"]) {
+task installKernelModules(type: CrossCompileMakeTask) {
+	target "INSTALL_MOD_PATH="+ROOTFS, "modules_install"
 	workingDir rootPath("linux-xlnx")
 
 	dependsOn compileKernelModules
@@ -1351,7 +1214,7 @@ task waitForBootingBoard {
 			logger.error(
 				"ERROR: The board didn't send the 'done' message within 30 seconds.")
 
-			if (!can_ping(host_ip)) {
+			if (!canPing(host_ip)) {
 				logger.error(heredoc("""
 					ERROR: I cannot ping $host_ip, so I think for some reason your IP got reset.
 					  Please make sure that you use an ethernet switch (i.e. don't
@@ -1362,7 +1225,7 @@ task waitForBootingBoard {
 				throw new GradleException("I cannot ping the local host ($host_ip).")
 			}
 
-			if (!can_ping(board_ip)) {
+			if (!canPing(board_ip)) {
 				logger.error(
 					"I cannot ping the board ($board_ip). This is a bad sign. I will try to continue anyway.")
 			} else {
