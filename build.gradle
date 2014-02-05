@@ -103,7 +103,7 @@ forAllNormalTestTasks() { task ->
 }
 
 task clean {
-	dependsOn "reconos:clean"
+	dependsOn "reconos:clean", "llvm:clean"
 
 	mustRunAfter checkSystemDependencies
 }
@@ -115,7 +115,7 @@ task checkBeforeCompile {
 }
 
 task compile {
-	dependsOn "reconos:compile"
+	dependsOn "reconos:compile", "llvm:compile"
 
 	mustRunAfter clean, checkBeforeCompile
 	shouldRunAfter checkBeforeCompile
