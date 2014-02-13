@@ -1,7 +1,19 @@
 ext {
 	LLVM_PASSES = file("$projectDir/llvm-passes")
 	DEFAULT_LLVM_VERSION = "3_4"
+
 	GRAPH_LLVM_IR = file("$projectDir/graph-llvm-ir")
+
+	PREPARE_EXAMPLE_HELPER = file("$projectDir/helpers/prepare_example_source.py")
+
+	IPANEMA = file("$projectDir/../private/ipanema")
+	IPANEMA_INCLUDES_SYSLAYER = file("$IPANEMA/include/syslayer/linux")
+	IPANEMA_INCLUDES_SIM = file("$IPANEMA/include/sim")
+
+	EXAMPLE = file("$projectDir/examples/single_pendulum.c")
+	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
+
+	OUTPUT_DIR = file("$projectDir/_output")
 }
 
 
@@ -14,12 +26,14 @@ def cleanLLVM(version) {
 cleanLLVM("3_2")
 cleanLLVM("3_4")
 
-task cleanLLVM(type: Delete) { delete "_llvm"}
+task cleanLLVM(type: Delete) { delete "_llvm" }
 
 task cleanLLVMPY(type: Delete) { delete { tasks["extractLLVMPYSource"].targetDir } }
 
+task cleanOutput(type: Delete) { delete OUTPUT_DIR }
+
 task clean(type: Delete) {
-	dependsOn cleanLLVM, cleanLLVMPY
+	dependsOn cleanLLVM, cleanLLVMPY, cleanOutput
 	delete "_build", "_install"
 }
 
@@ -69,6 +83,8 @@ def prepareBuildLLVM(version, configClosure=null) {
 	def build_mode = "RELEASE" 	// TODO make this configurable
 	def build_targets = "X86" 	// TODO do we need more targets? ARM?
 
+	def additional_flags = "-DLLVM_REQUIRES_RTTI=1 --enable-pic"
+
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	def taskname = "prepareBuildLLVM_$version"
@@ -82,7 +98,7 @@ def prepareBuildLLVM(version, configClosure=null) {
 		}
 
 		workingDir build_dir
-		commandLine "bash", "-c", "cmake -j$parallel_processes -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+		commandLine "bash", "-c", "cmake -j$parallel_processes $additional_flags -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
 
 	}
 	if (configClosure)
@@ -103,6 +119,7 @@ def buildLLVM(version, configClosure=null) {
 		make_additional_flags = "REQUIRES_RTTI=1"
 	}
 	else if (version == "3_4") {
+		make_additional_flags = "REQUIRES_RTTI=1"
 	}
 
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
@@ -168,13 +185,15 @@ task prepareBuildLLVMPasses(type: Exec) {
 	
 	def build_dir = file("$projectDir/_build/llvm-passes")
 
+	def build_mode = "RELEASE" 	// TODO make this configurable
+
 	doFirst {
 		build_dir.mkdirs()
 	}
 
 	workingDir build_dir
 
-	commandLine "bash", "-c", "cmake $LLVM_PASSES"
+	commandLine "bash", "-c", "cmake -DCMAKE_BUILD_TYPE=$build_mode $LLVM_PASSES"
 }
 
 task buildLLVMPasses(type: Exec) {
@@ -189,6 +208,58 @@ task buildLLVMPasses(type: Exec) {
 	commandLine "bash", "-c", "make -j$parallel_processes"
 }
 
+
 task compile {
 	dependsOn buildLLVMPY, buildLLVMPasses
 }
+
+
+task prepareExample(type: Exec) {
+	doFirst {
+		OUTPUT_DIR.mkdirs()
+	}
+	commandLine "bash", "-c", "$PREPARE_EXAMPLE_HELPER $EXAMPLE $OUTPUT_DIR"
+}
+
+task createIR(type: Exec) {
+	dependsOn tasks["installLLVM_$DEFAULT_LLVM_VERSION"], prepareExample
+	
+	def norm_version = DEFAULT_LLVM_VERSION.replaceAll("_", ".")
+
+	// TODO better solution for this
+	def tmp_source_file = file("$OUTPUT_DIR/evalS_new.c")
+	def irfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	def clang = file("$projectDir/_install/llvm/$norm_version/bin/clang")
+
+	commandLine "bash", "-c", "$clang $CFLAGS_FOR_EXAMPLE -S -emit-llvm -I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM $tmp_source_file -o $irfile"
+}
+
+
+task speedUpAnalysis(type: Exec) {
+	dependsOn createIR, buildLLVMPasses
+
+	def norm_version = DEFAULT_LLVM_VERSION.replaceAll("_", ".")
+
+	def opt = file("$projectDir/_install/llvm/$norm_version/bin/opt")
+	def analysis_lib = file("$projectDir/_build/llvm-passes/Analysis/MehariAnalysis.so")
+
+	// TODO better solution for this
+	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -S $targetfile > /dev/null"
+}
+
+
+// TODO building llvmpy currently does not work -> fix it!
+// task drawIRGraph(type: Exec) {
+// 	dependsOn buildLLVMPY, createIR
+
+// 	// TODO better solution for this
+// 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
+// 	def llvmpy_install = file("$projectDir/_install/llvmpy")
+
+// 	workingDir GRAPH_LLVM_IR
+
+// 	commandLine "bash", "-c", "./graph-llvm-ir $targetfile --llvmpy $llvmpy_install/lib/python2.7/site-packages/llvm --control --dag-control"
+// }
