@@ -29,3 +29,6 @@ _build
 /reconos/_zlib/
 /llvm/_llvm
 /llvm/_llvmpy
+
+# temporary output folder
+/llvm/_output
