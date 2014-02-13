@@ -4,7 +4,7 @@
 -- 
 -- Create Date:    11:22:41 12/16/2013 
 -- Design Name: 
--- Module Name:    x - Structural 
+-- Module Name:    single_pendulum - Structural 
 -- Project Name: 
 -- Target Devices: 
 -- Tool versions: 
@@ -29,7 +29,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
-entity x is
+entity single_pendulum is
     Port ( x0, x1, u0, t  : in  STD_LOGIC_VECTOR(63 downto 0);
            p0, p1, p2, p4 : in  STD_LOGIC_VECTOR(63 downto 0);
            dx0, dx1       : out STD_LOGIC_VECTOR(63 downto 0);
@@ -38,12 +38,13 @@ entity x is
            out_tvalid     : out STD_LOGIC;
            out_tready     : in  STD_LOGIC;
            aclk           : in  STD_LOGIC );
-end x;
+end single_pendulum;
 
-architecture Structural of x is
+architecture Structural of single_pendulum is
 
     component float_neg is
-        Port ( a_tvalid : in  STD_LOGIC;
+        Port ( aclk : IN STD_LOGIC;
+               a_tvalid : in  STD_LOGIC;
                a_tready : out  STD_LOGIC;
                a_tdata : in  STD_LOGIC_VECTOR (63 downto 0);
                result_tvalid : out  STD_LOGIC;
@@ -119,15 +120,38 @@ architecture Structural of x is
     signal a, b, c, d, e, f, g, h : STD_LOGIC_VECTOR (63 downto 0);
     signal a_valid, b_valid, c_valid, d_valid, e_valid, f_valid, g_valid, h_valid : STD_LOGIC;
     signal a_ready, b_ready, c_ready, d_ready, e_ready, f_ready, g_ready, h_ready : STD_LOGIC;
+
+  function wired_and(drivers : in std_logic_vector) return std_logic is
+  begin
+    --TODO This ignores 'X' values...
+    for index in drivers'range loop
+      if drivers(index) = '0' then
+        return '0';
+      end if;
+    end loop;
+    return '1';
+  end wired_and;
+  subtype wired_and_std_logic is wired_and std_logic;
+
+  signal in_tready_wired_and : wired_and_std_logic;
+
 begin
+    in_tready <= in_tready_wired_and;
+
     -- dx[0] = x[1];
-    dx0 <= x1;
+    dx0_process: process(aclk)
+    begin
+      if rising_edge(aclk) and in_tvalid = '1' then
+        dx0 <= x1;
+      end if;
+    end process;
 
     -- a = NEG(Vp[2])
     t_a : float_neg
       PORT MAP (
+        aclk => aclk,
         a_tvalid => in_tvalid,
-        a_tready => in_tready,
+        a_tready => in_tready_wired_and,
         a_tdata  => p2,
         result_tvalid => a_valid,
         result_tready => a_ready,
@@ -142,7 +166,7 @@ begin
         s_axis_a_tready => a_ready,
         s_axis_a_tdata  => a,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready,
+        s_axis_b_tready => in_tready_wired_and,
         s_axis_b_tdata  => p1,
         m_axis_result_tvalid => b_valid,
         m_axis_result_tready => b_ready,
@@ -155,7 +179,7 @@ begin
         aclk          => aclk,
         a_tdata       => x0,
         a_tvalid      => in_tvalid,
-        a_tready      => in_tready,
+        a_tready      => in_tready_wired_and,
         result_tdata  => c,
         result_tvalid => c_valid,
         result_tready => c_ready
@@ -181,10 +205,10 @@ begin
       PORT MAP (
         aclk => aclk,
         s_axis_a_tvalid => in_tvalid,
-        s_axis_a_tready => in_tready,
+        s_axis_a_tready => in_tready_wired_and,
         s_axis_a_tdata  => x1,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready,
+        s_axis_b_tready => in_tready_wired_and,
         s_axis_b_tdata  => p0,
         m_axis_result_tvalid => e_valid,
         m_axis_result_tready => e_ready,
@@ -214,7 +238,7 @@ begin
         s_axis_a_tready => f_ready,
         s_axis_a_tdata  => f,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready,
+        s_axis_b_tready => in_tready_wired_and,
         s_axis_b_tdata  => u0,
         m_axis_result_tvalid => g_valid,
         m_axis_result_tready => g_ready,
@@ -229,7 +253,7 @@ begin
         s_axis_a_tready => g_ready,
         s_axis_a_tdata  => g,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready,
+        s_axis_b_tready => in_tready_wired_and,
         s_axis_b_tdata  => p4,
         m_axis_result_tvalid => out_tvalid,
         m_axis_result_tready => out_tready,

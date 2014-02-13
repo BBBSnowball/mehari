@@ -19,3 +19,6 @@ vhdl work "test_float_to_sin.vhd"
 vhdl work "test_cordic_sin.vhd"
 vhdl work "test_float_from_sin.vhd"
 vhdl work "test_to_cordic_test_helpers.vhd"
+
+vhdl work "single_pendulum.vhd"
+vhdl work "test_single_pendulum.vhd"
