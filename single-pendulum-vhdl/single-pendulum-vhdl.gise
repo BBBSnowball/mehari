@@ -47,6 +47,10 @@
     <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="isim.wdb"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_float_conversion_isim_beh.exe"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_float_to_sin_isim_beh.exe"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_single_pendulum_beh.prj"/>
+    <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_single_pendulum_isim_beh.exe"/>
+    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="test_single_pendulum_isim_beh.wdb"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_single_pendulum_stx_beh.prj"/>
     <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="webtalk_pn.xml"/>
     <file xil_pn:fileType="FILE_CMD_LOG" xil_pn:name="x.cmd_log"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_LSO" xil_pn:name="x.lso"/>
@@ -67,13 +71,9 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387594524" xil_pn:in_ck="9190747256430170472" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1387594524">
+    <transform xil_pn:end_ts="1392289019" xil_pn:in_ck="-403924581817572663" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1392289019">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForInputs"/>
-      <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="InputChanged"/>
-      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="double_type.vhd"/>
       <outfile xil_pn:name="float_helpers.vhd"/>
       <outfile xil_pn:name="float_neg.vhd"/>
@@ -84,17 +84,18 @@
       <outfile xil_pn:name="test_float_from_sin.vhd"/>
       <outfile xil_pn:name="test_float_to_sin.vhd"/>
       <outfile xil_pn:name="test_helpers.vhd"/>
+      <outfile xil_pn:name="test_single_pendulum.vhd"/>
       <outfile xil_pn:name="x.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387593607" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="-4889270634735047841" xil_pn:start_ts="1387593607">
+    <transform xil_pn:end_ts="1392287350" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="4086824084552069088" xil_pn:start_ts="1392287350">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387593607" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="-7647923639415506973" xil_pn:start_ts="1387593607">
+    <transform xil_pn:end_ts="1392287350" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="-6149045301246513820" xil_pn:start_ts="1392287350">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1387593607" xil_pn:in_ck="-431047028263333511" xil_pn:name="TRAN_regenerateCoresSim" xil_pn:prop_ck="9202621353327189095" xil_pn:start_ts="1387593607">
+    <transform xil_pn:end_ts="1392287350" xil_pn:in_ck="-431047028263333511" xil_pn:name="TRAN_regenerateCoresSim" xil_pn:prop_ck="-8013209793871510480" xil_pn:start_ts="1392287350">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <outfile xil_pn:name="ipcore_dir/cordic_sin.ngc"/>
@@ -112,14 +113,9 @@
       <outfile xil_pn:name="ipcore_dir/float_to_sin.ngc"/>
       <outfile xil_pn:name="ipcore_dir/float_to_sin.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387594524" xil_pn:in_ck="9190747256430170472" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1387594524">
+    <transform xil_pn:end_ts="1392289019" xil_pn:in_ck="-403924581817572663" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1392289019">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForInputs"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
-      <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="InputChanged"/>
-      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="double_type.vhd"/>
       <outfile xil_pn:name="float_helpers.vhd"/>
       <outfile xil_pn:name="float_neg.vhd"/>
@@ -130,31 +126,29 @@
       <outfile xil_pn:name="test_float_from_sin.vhd"/>
       <outfile xil_pn:name="test_float_to_sin.vhd"/>
       <outfile xil_pn:name="test_helpers.vhd"/>
+      <outfile xil_pn:name="test_single_pendulum.vhd"/>
       <outfile xil_pn:name="x.vhd"/>
     </transform>
-    <transform xil_pn:end_ts="1387594534" xil_pn:in_ck="7962792581085428073" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-6216744090747813823" xil_pn:start_ts="1387594524">
+    <transform xil_pn:end_ts="1392289037" xil_pn:in_ck="7978527772408419402" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-5498601221697672893" xil_pn:start_ts="1392289019">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForInputs"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="fuse.log"/>
       <outfile xil_pn:name="isim"/>
       <outfile xil_pn:name="isim.log"/>
       <outfile xil_pn:name="isim.wdb"/>
+      <outfile xil_pn:name="test_single_pendulum_beh.prj"/>
+      <outfile xil_pn:name="test_single_pendulum_isim_beh.exe"/>
       <outfile xil_pn:name="xilinxsim.ini"/>
     </transform>
-    <transform xil_pn:end_ts="1387594534" xil_pn:in_ck="-2303565510561502512" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="2660798107478830926" xil_pn:start_ts="1387594534">
+    <transform xil_pn:end_ts="1392289037" xil_pn:in_ck="-6563553962953140687" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="1070687605155047472" xil_pn:start_ts="1392289037">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
-      <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="isim.cmd"/>
       <outfile xil_pn:name="isim.log"/>
       <outfile xil_pn:name="isim.wdb"/>
+      <outfile xil_pn:name="test_single_pendulum_isim_beh.wdb"/>
     </transform>
     <transform xil_pn:end_ts="1387189364" xil_pn:name="TRAN_copyInitialToXSTAbstractSynthesis" xil_pn:start_ts="1387189364">
       <status xil_pn:value="SuccessfullyRun"/>
