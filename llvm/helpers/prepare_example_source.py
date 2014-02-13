@@ -1,1 +1,1 @@
-../../private/prepare_example_source.py
+../../private/python/scripts/prepare_example_source.py
