@@ -77,6 +77,10 @@ if (project.hasProperty("artifactory_contextUrl")) {
 	}
 }
 
+ext.havePrivateProject = file("private").isDirectory()
+subprojects {
+	ext.havePrivateProject = havePrivateProject
+}
 
 task checkSystemDependencies(type:Exec) {
 	description "Make sure that the system has everything we need."
@@ -116,6 +120,8 @@ task checkBeforeCompile {
 
 task compile {
 	dependsOn "reconos:compile", "llvm:compile"
+	if (havePrivateProject)
+		dependsOn "private:compile"
 
 	mustRunAfter clean, checkBeforeCompile
 	shouldRunAfter checkBeforeCompile
@@ -130,6 +136,8 @@ task prepareTest {
 task test {
 	dependsOn "single-pendulum-vhdl:test"
 	dependsOn "reconos:test"
+	if (havePrivateProject)
+		dependsOn "private:test"
 
 	mustRunAfter prepareTest
 }
