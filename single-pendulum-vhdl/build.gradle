@@ -15,11 +15,3 @@ task test(type: Exec) {
 
 	environmentFromConfig()
 }
-
-task testSortDemoSimulation(type: Exec) {
-	commandLine "./test.sh"
-	workingDir file("x")
-
-	environmentFromConfig()
-}
-tasks["test"].dependsOn testSortDemoSimulation

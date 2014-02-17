@@ -1301,6 +1301,15 @@ task runDemo(type: MySshTask) {
 	}
 }
 
+task testSortDemoSimulation(type: Exec) {
+	commandLine "./test.sh"
+	workingDir rootPath("reconos", "demos", "sort_demo", "test")
+
+	environmentFromConfig()
+}
+// don't waste time for synthesis, if the code doesn't work
+compileReconosDemoHardwareBitstream.shouldRunAfter testSortDemoSimulation
+
 task bootZynqAndRunDemo {
 	dependsOn updateNfsRoot, bootZynq, runDemo
 }
@@ -1319,4 +1328,5 @@ task prepareTest {
 
 task test {
 	dependsOn runDemo
+	dependsOn testSortDemoSimulation
 }
