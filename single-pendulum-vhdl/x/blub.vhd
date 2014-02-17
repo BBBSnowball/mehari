@@ -84,7 +84,7 @@ architecture behavior of blub is
 	-- The values must be exactly the same as in hwt_sort_demo.vhd !
 	constant MBOX_RECV  : std_logic_vector(31 downto 0) := x"00000000";
 	constant MBOX_SEND  : std_logic_vector(31 downto 0) := x"00000001";
-	constant C_LOCAL_RAM_SIZE          : integer := 256; -- 148;
+	constant C_LOCAL_RAM_SIZE          : integer := 148;
 
 
 	signal i_osif_test   : i_osif_test_t;
