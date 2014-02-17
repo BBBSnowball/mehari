@@ -77,7 +77,7 @@ for test in $TESTS ; do
 	fi
 
 	# We use grep without '-q', so the user will see the error messages again.
-	if grep "^at [^:]*: Error: " isim.log >&2 ; then
+	if grep "^at [^:]*: Error: " isim.log >&2 || grep -i "^Error: " isim.log >&2 ; then
 		echo "There was at least one error during the test run!" >&2
 		exit 1
 	fi
