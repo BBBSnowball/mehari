@@ -1,6 +1,6 @@
 ext {
 	LLVM_PASSES = file("$projectDir/llvm-passes")
-	DEFAULT_LLVM_VERSION = "3_4"
+	DEFAULT_LLVM_VERSION = "3.4"
 
 	GRAPH_LLVM_IR = file("$projectDir/graph-llvm-ir")
 
@@ -13,177 +13,99 @@ ext {
 	EXAMPLE = file("$projectDir/examples/single_pendulum.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 
+	LLVM_SOURCE = file("$projectDir/_llvm")
+
+	BUILD_DIR = file("$projectDir/_build")
+	INSTALL_DIR = file("$projectDir/_install")
 	OUTPUT_DIR = file("$projectDir/_output")
 }
 
 
-def cleanLLVM(version) {
-	task("cleanLLVM_$version", type: Delete) {
-		delete { tasks["extractLLVMSource_$version"].targetDir }
-	}
+task cleanLLVM(type: Delete) {
+	delete LLVM_SOURCE
 }
 
-cleanLLVM("3_2")
-cleanLLVM("3_4")
-
-task cleanLLVM(type: Delete) { delete "_llvm" }
-
-task cleanLLVMPY(type: Delete) { delete { tasks["extractLLVMPYSource"].targetDir } }
-
-task cleanOutput(type: Delete) { delete OUTPUT_DIR }
+task cleanOutput(type: Delete) { 
+	delete OUTPUT_DIR 
+}
 
 task clean(type: Delete) {
-	dependsOn cleanLLVM, cleanLLVMPY, cleanOutput
-	delete "_build", "_install"
+	dependsOn cleanLLVM, cleanOutput
+	delete BUILD_DIR, INSTALL_DIR
 }
 
 
-def extractClangSource(version) {
-	task("extractClangSource_$version", type: FetchAndExtractSourceTask) {
-		def norm_version = version.replaceAll("_", ".")
-		artifact "llvm:clang:$norm_version:sources@tar.gz"
-		into "_llvm/$norm_version/tools/clang"
+task extractClangSource(type: FetchAndExtractSourceTask) {
+	artifact "llvm:clang:$DEFAULT_LLVM_VERSION:sources@tar.gz"
+	into path(LLVM_SOURCE, "tools", "clang")
 
-		mustRunAfter tasks["cleanLLVM_$version"]
-	}	
+	mustRunAfter cleanLLVM
 }
 
-extractClangSource("3_2")
-extractClangSource("3_4")
+task extractLLVMSource(type: FetchAndExtractSourceTask) {
+	dependsOn extractClangSource
 
-def extractLLVMSource(version) {
-	task("extractLLVMSource_$version", type: FetchAndExtractSourceTask) {
-		dependsOn tasks["extractClangSource_$version"]
-		def norm_version = version.replaceAll("_", ".")
-		artifact "llvm:llvm:$norm_version:sources@tar.gz"
-		into "_llvm/$norm_version"
+	artifact "llvm:llvm:$DEFAULT_LLVM_VERSION:sources@tar.gz"
+	into LLVM_SOURCE
 
-		mustRunAfter tasks["cleanLLVM_$version"]
-	}
-}
-
-extractLLVMSource("3_2")
-extractLLVMSource("3_4")
-
-
-task extractLLVMPYSource(type: FetchAndExtractSourceTask) {
-	artifact "llvm:llvmpy:0.11.2:sources@tar.gz"
-	into "_llvmpy"
-
-	mustRunAfter cleanLLVMPY
+	mustRunAfter cleanLLVM
 }
 
 
-def prepareBuildLLVM(version, configClosure=null) {
-	def norm_version = version.replaceAll("_", ".")
-	def source_dir = tasks["extractLLVMSource_$version"].targetDir
-	def build_dir = file("$projectDir/_build/llvm/$norm_version")
-	def install_dir = file("$projectDir/_install/llvm/$norm_version")
+task prepareBuildLLVM(type: Exec) {
+	dependsOn tasks["extractLLVMSource"]
+
+	def source_dir = extractLLVMSource.targetDir
+	def build_dir = file("$BUILD_DIR/llvm")
+	def install_dir = file("$INSTALL_DIR/llvm")
 
 	def build_mode = "RELEASE" 	// TODO make this configurable
 	def build_targets = "X86" 	// TODO do we need more targets? ARM?
 
-	def additional_flags = "-DLLVM_REQUIRES_RTTI=1 --enable-pic"
+	def additional_flags = "-DLLVM_REQUIRES_RTTI=1"
 
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
-
-	def taskname = "prepareBuildLLVM_$version"
-
-	task(taskname, type: Exec) {
-		dependsOn tasks["extractLLVMSource_$version"]
-
-		doFirst {
-			build_dir.mkdirs()
-			install_dir.mkdirs()	
-		}
-
-		workingDir build_dir
-		commandLine "bash", "-c", "cmake -j$parallel_processes $additional_flags -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
-
-	}
-	if (configClosure)
-		tasks[taskname].configure(configClosure)
-}
-
-prepareBuildLLVM("3_2")
-prepareBuildLLVM("3_4")
-
-
-def buildLLVM(version, configClosure=null) {
-	def norm_version = version.replaceAll("_", ".")
-	def build_dir = file("$projectDir/_build/llvm/$norm_version")
-
-	// set version specific configuration
-	def make_additional_flags = ""
-	if (version == "3_2") {
-		make_additional_flags = "REQUIRES_RTTI=1"
-	}
-	else if (version == "3_4") {
-		make_additional_flags = "REQUIRES_RTTI=1"
-	}
-
-	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
-
-	def taskname = "buildLLVM_$version"
-
-	task(taskname, type: Exec) {
-		dependsOn tasks["prepareBuildLLVM_$version"]
-		workingDir build_dir
-		commandLine "bash", "-c", "$make_additional_flags gmake -j$parallel_processes"
-	}
-	if (configClosure)
-		tasks[taskname].configure(configClosure)
-}
-
-buildLLVM("3_2")
-buildLLVM("3_4")
-
-
-def installLLVM(version, configClosure=null) {
-	def norm_version = version.replaceAll("_", ".")
-	def build_dir = file("$projectDir/_build/llvm/$norm_version")
-
-	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
-
-	def taskname = "installLLVM_$version"
-
-	task(taskname, type: Exec) {
-		dependsOn tasks["buildLLVM_$version"]
-		workingDir build_dir
-		commandLine "bash", "-c", "gmake -j$parallel_processes install"
-	}
-	if (configClosure)
-		tasks[taskname].configure(configClosure)
-}
-
-installLLVM("3_2")
-installLLVM("3_4")
-
-
-task buildLLVMPY(type: Exec) {
-	dependsOn extractLLVMPYSource, installLLVM_3_2
-
-	def used_llvm_version = "3.2"
-
-	def source_dir = tasks["extractLLVMPYSource"].targetDir
-	def install_dir = file("$projectDir/_install/llvmpy")
-
-	def llvm_config_path = "LLVM_CONFIG_PATH=$projectDir/_install/llvm/$used_llvm_version/bin/llvm-config"
 
 	doFirst {
-		install_dir.mkdirs()
+		build_dir.mkdirs()
+		install_dir.mkdirs()	
 	}
 
-	workingDir source_dir
+	workingDir build_dir
+	commandLine "bash", "-c", "cmake -j$parallel_processes $additional_flags -DCMAKE_BUILD_TYPE=$build_mode -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+}
 
-	commandLine "bash", "-c", "$llvm_config_path python setup.py install --prefix=$install_dir"
+
+task buildLLVM(type: Exec) {
+	dependsOn tasks["prepareBuildLLVM"]
+
+	def build_dir = file("$BUILD_DIR/llvm")
+
+	make_additional_flags = "REQUIRES_RTTI=1" // TODO do we need this if the have a cmake flag in prepareBuildLLVM ?
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	workingDir build_dir
+	commandLine "bash", "-c", "$make_additional_flags gmake -j$parallel_processes"
+}
+
+
+task installLLVM(type: Exec) {
+	dependsOn tasks["buildLLVM"]
+
+	def build_dir = file("$BUILD_DIR/llvm")
+
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	workingDir build_dir
+	commandLine "bash", "-c", "gmake -j$parallel_processes install"
+
 }
 
 
 task prepareBuildLLVMPasses(type: Exec) {
-	dependsOn tasks["installLLVM_$DEFAULT_LLVM_VERSION"]
+	dependsOn installLLVM
 	
-	def build_dir = file("$projectDir/_build/llvm-passes")
+	def build_dir = file("$BUILD_DIR/llvm-passes")
 
 	def build_mode = "RELEASE" 	// TODO make this configurable
 
@@ -192,25 +114,23 @@ task prepareBuildLLVMPasses(type: Exec) {
 	}
 
 	workingDir build_dir
-
 	commandLine "bash", "-c", "cmake -DCMAKE_BUILD_TYPE=$build_mode $LLVM_PASSES"
 }
 
 task buildLLVMPasses(type: Exec) {
 	dependsOn prepareBuildLLVMPasses
 
-	def build_dir = file("$projectDir/_build/llvm-passes")
+	def build_dir = file("$BUILD_DIR/llvm-passes")
 	
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	workingDir build_dir
-
 	commandLine "bash", "-c", "make -j$parallel_processes"
 }
 
 
 task compile {
-	dependsOn buildLLVMPY, buildLLVMPasses
+	dependsOn buildLLVMPasses
 }
 
 
@@ -222,15 +142,13 @@ task prepareExample(type: Exec) {
 }
 
 task createIR(type: Exec) {
-	dependsOn tasks["installLLVM_$DEFAULT_LLVM_VERSION"], prepareExample
-	
-	def norm_version = DEFAULT_LLVM_VERSION.replaceAll("_", ".")
+	dependsOn installLLVM, prepareExample
 
 	// TODO better solution for this
 	def tmp_source_file = file("$OUTPUT_DIR/evalS_new.c")
 	def irfile = file("$OUTPUT_DIR/evalS_new.ll")
 
-	def clang = file("$projectDir/_install/llvm/$norm_version/bin/clang")
+	def clang = file("$INSTALL_DIR/llvm/bin/clang")
 
 	commandLine "bash", "-c", "$clang $CFLAGS_FOR_EXAMPLE -S -emit-llvm -I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM $tmp_source_file -o $irfile"
 }
@@ -239,10 +157,8 @@ task createIR(type: Exec) {
 task speedUpAnalysis(type: Exec) {
 	dependsOn createIR, buildLLVMPasses
 
-	def norm_version = DEFAULT_LLVM_VERSION.replaceAll("_", ".")
-
-	def opt = file("$projectDir/_install/llvm/$norm_version/bin/opt")
-	def analysis_lib = file("$projectDir/_build/llvm-passes/Analysis/MehariAnalysis.so")
+	def opt = file("$INSTALL_DIR/llvm/bin/opt")
+	def analysis_lib = file("$BUILD_DIR/llvm-passes/Analysis/MehariAnalysis.so")
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
@@ -251,15 +167,19 @@ task speedUpAnalysis(type: Exec) {
 }
 
 
-// TODO building llvmpy currently does not work -> fix it!
-// task drawIRGraph(type: Exec) {
-// 	dependsOn buildLLVMPY, createIR
+task createIRGraphs(type: Exec) {
+	dependsOn createIR, buildLLVMPasses
 
-// 	// TODO better solution for this
-// 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
-// 	def llvmpy_install = file("$projectDir/_install/llvmpy")
+	def opt = file("$INSTALL_DIR/llvm/bin/opt")
+	def analysis_lib = file("$BUILD_DIR/llvm-passes/Analysis/MehariAnalysis.so")
 
-// 	workingDir GRAPH_LLVM_IR
+	// TODO better solution for this
+	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
 
-// 	commandLine "bash", "-c", "./graph-llvm-ir $targetfile --llvmpy $llvmpy_install/lib/python2.7/site-packages/llvm --control --dag-control"
-// }
+	commandLine "bash", "-c", "$opt -load $analysis_lib -print-graph -data -S $targetfile > /dev/null"
+}
+
+
+task runOptimizationPasses {
+	dependsOn speedUpAnalysis, createIRGraphs
+}
