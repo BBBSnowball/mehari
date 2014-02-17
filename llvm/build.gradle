@@ -53,11 +53,14 @@ task extractLLVMSource(type: FetchAndExtractSourceTask) {
 
 
 task prepareBuildLLVM(type: Exec) {
-	dependsOn tasks["extractLLVMSource"]
+	dependsOn extractLLVMSource
 
 	def source_dir = extractLLVMSource.targetDir
 	def build_dir = file("$BUILD_DIR/llvm")
 	def install_dir = file("$INSTALL_DIR/llvm")
+	
+	inputs.dir source_dir
+	outputs.dir build_dir
 
 	def build_mode = "RELEASE" 	// TODO make this configurable
 	def build_targets = "X86" 	// TODO do we need more targets? ARM?
@@ -77,9 +80,16 @@ task prepareBuildLLVM(type: Exec) {
 
 
 task buildLLVM(type: Exec) {
-	dependsOn tasks["prepareBuildLLVM"]
+	dependsOn prepareBuildLLVM
 
+	def source_dir = extractLLVMSource.targetDir
 	def build_dir = file("$BUILD_DIR/llvm")
+	def install_dir = file("$INSTALL_DIR/llvm")
+
+	inputs.files fileTree(build_dir) {
+		include "**/Makefile", "**/cmake_install.cmake"
+	}
+	outputs.dir file("$build_dir/bin")
 
 	make_additional_flags = "REQUIRES_RTTI=1" // TODO do we need this if the have a cmake flag in prepareBuildLLVM ?
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
@@ -90,9 +100,13 @@ task buildLLVM(type: Exec) {
 
 
 task installLLVM(type: Exec) {
-	dependsOn tasks["buildLLVM"]
+	dependsOn buildLLVM
 
 	def build_dir = file("$BUILD_DIR/llvm")
+	def install_dir = file("$INSTALL_DIR/llvm")
+
+	inputs.dir build_dir
+	outputs.dir install_dir
 
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
@@ -106,6 +120,11 @@ task prepareBuildLLVMPasses(type: Exec) {
 	dependsOn installLLVM
 	
 	def build_dir = file("$BUILD_DIR/llvm-passes")
+
+	inputs.files fileTree(LLVM_PASSES) {
+		include "**/*.cpp", "**/*.h", "CMakeLists.txt"
+	}
+	outputs.dir build_dir
 
 	def build_mode = "RELEASE" 	// TODO make this configurable
 
@@ -121,6 +140,13 @@ task buildLLVMPasses(type: Exec) {
 	dependsOn prepareBuildLLVMPasses
 
 	def build_dir = file("$BUILD_DIR/llvm-passes")
+
+	inputs.files fileTree(build_dir) {
+		include "**/Makefile", "**/cmake_install.cmake"
+	}
+	outputs.files fileTree(build_dir) {
+		include "**/*.so"
+	}
 	
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
@@ -138,6 +164,12 @@ task prepareExample(type: Exec) {
 	doFirst {
 		OUTPUT_DIR.mkdirs()
 	}
+
+	inputs.file PREPARE_EXAMPLE_HELPER
+	outputs.files fileTree(OUTPUT_DIR) {
+		include "*_new.c"
+	}
+
 	commandLine "bash", "-c", "$PREPARE_EXAMPLE_HELPER $EXAMPLE $OUTPUT_DIR"
 }
 
@@ -147,6 +179,9 @@ task createIR(type: Exec) {
 	// TODO better solution for this
 	def tmp_source_file = file("$OUTPUT_DIR/evalS_new.c")
 	def irfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	inputs.file tmp_source_file
+	outputs.file irfile
 
 	def clang = file("$INSTALL_DIR/llvm/bin/clang")
 
