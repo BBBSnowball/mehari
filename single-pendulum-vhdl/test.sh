@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")"
 
 LD_LIBRARY_PATH= ./generate_tests.py
-cat all.prj test_gen/tests.prj >all2.prj
+cat project.prj test_gen/tests.prj >all.prj
 
 if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
 	TESTS=""
@@ -34,7 +34,7 @@ EOF
 
 for test in $TESTS ; do
 	[ -e "fuse.log" ] && rm fuse.log
-	fuse -incremental -prj all2.prj -o test_sim $test || exit $?
+	fuse -incremental -prj all.prj -o test_sim $test || exit $?
 
 	if ! [ -e "fuse.log" ] ; then
 		echo "ERROR: Fuse hasn't created logfile isim.log!" >&2
@@ -42,7 +42,7 @@ for test in $TESTS ; do
 	fi
 
 	if grep "^WARNING:.* remains a black-box since it has no binding entity.$" fuse.log >&2 ; then
-		echo "ERROR: Simulation will not work, if an entity is missing. Please add it to all.prj" >&2
+		echo "ERROR: Simulation will not work, if an entity is missing. Please add it to project.prj" >&2
 		exit 1
 	fi
 

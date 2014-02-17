@@ -1,24 +1,27 @@
 *.dat
 
 *.prj
-!all.prj
+!project.prj
 isim.*
 *.ngc
 *.asy
 *.sim
 
-#*.vho
+*.vho
+*.gise
+*.xise
+*.xrpt
+*.ngr
+webtalk_pn.xml
+_xmsgs
 
 /run_test.tcl
 /test_sim
 /test_gen/
 
-/ipcore_dir/demo_tb/
-/ipcore_dir/*.sym
-/ipcore_dir/*/cmodel/
-/ipcore_dir/*_flist.txt
-/ipcore_dir/*_xmdf.tcl
-/ipcore_dir/edit_*.tcl
+/ipcore_dir
+!/ipcore_dir/*.xco
+!/ipcore_dir/coregen.cgp
 
 # copied from https://gist.github.com/mapedd/2045092
 

@@ -23,6 +23,8 @@
 #        adding new entries.
 #    rebuild_project: you can alternatively use this top-level procedure
 #        to recreate your entire project, and the run selected processes.
+#    create_project: you can alternatively use this top-level procedure
+#        to recreate your entire project.
 # 
 # Lower Level (helper) procs (called under in various cases by the top level procs):
 #    show_help: print some basic information describing how this script works
@@ -89,23 +91,21 @@ proc run_process {} {
 }
 
 # 
-# rebuild_project
+# create_project
 # 
-# This procedure renames the project file (if it exists) and recreates the project.
+# This procedure deletes the project file (if it exists) and recreates the project.
 # It then sets project properties and adds project sources as specified by the
 # set_project_props and add_source_files support procs. It recreates VHDL Libraries
 # as they existed at the time this script was generated.
 # 
-# It then calls run_process to set process properties and run selected processes.
-# 
-proc rebuild_project {} {
+proc create_project {} {
 
    global myScript
    global myProject
 
    project close
    ## put out a 'heartbeat' - so we know something's happening.
-   puts "\n$myScript: Rebuilding ($myProject)...\n"
+   puts "\n$myScript: Creating ($myProject)...\n"
 
    set proj_exts [ list ise xise gise ]
    foreach ext $proj_exts {
@@ -117,9 +117,26 @@ proc rebuild_project {} {
 
    project new $myProject
    set_project_props
-   add_source_files
    create_libraries
-   puts "$myScript: project rebuild completed."
+   add_source_files
+   project save
+   puts "$myScript: project created."
+
+}
+
+# 
+# rebuild_project
+# 
+# This procedure renames the project file (if it exists) and recreates the project.
+# It then sets project properties and adds project sources as specified by the
+# set_project_props and add_source_files support procs. It recreates VHDL Libraries
+# as they existed at the time this script was generated.
+# 
+# It then calls run_process to set process properties and run selected processes.
+# 
+proc rebuild_project {} {
+
+   create_project
 
    run_process
 
@@ -162,6 +179,7 @@ proc show_help {} {
    puts "options:"
    puts "   run_process       - set properties and run processes."
    puts "   rebuild_project   - rebuild the project from scratch and run processes."
+   puts "   create_project    - create the project from scratch."
    puts "   set_project_props - set project properties (device, speed, etc.)"
    puts "   add_source_files  - add source files"
    puts "   create_libraries  - create vhdl libraries"
@@ -231,25 +249,25 @@ proc add_source_files {} {
 
    puts "$myScript: Adding sources to project..."
 
-   xfile add "double_type.vhd"
-   xfile add "float_helpers.vhd"
-   xfile add "float_neg.vhd"
-   xfile add "float_pkg_c_min.vhd"
-   xfile add "float_sin.vhd"
-   xfile add "ipcore_dir/cordic_sin.xco"
-   xfile add "ipcore_dir/float_add.xco"
-   xfile add "ipcore_dir/float_div.xco"
-   xfile add "ipcore_dir/float_from_sin.xco"
-   xfile add "ipcore_dir/float_mul.xco"
-   xfile add "ipcore_dir/float_sub.xco"
-   xfile add "ipcore_dir/float_to_sin.xco"
-   xfile add "single_pendulum.vhd"
-   xfile add "test_cordic_sin.vhd"
-   xfile add "test_float_conversion.vhd"
-   xfile add "test_float_from_sin.vhd"
-   xfile add "test_float_to_sin.vhd"
-   xfile add "test_helpers.vhd"
-   xfile add "test_single_pendulum.vhd"
+   xfile add "../double_type.vhd"
+   xfile add "../float_helpers.vhd"
+   xfile add "../float_neg.vhd"
+   xfile add "../float_pkg_c_min.vhd"
+   xfile add "../float_sin.vhd"
+   xfile add "../ipcore_dir/cordic_sin.xco"
+   xfile add "../ipcore_dir/float_add.xco"
+   xfile add "../ipcore_dir/float_div.xco"
+   xfile add "../ipcore_dir/float_from_sin.xco"
+   xfile add "../ipcore_dir/float_mul.xco"
+   xfile add "../ipcore_dir/float_sub.xco"
+   xfile add "../ipcore_dir/float_to_sin.xco"
+   xfile add "../single_pendulum.vhd"
+   xfile add "../test_cordic_sin.vhd"
+   xfile add "../test_float_conversion.vhd"
+   xfile add "../test_float_from_sin.vhd"
+   xfile add "../test_float_to_sin.vhd"
+   xfile add "../test_helpers.vhd"
+   xfile add "../test_single_pendulum.vhd"
    puts ""
    puts "WARNING: project contains IP cores, synthesis will fail if any of the cores require regenerating."
    puts ""
@@ -317,6 +335,7 @@ proc main {} {
          "show_help"           { show_help }
          "run_process"         { run_process }
          "rebuild_project"     { rebuild_project }
+         "create_project"      { create_project }
          "set_project_props"   { set_project_props }
          "add_source_files"    { add_source_files }
          "create_libraries"    { create_libraries }

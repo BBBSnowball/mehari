@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+
+[ -n "$XILINX_SETTINGS_SCRIPT" ] && . "$XILINX_SETTINGS_SCRIPT"
+
+if [ -z "$XILINX" -o ! -d "$XILINX" ] ; then
+	echo "Please source the Xilinx settings script before calling this script." >&2
+	exit 1
+fi
+
+xtclsh single-pendulum-vhdl.tcl create_project
