@@ -41,6 +41,7 @@ lib() {
 
 find "$RECONOS/pcores" "$RECONOS/demos/sort_demo/hw" "$XILINX/../EDK/hw/XilinxProcessorIPLib/pcores" -iname "*.pao" \
 	| grep 'reconos\(_test\)\?_v3\|sort_demo\|proc_common_v3' \
+	| grep -v edk_ \
 	| while read pao_file ; do
 		PCORE_DATA_DIR="$(dirname "$pao_file")"
 		PCORE_DIR="$(dirname "$PCORE_DATA_DIR")"
