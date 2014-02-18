@@ -1,1 +1,1 @@
-../../private/examples/dc_motor.c
+../../private/examples/dc_motor/dc_motor.c

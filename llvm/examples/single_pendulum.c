@@ -1,1 +1,1 @@
-../../private/examples/single_pendulum.c
+../../private/examples/single_pendulum/single_pendulum.c

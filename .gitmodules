@@ -16,6 +16,3 @@
 [submodule "tools/python-ctemplate"]
 	path = tools/python-ctemplate
 	url = git@github.com:BBBSnowball/ctemplate-python.git
-[submodule "llvm/graph-llvm-ir"]
-	path = llvm/graph-llvm-ir
-	url = git@github.com:ssurmund/mehari-graph-llvm-ir.git
