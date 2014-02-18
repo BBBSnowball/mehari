@@ -17,7 +17,7 @@ _xmsgs
 iseconfig
 
 /run_test.tcl
-/test_sim
+/test_sim*
 /test_gen/
 
 /ipcore_dir/*
