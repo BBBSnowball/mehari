@@ -18,6 +18,8 @@ else
 	TESTS="$*"
 fi
 
+python float-testdata.py
+
 # The Xilinx settings script is confused by our arguments, so we must remove them.
 while [ -n "$1" ] ; do
 	shift
