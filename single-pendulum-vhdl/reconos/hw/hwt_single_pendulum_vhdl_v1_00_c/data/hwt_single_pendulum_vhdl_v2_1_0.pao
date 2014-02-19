@@ -1,0 +1,9 @@
+##############################################################################
+## Filename:          hwt_single_pendulum_vhdl_v2_1_0.pao
+## Description:       Sort Demo
+## Date:              Tue Sep 13 12:47:26 2011 (by Create and Import Peripheral Wizard)
+##############################################################################
+
+lib proc_common_v3_00_a  proc_common_pkg
+lib reconos_v3_01_a reconos_pkg
+lib hwt_single_pendulum_vhdl_v1_00_c hwt_single_pendulum_simple vhdl
