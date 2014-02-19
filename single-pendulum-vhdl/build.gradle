@@ -8,10 +8,21 @@ task generate_float_testdata(type: Exec) {
 }
 
 //TODO create a task for generate_tests and one task for each test
-task test(type: Exec) {
+task testSimpleSimulation(type: Exec) {
 	commandLine "./test.sh", "work.all"
 
 	dependsOn generate_float_testdata
 
 	environmentFromConfig()
+}
+
+task testReconosSimulation(type: Exec) {
+	commandLine "./test.sh"
+	workingDir rootPath("reconos", "test")
+
+	environmentFromConfig()
+}
+
+task test {
+	dependsOn testSimpleSimulation, testReconosSimulation
 }
