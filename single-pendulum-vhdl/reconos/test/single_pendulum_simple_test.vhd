@@ -13,10 +13,10 @@ library reconos_test_v3_01_a;
 use reconos_test_v3_01_a.reconos_test_pkg.all;
 use reconos_test_v3_01_a.test_helpers.all;
 
-library hwt_single_pendulum_vhdl_v1_00_c;
-use hwt_single_pendulum_vhdl_v1_00_c.hwt_single_pendulum_simple;
-use hwt_single_pendulum_vhdl_v1_00_c.double_type.all;
-use hwt_single_pendulum_vhdl_v1_00_c.float_helpers.all;
+library hwt_single_pendulum_simple_v1_00_c;
+use hwt_single_pendulum_simple_v1_00_c.hwt_single_pendulum_simple;
+use hwt_single_pendulum_simple_v1_00_c.double_type.all;
+use hwt_single_pendulum_simple_v1_00_c.float_helpers.all;
 
 entity single_pendulum_simple_test is
 end single_pendulum_simple_test;
