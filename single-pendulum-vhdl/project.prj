@@ -1,7 +1,6 @@
 vhdl work "float_helpers.vhd"
 vhdl work "double_type.vhd"
 vhdl work "float_pkg_c_min.vhd"
-vhdl work "test_helpers.vhd"
 
 vhdl work "ipcore_dir/float_to_sin.vhd"
 vhdl work "ipcore_dir/cordic_sin.vhd"

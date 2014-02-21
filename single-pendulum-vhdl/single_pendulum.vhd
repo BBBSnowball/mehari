@@ -255,10 +255,13 @@ begin
         s_axis_b_tvalid => in_tvalid,
         s_axis_b_tready => in_tready_wired_and,
         s_axis_b_tdata  => p4,
-        m_axis_result_tvalid => out_tvalid,
-        m_axis_result_tready => out_tready,
+        m_axis_result_tvalid => h_valid,
+        m_axis_result_tready => h_ready,
         m_axis_result_tdata  => dx1
       );
+
+    out_tvalid <= h_valid;
+    h_ready <= out_tready;
 
 end Structural;
 

@@ -91,7 +91,7 @@ task buildLLVM(type: Exec) {
 	}
 	outputs.dir file("$build_dir/bin")
 
-	def make_additional_flags = "REQUIRES_RTTI=1" // TODO do we need this if the have a cmake flag in prepareBuildLLVM ?
+	ext.make_additional_flags = "REQUIRES_RTTI=1" // TODO do we need this if the have a cmake flag in prepareBuildLLVM ?
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	workingDir build_dir
@@ -147,7 +147,7 @@ task buildLLVMPasses(type: Exec) {
 	outputs.files fileTree(build_dir) {
 		include "**/*.so"
 	}
-
+	
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	workingDir build_dir
