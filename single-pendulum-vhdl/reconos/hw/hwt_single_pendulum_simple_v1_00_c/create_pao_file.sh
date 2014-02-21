@@ -16,3 +16,13 @@ for vhd_file in ../../../ipcore_dir/*.vhd ; do
 	name="$(basename "$vhd_file")"
 	echo "lib $library ${name%%.vhd} vhdl" >>"$PAO_FILE"
 done
+
+BBD_FILE="$DATA_DIR/hwt_single_pendulum_simple_v2_1_0.bbd"
+echo "FILES" >"$BBD_FILE"
+mkdir -p netlist
+for ngc_file in ../../../ipcore_dir/*.ngc ; do
+	ln -sf "../$ngc_file" netlist/
+
+	name="$(basename "$ngc_file")"
+	echo "$name" >>"$BBD_FILE"
+done
