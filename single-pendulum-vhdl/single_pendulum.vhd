@@ -120,23 +120,11 @@ architecture Structural of single_pendulum is
     signal a, b, c, d, e, f, g, h : STD_LOGIC_VECTOR (63 downto 0);
     signal a_valid, b_valid, c_valid, d_valid, e_valid, f_valid, g_valid, h_valid : STD_LOGIC;
     signal a_ready, b_ready, c_ready, d_ready, e_ready, f_ready, g_ready, h_ready : STD_LOGIC;
-
-  function wired_and(drivers : in std_logic_vector) return std_logic is
-  begin
-    --TODO This ignores 'X' values...
-    for index in drivers'range loop
-      if drivers(index) = '0' then
-        return '0';
-      end if;
-    end loop;
-    return '1';
-  end wired_and;
-  subtype wired_and_std_logic is wired_and std_logic;
-
-  signal in_tready_wired_and : wired_and_std_logic;
+    signal x0_ready, x1_ready, u0_ready, t_ready, p0_ready, p1_ready, p2_ready, p4_ready : STD_LOGIC;
 
 begin
-    in_tready <= in_tready_wired_and;
+    in_tready <= x0_ready and x1_ready and u0_ready and t_ready and p0_ready and p1_ready and p2_ready and p4_ready;
+    t_ready <= '1';
 
     -- dx[0] = x[1];
     dx0_process: process(aclk)
@@ -151,7 +139,7 @@ begin
       PORT MAP (
         aclk => aclk,
         a_tvalid => in_tvalid,
-        a_tready => in_tready_wired_and,
+        a_tready => p2_ready,
         a_tdata  => p2,
         result_tvalid => a_valid,
         result_tready => a_ready,
@@ -166,7 +154,7 @@ begin
         s_axis_a_tready => a_ready,
         s_axis_a_tdata  => a,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready_wired_and,
+        s_axis_b_tready => p1_ready,
         s_axis_b_tdata  => p1,
         m_axis_result_tvalid => b_valid,
         m_axis_result_tready => b_ready,
@@ -179,7 +167,7 @@ begin
         aclk          => aclk,
         a_tdata       => x0,
         a_tvalid      => in_tvalid,
-        a_tready      => in_tready_wired_and,
+        a_tready      => x0_ready,
         result_tdata  => c,
         result_tvalid => c_valid,
         result_tready => c_ready
@@ -205,10 +193,10 @@ begin
       PORT MAP (
         aclk => aclk,
         s_axis_a_tvalid => in_tvalid,
-        s_axis_a_tready => in_tready_wired_and,
+        s_axis_a_tready => x1_ready,
         s_axis_a_tdata  => x1,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready_wired_and,
+        s_axis_b_tready => p0_ready,
         s_axis_b_tdata  => p0,
         m_axis_result_tvalid => e_valid,
         m_axis_result_tready => e_ready,
@@ -238,7 +226,7 @@ begin
         s_axis_a_tready => f_ready,
         s_axis_a_tdata  => f,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready_wired_and,
+        s_axis_b_tready => u0_ready,
         s_axis_b_tdata  => u0,
         m_axis_result_tvalid => g_valid,
         m_axis_result_tready => g_ready,
@@ -253,7 +241,7 @@ begin
         s_axis_a_tready => g_ready,
         s_axis_a_tdata  => g,
         s_axis_b_tvalid => in_tvalid,
-        s_axis_b_tready => in_tready_wired_and,
+        s_axis_b_tready => p4_ready,
         s_axis_b_tdata  => p4,
         m_axis_result_tvalid => h_valid,
         m_axis_result_tready => h_ready,
