@@ -215,6 +215,19 @@ task createIRGraphs(type: Exec) {
 }
 
 
+task createCCodeFromIR(type: Exec) {
+	dependsOn createIR, buildLLVMPasses
+
+	def opt = file("$INSTALL_DIR/llvm/bin/opt")
+	def codegen_lib = file("$BUILD_DIR/llvm-passes/CodeGen/MehariCodeGen.so")
+
+	// TODO better solution for this
+	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	commandLine "bash", "-c", "$opt -load $codegen_lib -ccode -S $targetfile > /dev/null"
+}
+
+
 task runOptimizationPasses {
-	dependsOn speedUpAnalysis, createIRGraphs
+	dependsOn speedUpAnalysis, createIRGraphs, createCCodeFromIR
 }
