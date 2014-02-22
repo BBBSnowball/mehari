@@ -200,8 +200,8 @@ BEGIN
 
       if result_tvalid = '1' then
         --report "  result_tvalid (after calculation): " & std_logic'image(result_tvalid);
-        assertAlmostEqual(to_real(result_dx0_tdata), expected_dx0_value, epsilon);
-        assertAlmostEqual(to_real(result_dx1_tdata), expected_dx1_value, epsilon);
+        assertAlmostEqual(to_real(result_dx0_tdata), expected_dx0_value, "", epsilon);
+        assertAlmostEqual(to_real(result_dx1_tdata), expected_dx1_value, "", epsilon);
       end if;
     end procedure;
   begin

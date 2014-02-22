@@ -98,7 +98,7 @@ BEGIN
         report "result was not ready in time: result_tvalid = " & std_logic'image(result_tvalid);
 
       if result_tvalid = '1' then
-        assertAlmostEqual(to_real(result_tdata), {{expected_value_calculation}}, epsilon);
+        assertAlmostEqual(to_real(result_tdata), {{expected_value_calculation}}, "", epsilon);
       end if;
     end procedure;
   begin
