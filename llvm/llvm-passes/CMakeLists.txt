@@ -21,4 +21,5 @@ link_directories(${LLVM_LIBRARY_DIRS})
 
 # Add all directories for custom passes
 add_subdirectory(Analysis)
+add_subdirectory(CodeGen)
 # add_subdirectory(Transform)

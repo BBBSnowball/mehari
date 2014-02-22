@@ -141,8 +141,8 @@ task buildLLVMPasses(type: Exec) {
 
 	def build_dir = file("$BUILD_DIR/llvm-passes")
 
-	inputs.files fileTree(build_dir) {
-		include "**/Makefile", "**/cmake_install.cmake"
+	inputs.files fileTree(LLVM_PASSES) {
+		include "**/*.cpp", "**/*.h", "**/CMakeLists.txt"
 	}
 	outputs.files fileTree(build_dir) {
 		include "**/*.so"
@@ -165,7 +165,7 @@ task prepareExample(type: Exec) {
 		OUTPUT_DIR.mkdirs()
 	}
 
-	inputs.file PREPARE_EXAMPLE_HELPER
+	inputs.file EXAMPLE
 	outputs.files fileTree(OUTPUT_DIR) {
 		include "*_new.c"
 	}
@@ -215,6 +215,19 @@ task createIRGraphs(type: Exec) {
 }
 
 
+task createCCodeFromIR(type: Exec) {
+	dependsOn createIR, buildLLVMPasses
+
+	def opt = file("$INSTALL_DIR/llvm/bin/opt")
+	def codegen_lib = file("$BUILD_DIR/llvm-passes/CodeGen/MehariCodeGen.so")
+
+	// TODO better solution for this
+	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	commandLine "bash", "-c", "$opt -load $codegen_lib -ccode -S $targetfile > /dev/null"
+}
+
+
 task runOptimizationPasses {
-	dependsOn speedUpAnalysis, createIRGraphs
+	dependsOn speedUpAnalysis, createIRGraphs, createCCodeFromIR
 }
