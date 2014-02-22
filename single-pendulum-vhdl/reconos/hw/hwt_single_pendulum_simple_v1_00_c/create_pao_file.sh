@@ -19,10 +19,17 @@ done
 
 BBD_FILE="$DATA_DIR/hwt_single_pendulum_simple_v2_1_0.bbd"
 echo "FILES" >"$BBD_FILE"
+first=yes
 mkdir -p netlist
 for ngc_file in ../../../ipcore_dir/*.ngc ; do
 	ln -sf "../$ngc_file" netlist/
 
 	name="$(basename "$ngc_file")"
-	echo "$name" >>"$BBD_FILE"
+	if [ -n "$first" ] ; then
+		first=
+	else
+		echo -n ", " >>"$BBD_FILE"
+	fi
+	echo -n "$name" >>"$BBD_FILE"
 done
+echo "" >>"$BBD_FILE"

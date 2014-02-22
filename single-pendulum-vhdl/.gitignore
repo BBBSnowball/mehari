@@ -32,6 +32,7 @@ test_sim*
 
 # generated from a template
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/data/hwt_single_pendulum_simple_v2_1_0.pao
+/reconos/hw/hwt_single_pendulum_simple_v1_00_c/data/hwt_single_pendulum_simple_v2_1_0.bbd
 
 # symlinks created by test.sh script
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/cordic_sin.vhd
