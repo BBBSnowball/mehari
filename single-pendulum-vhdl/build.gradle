@@ -26,3 +26,31 @@ task testReconosSimulation(type: Exec) {
 task test {
 	dependsOn testSimpleSimulation, testReconosSimulation
 }
+
+task coregen
+fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
+	def task_name = "coregen" + toPascalCase(xcoFile.name.replaceFirst(/\.xco$/, ""))
+	def coregen_task = task(task_name, type: Exec) {
+		commandLine "bash", "-c",
+			". ${escapeForShell(project.xilinx_settings_script)} && coregen -p ipcore_dir -b ${escapeForShell(xcoFile)}"
+
+		inputs.file xcoFile
+		// see http://www.xilinx.com/support/documentation/sw_manuals/xilinx11/cgn_r_core_generator_output_files.htm
+		outputs.files(["vho", "vhd", "ngc"].collect { xcoFile.toString().replaceFirst(/\.xco$/, "." + it) })
+	}
+
+	tasks["coregen"].dependsOn coregen_task
+
+	// coregen modifies the *.xco file, so we make a backup that we restore afterwards
+	def backup_file = new File(xcoFile.toString() + ".tmp")
+	coregen_task.doFirst {
+		backup_file.bytes = xcoFile.bytes
+	}
+	def restore_task = task("restoreBackupAfter" + task_name.capitalize()) {
+		doLast {
+			if (backup_file.exists())
+				xcoFile.bytes = backup_file.bytes
+		}
+	}
+	coregen_task.finalizedBy restore_task
+}

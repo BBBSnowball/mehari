@@ -257,6 +257,14 @@ class HelpersPluginConvention {
 		}
 	}
 
+	String toCamelCase(String s) {
+		return s.replaceAll(/_[A-Za-z0-9]/) { it[-1].toUpperCase() }
+	}
+
+	String toPascalCase(String s) {
+		return toCamelCase(s).capitalize()
+	}
+
 
 	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
