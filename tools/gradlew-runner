@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Copy this script to /usr/bin (or any other directory in your
+# PATH) and rename it to gradlew. You will be able to run always
+# run gradle by just typing "gradlew ..." and the script will
+# search for gradlew in the parent directories and cd to its
+# directory before running it.
+
+while [ ! -f gradlew -a "$(pwd)" != "/" ] ; do
+	cd ..
+done
+
+if [ -f gradlew ] ; then
+	exec ./gradlew --daemon "$@"
+else
+	echo "ERROR: gradlew not found." >&2
+	exit 1
+fi
