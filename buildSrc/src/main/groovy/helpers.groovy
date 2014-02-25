@@ -187,8 +187,12 @@ class HelpersPluginConvention {
 		return new LazyValue(closure)
 	}
 
+	def relativePathTo(file, relativeTo) {
+		return FileLinkAction.getRelativePath(file, relativeTo)
+	}
+
 	def symlink(target, link) {
-		target = FileLinkAction.getRelativePath(project.file(target), project.file(link).parentFile)
+		target = relativePathTo(project.file(target), project.file(link).parentFile)
 		sh("ln -s ${escapeForShell(target)} ${escapeForShell(link)}")
 	}
 

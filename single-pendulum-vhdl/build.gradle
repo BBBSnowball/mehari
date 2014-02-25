@@ -16,11 +16,37 @@ task testSimpleSimulation(type: Exec) {
 	environmentFromConfig()
 }
 
+task cleanTestSimpleSimulation(type: Delete) {
+	delete fileTree(".") {
+		include "test_sim_work_*"
+		include "test_gen"
+		include "isim_*.log"
+		include "fuse_*.log"
+		include "all.prj"
+		include "coregen.log"
+		include "fuse.xmsgs"
+		include "fuseRelaunch.cmd"
+		include "isim"
+		include "run_test.tcl"
+	}
+}
+
 task createSinglePendulumSimpleMetaFiles(type: Exec) {
+	ext.hwtDir = rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c")
+
 	commandLine "./create_pao_file.sh"
-	workingDir rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c")
+	workingDir hwtDir
 
 	environmentFromConfig()
+
+	inputs.files fileTree(hwtDir) {
+		include "create_pao_file.sh"
+		include "**/*.tpl"
+	}
+	outputs.files fileTree(hwtDir) {
+		include "data/hwt_single_pendulum_simple_v2_1_0.bbd"
+		include "data/hwt_single_pendulum_simple_v2_1_0.pao"
+	}
 }
 
 task testReconosSimulation(type: Exec) {
@@ -33,11 +59,39 @@ task testReconosSimulation(type: Exec) {
 	shouldRunAfter testSimpleSimulation
 }
 
-task test {
-	dependsOn testSimpleSimulation, testReconosSimulation
+task cleanTestReconosSimulation(type: Delete) {
+	fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
+		def stem = xcoFile.name.replaceFirst(/\.xco$/, "")
+		delete rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c", "hdl", "vhdl", stem + ".vhd")
+		delete rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c", "netlist", stem + ".ngc")
+	}
+	delete(fileTree(rootPath("reconos", "test")) {
+		//include "Default.wcfg"
+		include "all.prj"
+		include "fuse.xmsgs"
+		include "fuseRelaunch.cmd"
+		include "fuse_*.log"
+		include "isim_*.log"
+		include "isim"
+		include "run_test.tcl"
+		include "test_sim_*"
+	})
+	delete rootPath("reconos", "test", "isim")
 }
 
 task coregen
+task cleanCoregen {
+	delete rootPath("ipcore_dir", "tmp")
+	delete rootPath("ipcore_dir", "_xmsgs")
+	delete rootPath("ipcore_dir", "xlnx_auto_0_xdb")
+	delete rootPath("ipcore_dir", "coregen.cgc")
+	delete rootPath("ipcore_dir", "coregen.log")
+	delete rootPath("ipcore_dir", "demo_tb")
+
+	// If cleanCoregen runs first, some symlinks won't point to a valid target, so Gradle
+	// will think that they don't exist and thus it won't delete them.
+	mustRunAfter cleanTestReconosSimulation
+}
 fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 	def task_name = "coregen" + toPascalCase(xcoFile.name.replaceFirst(/\.xco$/, ""))
 	def coregen_task = task(task_name, type: Exec) {
@@ -51,6 +105,24 @@ fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 
 	tasks["coregen"].dependsOn coregen_task
 
+	def clean_task = task("clean" + task_name.capitalize(), type: Delete) {
+		def xcoFileRelative = relativePathTo(xcoFile, rootPath("ipcore_dir"))
+		def stem = xcoFileRelative.toString().replaceFirst(/\.xco$/, "")
+
+		delete rootPath("ipcore_dir", "$stem")
+
+		def files = fileTree("ipcore_dir") {
+
+			def exts = [ ".asy", "_flist.txt", ".gise", ".ncf", ".ngc", "_readme.txt", ".sym", ".vhd", ".vho",
+				".xco.tmp", ".xise", "_xmdf.tcl" ]
+			include exts.collect { stem + it }
+			include "edit_${stem}.tcl"
+		}
+		delete files
+	}
+
+	tasks["cleanCoregen"].dependsOn clean_task
+
 	// coregen modifies the *.xco file, so we make a backup that we restore afterwards
 	def backup_file = new File(xcoFile.toString() + ".tmp")
 	coregen_task.doFirst {
@@ -58,8 +130,10 @@ fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 	}
 	def restore_task = task("restoreBackupAfter" + task_name.capitalize()) {
 		doLast {
-			if (backup_file.exists())
+			if (backup_file.exists()) {
 				xcoFile.bytes = backup_file.bytes
+				backup_file.delete()
+			}
 		}
 	}
 	coregen_task.finalizedBy restore_task
@@ -73,4 +147,22 @@ reconosHardwareTest("SinglePendulumSimpleHardware") {
 	prepare {
 		dependsOn coregen, createSinglePendulumSimpleMetaFiles
 	}
+}
+
+task clean(type: Delete) {
+	dependsOn cleanTestSimpleSimulation
+	dependsOn cleanTestReconosSimulation
+	dependsOn cleanCoregen
+	dependsOn cleanSinglePendulumSimpleHardware
+
+	delete generateFloatTestdata.outputs
+	delete createSinglePendulumSimpleMetaFiles.outputs
+}
+
+task compile {
+	dependsOn compileSinglePendulumSimpleHardwareBitstream
+}
+
+task test {
+	dependsOn testSimpleSimulation, testReconosSimulation
 }
