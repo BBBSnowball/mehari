@@ -57,6 +57,8 @@ task checkHostIp {
 	}
 }
 
+apply plugin: ReconosPlugin
+
 task reconosConfig {
 	dependsOn checkSubmodules
 	mustRunAfter "cleanReconos"
@@ -64,9 +66,9 @@ task reconosConfig {
 	recommendedProperty "xilinx_settings_script"
 	recommendedProperty "xilinx_version"
 
-	ext.reconos_config = rootPath("reconos", "tools", "environment", "default.sh")
-	ext.reconosConfigScript = file("reconos/tools/environment/setup_reconos_toolchain.sh")
-	ext.reconosConfigScriptEscaped = escapeForShell(reconosConfigScript)
+	ext.reconos_config = project.defaultReconosConfig
+	ext.reconosConfigScript = project.reconosConfigScript
+	ext.reconosConfigScriptEscaped = project.reconosConfigScriptEscaped
 
 	usesProperties "xilinx_settings_script", "xilinx_version", "gnutools", "libc_dir"
 	outputs.file reconos_config
@@ -82,48 +84,11 @@ task reconosConfig {
 	doLast {
 		def env = System.getenv()
 
-		if (project.hasProperty("xilinx_settings_script")) {
-			xilinx_settings_script = escapeForShell(project.xilinx_settings_script)
-			def xilinx_path = backticks(". $xilinx_settings_script >/dev/null ; echo \$XILINX", "bash")
-			xil_tools = new File(xilinx_path).parentFile.parentFile
-		} else if ("xil_tools" in env)
-			xil_tools = new File(env["xil_tools"])
-		else if ("XILINX" in env)
-			xil_tools = new File(env["XILINX"]).parentFile.parentFile
-		else if ("XILINX_SETTINGS_SCRIPT" in env) {
-			xilinx_settings_script = escapeForShell(env["XILINX_SETTINGS_SCRIPT"])
-			def xilinx_path = backticks(". $xilinx_settings_script >/dev/null ; echo \$XILINX", "bash")
-			xil_tools = new File(xilinx_path).parentFile.parentFile
-		} else if (project.hasProperty("xilinx_version"))
-			xil_tools = path("/opt/Xilinx", project.xilinx_version)
-		else if ("XILINX_VERSION" in env)
-			xil_tools = path("/opt/Xilinx", env["XILINX_VERSION"])
-		else
-			xil_tools = new File("/opt/Xilinx/14.6")
-
-		if (!xilinx_settings_script)
-			xilinx_settings_script = path(xil_tools, "ISE_DS", "settings64.sh")
-
-		if (!xil_tools.isDirectory()) {
-			logger.error(heredoc("""
-				ERROR: Couldn't find the directory with Xilinx tools. Please install Xilinx ISE_DS
-				  (Webpack will do) and tell me about the location. You have several options:
-				- Set the environment variable XILINX=/path/to/ISE_DS/ISE
-				- Set the environment variable XILINX_VERSION, if the tools live in /opt/Xilinx/\$XILINX_VERSION
-				- Set the environment variable xil_tools to the directory that contains the ISE_DS directory
-				  (This may not work with other scripts, so you may want to choose one of the other options.)
-				"""))
-			throw new GradleException("Couldn't find the directory with Xilinx tools.")
-		}
-
-		if (hasProperty("gnutools"))
-			gnutools = project.gnutools
-		else
-			gnutools = path(xil_tools, "ISE_DS", "EDK", "gnu", "arm", "lin", "bin", "arm-xilinx-linux-gnueabi-")
-		if (hasProperty("libc_dir"))
-			libc_dir = project.libc_dir
-		else
-			libc_dir = path(gnutools.parentFile.parentFile, "arm-xilinx-linux-gnueabi", "libc")
+		// see ReconosPlugin
+		xil_tools = project.xilinxDirectory
+		xilinx_settings_script = project.xilinxSettingsScript
+		gnutools = project.xilinxGnutools
+		libc_dir = project.xilinxLibcDir
 
 		doCheckLibc(libc_dir)
 
@@ -139,16 +104,6 @@ task reconosConfig {
 			out.writeLine("export PATH=\"$ROOT/u-boot-xlnx/tools:\$PATH\"")
 		}
 	}
-}
-
-ext.xilinxVersionCache = hasProperty("xilinx_version") ? xilinx_version : null
-def determineXilinxVersionAfterReconosConfig() {
-	if (!xilinxVersionCache)
-		xilinxVersionCache = backticks(
-			". ${reconosConfig.reconosConfigScriptEscaped} ; " +
-			/xps -help|sed -n 's#^Xilinx EDK \([0-9]\+\.[0-9]\+\)\b.*$#\1#p'/, "bash")
-
-	return xilinxVersionCache
 }
 
 def doCheckLibc(libc_dir) {
@@ -220,20 +175,6 @@ task checkDigilentDriver {
 
 task checkBeforeCompile {
 	dependsOn checkSubmodules, checkLibc, checkHostIp, checkDigilentDriver
-}
-
-def cleanGitRepository(dir) {
-	if (!rootPath(dir, ".git").exists())
-		throw new GradleException("'$dir' is not the root of a git repository")
-	exec {
-		commandLine "sh", "-c", "git reset --hard && git clean -f -x -d"
-		workingDir rootPath(dir)
-	}
-}
-
-def cleanWithDistclean(dir) {
-	dir = escapeForShell(file(dir))
-	sh("cd $dir ; [ -e \"Makefile\" ] && make distclean || true")
 }
 
 task cleanUboot    << { cleanGitRepository("u-boot-xlnx") }
@@ -360,27 +301,6 @@ task compileBusybox(type: CrossCompileMakeTask) {
 		include "busybox.links"
 		include "**/*.a"
 	}
-}
-
-ext._getCrosscompileEnvvarAfterReconosConfig_cache = lazyValue {
-	def value = backticks(". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$CROSS_COMPILE\"", "bash")
-	if (value == "")
-		throw new GradleException("\$CROSS_COMPILE is empty after running the reconOS config script")
-
-	return value
-}
-def getCrosscompileEnvvarAfterReconosConfig() {
-	return _getCrosscompileEnvvarAfterReconosConfig_cache.value
-}
-
-def getCrosscompileHostSpecAfterReconosConfig() {
-	// get CROSS_COMPILE environment variable and remove path and trailing minus
-	def crosscompile = new File(getCrosscompileEnvvarAfterReconosConfig()).getName().trim()
-	return (crosscompile =~ /-$/).replaceFirst("")
-}
-
-def getCrosscompileToolchainDirAfterReconosConfig() {
-	return new File(getCrosscompileEnvvarAfterReconosConfig()).getParentFile()
 }
 
 def configureDropbearCommandline() {
@@ -624,142 +544,14 @@ def demoHwDir(...suffix) {
 	return rootPath(demoDir, "hw", *suffix)
 }
 
-def getVariablesFromShell(cmd, variablenames) {
-	variablenames.each { varname ->
-		cmd += " && echo \"${varname}=\$${varname}\""
-	}
-	def values = [:]
-	backticks(cmd, "bash").split("\n")*.split("=", 2).each { pair ->
-		values[pair[0]] = pair[1]
-	}
-	return values
-}
+reconosHardwareTest("ReconosDemoHardware") {
+	hardwareDir demoHwDir()
 
-ext._reconosInfoCache = null
-def getReconosInfo(varname=null) {
-	if (_reconosInfoCache == null) {
-		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null"
-		_reconosInfoCache = getVariablesFromShell(cmd, ["RECONOS", "RECONOS_ARCH", "RECONOS_OS"])
-	}
+	prepare {
+		mustRunAfter cleanReconos
 
-	if (varname == null)
-		return _reconosInfoCache
-	else if (_reconosInfoCache.containsKey(varname))
-		return _reconosInfoCache[varname]
-	else
-		throw new GradleException("invalid reconOS variable name: $varname")
-}
-ext._reconosConfigurationFileCache = [:]
-def getReconosConfigFileInfo(configfile, varname=null) {
-	configfile = new File(configfile.toString()).canonicalPath
-	if (!_reconosConfigurationFileCache.containsKey(configfile)) {
-		def cmd = ". ${reconosConfig.reconosConfigScriptEscaped} >/dev/null && . ${escapeForShell(configfile)} >/dev/null"
-		def interesting_vars = ["base_design", "num_static_hwts", "static_hwts", "num_reconf_regions",
-			"num_reconf_hwts", "reconf_hwts"]
-		_reconosConfigurationFileCache[configfile] = getVariablesFromShell(cmd, interesting_vars)
-	}
-
-	if (varname == null)
-		return _reconosConfigurationFileCache[configfile]
-	else if (_reconosConfigurationFileCache[configfile].containsKey(varname))
-		return _reconosConfigurationFileCache[configfile][varname]
-	else
-		throw new GradleException("invalid reconOS config variable name: $varname")
-}
-
-task prepareReconosDemoHardware(type: Exec) {
-	def demo = compileReconosDemoLinux.demo
-	workingDir demoHwDir()
-
-	dependsOn reconosConfig
-	mustRunAfter cleanReconos
-
-	//TODO get design for 14.7 from Christoph
-	//     Then set version before executing the script.
-	//     sed -i 's/zedboard_minimal_[0-9].*/zedboard_minimal_'"$XILINX_VERSION"'/' setup_zynq
-	//TODO Make sure that this change doesn't cause unnecessary recompiles.
-
-	def setup_script = demoHwDir("setup_zynq")
-	def base_design = lazyValue { getReconosConfigFileInfo(setup_script, "base_design") }
-	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
-	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
-	def RECONOS      = lazyValue { getReconosInfo("RECONOS")      }
-	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
-	def usedHwThreads = lazyValue {
-		def all_hwts = getReconosConfigFileInfo(setup_script, "static_hwts") + " " +
-			getReconosConfigFileInfo(setup_script, "reconf_hwts")
-		all_hwts = all_hwts.tokenize()*.replaceFirst(/#.*$/, "").unique()
-	}
-
-	commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
-		"rm -rf edk_${RECONOS_ARCH}_${RECONOS_OS} && " +
-		"bash reconos_setup.sh setup_zynq"
-
-	inputs.file setup_script
-	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
-	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
-	inputs.property("base_design" ) { base_design.value }
-	inputs.dir { path(RECONOS.value, "tools") }
-	inputs.dir { path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
-	inputs.dir { path(RECONOS.value, "pcores") }
-	inputs.files { fileTree(demoHwDir()) { usedHwThreads.value.each { hwt -> include hwt } } }
-	outputs.dir {
-		fileTree(edk_dir.toString()) {
-			// created by other tasks
-			exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
-			exclude "system.mhs.orig", "ps_clock_registers.log", "system.log"
-			exclude "device_tree.dts", "device_tree.dtb"
-			exclude "ps7_init.tcl"
-
-			// created by this task, but changed later
-			exclude "system_incl.make", "system.make", "system.xmp"
-		}
-	}
-}
-
-import org.gradle.process.internal.ExecActionFactory
-def run_xps(project, commands, workingDir=null, task=null) {
-	project = escapeForShell(project)
-	commands = escapeForShell(commands + " ; exit")
-	def cmd = "echo $commands | xps -nw $project"
-	cmd = ". ${reconosConfig.reconosConfigScriptEscaped} && " + cmd
-	if (workingDir)
-		cmd = "cd " + escapeForShell(workingDir) + " && " + cmd
-	// try at most 3 times
-	for (i in [1,2,3]) {
-		def res = sh_test(cmd, "bash")
-		if (res == 0)
-			return
-		else if (res == 139)
-			logger.warn("xps failed. This may be due to a segfault, so we try again.")
-		else
-			break
-	}
-	// Either it didn't fail with a segfault or it failed too often
-	throw new GradleException("System command returned non-zero status (return value is $res): ${cmd.inspect()}")
-}
-
-task compileReconosDemoHardwareBitstream {
-	dependsOn reconosConfig, prepareReconosDemoHardware
-
-	inputs.files { prepareReconosDemoHardware.outputs }
-	inputs.property("RECONOS_ARCH") { getReconosInfo("RECONOS_ARCH") }
-	inputs.property("RECONOS_OS"  ) { getReconosInfo("RECONOS_OS")   }
-
-	def RECONOS_ARCH = lazyValue { getReconosInfo("RECONOS_ARCH") }
-	def RECONOS_OS   = lazyValue { getReconosInfo("RECONOS_OS")   }
-	def edk_dir = lazyValue { demoHwDir("edk_${RECONOS_ARCH.value}_${RECONOS_OS.value}") }
-	outputs.files { fileTree(path(edk_dir, "implementation")) { include "*.bit" } }
-
-	doLast {
-		def demo = compileReconosDemoLinux.demo
-		def workingDir = demoHwDir("edk_zynq_linux")
-
-		//TODO keep __xps folder in git and use `make -f system.make bits`
-		//TODO This sometimes fails with a segfault (prints "Segmentation fault" and
-		//     exits with status 35584). We should run it again in that case.
-
-		run_xps("system", "run bits", workingDir, compileReconosDemoHardwareBitstream)
+		excludeOutput "device_tree.dts", "device_tree.dtb"
+		excludeOutput "ps7_init.tcl"
 	}
 }
 

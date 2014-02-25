@@ -7,6 +7,12 @@ public class LazyValue {
 		this.closure = closure
 	}
 
+	public static LazyValue constant(value) {
+		def lazy = new LazyValue(null)
+		lazy.value = value
+		return lazy
+	}
+
 	public def getValue() {
 		if (this.closure != null) {
 			this.value = this.closure()

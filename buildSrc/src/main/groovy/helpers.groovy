@@ -25,6 +25,10 @@ class HelpersPluginConvention {
 		return project.hasProperty(propertyName) ? project[propertyName] : defaultValue;
 	}
 
+	def filePropertyOrDefault(propertyName, defaultValue) {
+		return project.file(propertyOrDefault(propertyName, defaultValue));
+	}
+
 	def defaultXilinxSettingsScript() {
 		return "/opt/Xilinx/" + propertyOrDefault("xilinx_version", "14.6") + "/ISE_DS/settings64.sh"
 	}
@@ -263,6 +267,35 @@ class HelpersPluginConvention {
 
 	String toPascalCase(String s) {
 		return toCamelCase(s).capitalize()
+	}
+
+	def cleanGitRepository(dir) {
+		if (!rootPath(dir, ".git").exists())
+			throw new GradleException("'$dir' is not the root of a git repository")
+		exec {
+			commandLine "sh", "-c", "git reset --hard && git clean -f -x -d"
+			workingDir rootPath(dir)
+		}
+	}
+
+	def cleanWithDistclean(dir) {
+		dir = escapeForShell(file(dir))
+		sh("cd $dir ; [ -e \"Makefile\" ] && make distclean || true")
+	}
+
+	def getVariableFromShell(String name) {
+		return helpers.backticks(". ${reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$$name\"", "bash")
+	}
+
+	def getVariablesFromShell(cmd, variablenames) {
+		variablenames.each { varname ->
+			cmd += " && echo \"${varname}=\$${varname}\""
+		}
+		def values = [:]
+		backticks(cmd, "bash").split("\n")*.split("=", 2).each { pair ->
+			values[pair[0]] = pair[1]
+		}
+		return values
 	}
 
 
