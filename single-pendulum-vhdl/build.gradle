@@ -1,4 +1,4 @@
-task generate_float_testdata(type: Exec) {
+task generateFloatTestdata(type: Exec) {
 	commandLine "python", "float-testdata.py"
 
 	inputs.file  "float-testdata.py"
@@ -11,7 +11,14 @@ task generate_float_testdata(type: Exec) {
 task testSimpleSimulation(type: Exec) {
 	commandLine "./test.sh", "work.all"
 
-	dependsOn generate_float_testdata
+	dependsOn generateFloatTestdata
+
+	environmentFromConfig()
+}
+
+task createSinglePendulumSimpleMetaFiles(type: Exec) {
+	commandLine "./create_pao_file.sh"
+	workingDir rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c")
 
 	environmentFromConfig()
 }
@@ -21,6 +28,9 @@ task testReconosSimulation(type: Exec) {
 	workingDir rootPath("reconos", "test")
 
 	environmentFromConfig()
+
+	dependsOn createSinglePendulumSimpleMetaFiles
+	shouldRunAfter testSimpleSimulation
 }
 
 task test {
@@ -53,4 +63,14 @@ fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 		}
 	}
 	coregen_task.finalizedBy restore_task
+}
+
+apply plugin: ReconosPlugin
+
+reconosHardwareTest("SinglePendulumSimpleHardware") {
+	hardwareDir rootPath("reconos", "hw")
+
+	prepare {
+		dependsOn coregen, createSinglePendulumSimpleMetaFiles
+	}
 }
