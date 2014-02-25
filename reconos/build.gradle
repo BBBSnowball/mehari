@@ -979,25 +979,8 @@ task downloadImagesToZynq(type: Exec) {
 	dependsOn createPs7InitFile
 }
 
-def run_xmd(commands) {
-	commands = escapeForShell(commands.toString() + " ; exit")
-	sh(". ${reconosConfig.reconosConfigScriptEscaped} && echo $commands | xmd", "bash")
-}
-
-task downloadBitfileToZynq {
-	doLast {
-		def edk_project_dir = demoHwDir("edk_zynq_linux")
-		def bitfile = path(edk_project_dir, "implementation", "system.bit")
-		run_xmd("fpga -f ${escapeForShell(bitfile)}")
-	}
-	mustRunAfter checkHostIp, checkDigilentDriver, updateNfsRoot
-	dependsOn reconosConfig, compileReconosDemoHardwareBitstream
-	dependsOn createPs7InitFile
-	shouldRunAfter downloadImagesToZynq
-}
-
 task waitForBootingBoard {
-	mustRunAfter downloadImagesToZynq, downloadBitfileToZynq
+	mustRunAfter downloadImagesToZynq, downloadReconosDemoHardwareBitstream
 	requiredProperty "host_ip"
 
 	doLast {
@@ -1030,7 +1013,7 @@ task waitForBootingBoard {
 }
 
 task bootZynq {
-	dependsOn downloadImagesToZynq, downloadBitfileToZynq, waitForBootingBoard
+	dependsOn downloadImagesToZynq, downloadReconosDemoHardwareBitstream, waitForBootingBoard
 }
 
 def getBoardPubkey(keytype) {

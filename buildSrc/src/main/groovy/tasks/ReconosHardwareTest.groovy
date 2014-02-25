@@ -5,13 +5,16 @@ import org.gradle.api.tasks.Exec
 class ReconosHardwareTest {
 	private Project project
 	private String testName
-	private DefaultTask cleanTask, prepareTask, compileBitstreamTask
+	private DefaultTask cleanTask, prepareTask, compileBitstreamTask, downloadBitstreamTask
 
 	ReconosHardwareTest(project, testName, closure=null) {
+		this.project  = project
 		this.testName = testName
-		cleanTask = project.task(getTaskName("clean"))
-		prepareTask = project.task(getTaskName("prepare"), type: ReconosPrepareTask)
-		compileBitstreamTask = project.task(getTaskName("compile") + "Bitstream", type: ReconosXpsTask)
+
+		cleanTask             = project.task(getTaskName("clean"))
+		prepareTask           = project.task(getTaskName("prepare"), type: ReconosPrepareTask)
+		compileBitstreamTask  = project.task(getTaskName("compile", "Bitstream"), type: ReconosXpsTask)
+		downloadBitstreamTask = project.task(getTaskName("download", "Bitstream"), type: ReconosXmdTask)
 
 		configureTasks()
 
@@ -21,8 +24,8 @@ class ReconosHardwareTest {
 		}
 	}
 
-	private String getTaskName(String task) {
-		return task + testName.capitalize()
+	private String getTaskName(String task, String suffix="") {
+		return task + testName.capitalize() + suffix.capitalize()
 	}
 
 	public def clean(closure=null) {
@@ -62,6 +65,11 @@ class ReconosHardwareTest {
 		prepareTask.hardwareDir(dir)
 		compileBitstreamTask.projectDir(prepareTask.outputDir)
 		//cleanTask.delete(prepareTask.outputDir)
+		downloadBitstreamTask.workingDir(prepareTask.outputDir)
+	}
+
+	private String reconosTaskPath(String taskName) {
+		return project.reconosTaskPath(taskName)
 	}
 
 	private void configureTasks() {
@@ -82,5 +90,12 @@ class ReconosHardwareTest {
 		
 		compileBitstreamTask.command "run bits"
 		compileBitstreamTask.projectName "system"
+
+
+		downloadBitstreamTask.mustRunAfter reconosTaskPath("checkHostIp"), reconosTaskPath("updateNfsRoot")
+		downloadBitstreamTask.dependsOn reconosTaskPath("checkDigilentDriver"), compileBitstreamTask
+		downloadBitstreamTask.shouldRunAfter reconosTaskPath("downloadImagesToZynq")
+
+		downloadBitstreamTask.command "fpga", "-f", { project.path("implementation", compileBitstreamTask.projectName + ".bit") }
 	}
 }

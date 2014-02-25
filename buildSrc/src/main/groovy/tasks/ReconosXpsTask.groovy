@@ -36,6 +36,10 @@ public class ReconosXpsTask extends DefaultTask {
 		initInputsAndOutputs()
 	}
 
+	public String getProjectName() {
+		return project_name
+	}
+
 	public String getProjectDir() {
 		return xps_project_dir
 	}
@@ -53,8 +57,6 @@ public class ReconosXpsTask extends DefaultTask {
 			throw new GradleException("The project file '$project_file' doesn't exist.")
 
 		project.runXps("system", xpsCommands.join(" ; "), projectDir)
-		//project.rootPath(projectDir, "implementation").mkdirs()
-		//project.touch(project.rootPath(projectDir, "implementation", "system.bit"))
 	}
 
 	def initInputsAndOutputs() {
