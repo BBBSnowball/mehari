@@ -283,12 +283,12 @@ class HelpersPluginConvention {
 	}
 
 	def cleanWithDistclean(dir) {
-		dir = escapeForShell(file(dir))
+		dir = escapeForShell(project.file(dir))
 		sh("cd $dir ; [ -e \"Makefile\" ] && make distclean || true")
 	}
 
 	def getVariableFromShell(String name) {
-		return helpers.backticks(". ${reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$$name\"", "bash")
+		return backticks(". ${reconosConfigScriptEscaped} >/dev/null ; echo -n \"\$$name\"", "bash")
 	}
 
 	def getVariablesFromShell(cmd, variablenames) {
