@@ -276,7 +276,7 @@ class HelpersPluginConvention {
 	def cleanGitRepository(dir) {
 		if (!rootPath(dir, ".git").exists())
 			throw new GradleException("'$dir' is not the root of a git repository")
-		exec {
+		project.exec {
 			commandLine "sh", "-c", "git reset --hard && git clean -f -x -d"
 			workingDir rootPath(dir)
 		}
