@@ -107,7 +107,9 @@ forAllNormalTestTasks() { task ->
 }
 
 task clean {
-	dependsOn "reconos:clean", "llvm:clean"
+	dependsOn "reconos:clean"
+	dependsOn "llvm:clean"
+	dependsOn "single-pendulum-vhdl:clean"
 
 	mustRunAfter checkSystemDependencies
 }
@@ -119,7 +121,9 @@ task checkBeforeCompile {
 }
 
 task compile {
-	dependsOn "reconos:compile", "llvm:compile"
+	dependsOn "reconos:compile"
+	dependsOn "llvm:compile"
+	dependsOn "single-pendulum-vhdl:compile"
 	if (havePrivateProject)
 		dependsOn "private:compile"
 
