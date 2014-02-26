@@ -46,7 +46,7 @@ public class ReconosXmdTask extends DefaultTask {
 		if (workingDirectory == null)
 			throw new GradleException("You must call 'workingDir' for ${this}.")
 
-		def commands = xmdCommands.map(this.&prepareCommand).join(" ; ")
+		def commands = xmdCommands.collect(this.&prepareCommand).join(" ; ")
 
 		project.runXmd(commands, projectDir)
 	}
