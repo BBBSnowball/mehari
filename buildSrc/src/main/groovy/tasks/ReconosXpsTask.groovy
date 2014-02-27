@@ -56,6 +56,7 @@ public class ReconosXpsTask extends DefaultTask {
 		if (!project_file.exists())
 			throw new GradleException("The project file '$project_file' doesn't exist.")
 
+		//println("project.runXps('system', ${xpsCommands.join(" ; ").inspect()}, $projectDir)")
 		project.runXps("system", xpsCommands.join(" ; "), projectDir)
 	}
 

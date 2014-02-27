@@ -48,11 +48,12 @@ public class ReconosXmdTask extends DefaultTask {
 
 		def commands = xmdCommands.collect(this.&prepareCommand).join(" ; ")
 
-		project.runXmd(commands, projectDir)
+		//println("project.runXmd(${commands.inspect()}, $workingDir)")
+		project.runXmd(commands, workingDir)
 	}
 
-	private String prepareCommand(cmdParts) {
-		cmdParts = cmdParts.collectNested({ if (it instanceof Callable) it() else it }).flatten()
+	String prepareCommand(cmdParts) {
+		cmdParts = cmdParts.toList().collectNested({ if (it instanceof Callable) it() else it }).flatten()
 		return cmdParts.collect {
 			if (cmdParts instanceof File) {
 				inputs.file it
