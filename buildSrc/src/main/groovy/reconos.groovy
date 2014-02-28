@@ -152,7 +152,7 @@ class ReconosPluginConvention {
 	}
 
 	def runXmd(commands, workingDir=null) {
-		commands = escapeForShell(commands.toString() + " ; exit")
+		commands = helpers.escapeForShell(commands.toString() + " ; exit")
 		cmd = ". ${project.reconosConfigScriptEscaped} && echo $commands | xmd"
 		if (workingDir)
 			cmd = "cd " + helpers.escapeForShell(workingDir) + " && " + cmd
