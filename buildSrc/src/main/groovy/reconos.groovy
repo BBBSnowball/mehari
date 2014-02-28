@@ -151,9 +151,12 @@ class ReconosPluginConvention {
 		throw new GradleException("System command returned non-zero status (return value is $res): ${cmd.inspect()}")
 	}
 
-	def runXmd(commands) {
+	def runXmd(commands, workingDir=null) {
 		commands = escapeForShell(commands.toString() + " ; exit")
-		sh(". ${project.reconosConfigScriptEscaped} && echo $commands | xmd", "bash")
+		cmd = ". ${project.reconosConfigScriptEscaped} && echo $commands | xmd"
+		if (workingDir)
+			cmd = "cd " + helpers.escapeForShell(workingDir) + " && " + cmd
+		sh(commands, "bash")
 	}
 
 	private final String reconosProjectPath = ":reconos"
