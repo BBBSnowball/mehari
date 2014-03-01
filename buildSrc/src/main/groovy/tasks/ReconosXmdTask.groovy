@@ -39,7 +39,7 @@ public class ReconosXmdTask extends DefaultTask {
 	}
 
 	@TaskAction
-	def runXps() {
+	def runXmd() {
 		if (xmdCommands.isEmpty())
 			throw new GradleException("You must call 'command' at least once for ${this}.")
 
@@ -53,15 +53,16 @@ public class ReconosXmdTask extends DefaultTask {
 	}
 
 	String prepareCommand(cmdParts) {
+		println("prepareCommand(#{cmdParts.inspect})")
 		cmdParts = cmdParts.toList().collectNested({ if (it instanceof Callable) it() else it }).flatten()
 		return cmdParts.collect {
-			if (cmdParts instanceof File) {
+			if (it instanceof File) {
 				inputs.file it
 				return project.escapeForShell(it)
 			} else {
 				//TODO Should we escape it anyway? Does this make a difference in TCL, e.g. string vs. command?
 				return it
 			}
-		}
+		}.join(" ")
 	}
 }
