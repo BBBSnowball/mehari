@@ -1053,7 +1053,7 @@ task installReconos {
 task buildRootfs {
 	dependsOn reconosConfig, installBusybox, installBaseSystem,
 		installLibc, installDropbear, installKernelModules,
-		installReconos
+		installReconos, installGdb
 
 	doFirst {
 		if (!ROOTFS.isDirectory())
