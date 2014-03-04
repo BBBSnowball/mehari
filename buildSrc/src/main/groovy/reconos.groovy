@@ -112,6 +112,7 @@ class ReconosPluginConvention {
 	}
 
 	public File getXilinxLibcDir() {
+		//TODO use this: arm-xilinx-linux-gnueabi-gcc -print-sysroot
 		return helpers.filePropertyOrDefault("libc_dir",
 			helpers.path(getXilinxGnutools().parentFile.parentFile, "arm-xilinx-linux-gnueabi", "libc"))
 	}
@@ -226,6 +227,7 @@ class ReconosPluginConvention {
 	}
 
 	def getCrosscompileHostSpecAfterReconosConfig() {
+		//TODO use this: arm-xilinx-linux-gnueabi-gcc -dumpmachine
 		// get CROSS_COMPILE environment variable and remove path and trailing minus
 		def crosscompile = new File(getCrosscompileEnvvarAfterReconosConfig()).getName().trim()
 		return (crosscompile =~ /-$/).replaceFirst("")
