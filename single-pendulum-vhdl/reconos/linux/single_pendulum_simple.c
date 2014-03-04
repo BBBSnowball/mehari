@@ -60,8 +60,9 @@ void print_reals(real_t* data, size_t count)
 }
 
 void single_pendulum_simple(single_pendulum_simple_state_t* state) {
+    //Vp[3] = Vp[0];
     state->dx0 = state->x1;
-    state->Vdx[1] = (-(state->Vp[2])*state->Vp[1]*sin(state->Vx[0])-state->Vx[1]*state->Vp[3]+state->Vu[1])/state->Vp[4];
+    state->Vdx[1] = (-(state->Vp[2])*state->Vp[1]*sin(state->Vx[0])-state->Vx[1]*state->Vp[3]+state->Vu[0])/state->Vp[4];
 }
 
 // sort thread shall behave the same as hw thread:
