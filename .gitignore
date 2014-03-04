@@ -32,3 +32,6 @@ _build
 
 # temporary output folder
 /llvm/_output
+/reconos/_expat/
+/reconos/_gdb/
+/reconos/_termcap/

@@ -29,7 +29,7 @@ public class FetchAndExtractSourceTask extends DefaultTask {
 
 		def filesInTar = project.lazyValue {
 			// '--strip-components=1' doesn't work here, so we remove the first component ourselves
-			["tar", "-tzf", tarFile].execute().text.readLines()*.split("/").collect { segments ->
+			["tar", "-t${compressionFlag}f", tarFile].execute().text.readLines()*.split("/").collect { segments ->
 				def strippedSegments = [project.file(targetDir)] + (segments.size() > 1 ? segments[1..-1] : [])
 				project.path(*strippedSegments)
 			}
@@ -49,12 +49,25 @@ public class FetchAndExtractSourceTask extends DefaultTask {
 		return tarFile.value
 	}
 
+	public String getCompressionFlag() {
+		if (tarFile ==~ /.*\.tar\.gz$|\.tgz$/)
+			return "z"
+		else if (tarFile ==~ /.*\.tar\.bz2$/)
+			return "j"
+		else if (tarFile ==~ /.*\.tar$/)
+			return ""
+		else {
+			project.logger.warn("Couldn't determine compression of '$tarFile'. You should use the default extension, e.g. something.tar.gz")
+			return "z"
+		}
+	}
+
 	@TaskAction
 	def extract() {
 		project.file(targetDir).mkdirs()
 
 		project.exec {
-			commandLine "tar", "-C", project.file(this.targetDir), "--strip-components=1", "-xzf", tarFile
+			commandLine "tar", "-C", project.file(this.targetDir), "--strip-components=1", "-x${compressionFlag}f", tarFile
 		}
 	}
 }
