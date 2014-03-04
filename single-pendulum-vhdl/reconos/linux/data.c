@@ -23,7 +23,7 @@ int check_data(const single_pendulum_simple_state_t* data, const single_pendulum
 	int i;
 
 	for (i=0; i<simulation_steps*REALS_PER_BLOCK; i++) {
-		if (fabs(a-b) > 1e-9) {
+		if (fabs(a[i]-b[i]) > 1e-9) {
 			return i;
 		}
 	}
