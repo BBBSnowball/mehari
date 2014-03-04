@@ -11,7 +11,7 @@ public class ReconosXmdTask extends DefaultTask {
 	String workingDirectory = null
 	String project_name = "system"
 
-	public ReconosXpsTask() {
+	public ReconosXmdTask() {
 		if (project.convention.findPlugin(HelpersPluginConvention.class) == null)
 			throw new GradleException("Please apply the HelpersPlugin before using ReconosPrepareTask.")
 		if (project.convention.findPlugin(ReconosPluginConvention.class) == null)

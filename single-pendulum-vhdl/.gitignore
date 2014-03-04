@@ -38,6 +38,9 @@ test_sim*
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_sub.vhd
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_to_sin.vhd
 
+*.o
+/reconos/linux/single_pendulum_simple
+
 
 # copied from https://gist.github.com/mapedd/2045092
 
