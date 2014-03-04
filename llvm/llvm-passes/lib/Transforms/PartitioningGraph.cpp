@@ -3,6 +3,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 
+#include <sstream>
+
 
 PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}

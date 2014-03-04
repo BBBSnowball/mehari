@@ -242,5 +242,5 @@ task applyPartitioning(type: Exec) {
 
 
 task runOptimizationPasses {
-	dependsOn speedUpAnalysis, createIRGraphs, createCCodeFromIR
+	dependsOn speedUpAnalysis, createIRGraphs, createCCodeFromIR, applyPartitioning
 }
