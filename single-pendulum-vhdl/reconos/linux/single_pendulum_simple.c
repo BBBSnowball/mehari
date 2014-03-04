@@ -39,9 +39,9 @@ void print_data(real_t* data, size_t count)
     for (i=0; i<count; i++)
     {
         if (sizeof(real_t) == 8)
-            printf("(%04d) %16Lx     ", i, (unsigned long long int)data[i]);
+            printf("(%04d) %16Lx     ", i, *(unsigned long long int*)(void*)&data[i]);
         else
-            printf("(%04d) %16x     ", i, (unsigned int)data[i]);
+            printf("(%04d) %16x     ", i, *(unsigned int*)(void*)&data[i]);
 
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
@@ -53,7 +53,7 @@ void print_reals(real_t* data, size_t count)
     size_t i;
     for (i=0; i<count; i++)
     {
-        printf("(%04d) %5.3f     ", i, data[i]);
+        printf("(%04d) %6.3f     ", i, data[i]);
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
     printf("\n");
@@ -113,7 +113,7 @@ void print_help()
     "\n"
     "Usage:\n"
     "\tsingle_pendulum_simple <-h|--help>\n"
-    "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads>\n");
+    "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads> [--without-reconos]\n");
 }
 
 int main(int argc, char ** argv)
@@ -125,20 +125,30 @@ int main(int argc, char ** argv)
     int running_threads;
     int simulation_steps;
     single_pendulum_simple_state_t *data, *expected;
+    int success;
+    int without_reconos;
 
     timing_t t_start, t_stop;
     ms_t t_generate;
     ms_t t_sort;
     ms_t t_check;
 
-    if (argc > 3 || (argc > 1 && argv[0][0] == '-'))
+    if (argc > 4 || (argc > 1 && argv[1][0] == '-'))
     {
       print_help();
       exit(1);
     }
     // we have exactly 2 arguments now...
-    hw_threads = atoi(argv[1]);
-    sw_threads = atoi(argv[2]);
+    hw_threads = argc > 1 ? atoi(argv[1]) : 1;
+    sw_threads = argc > 2 ? atoi(argv[2]) : 0;
+
+    without_reconos = argc > 3 && strcmp(argv[3], "--without-reconos") == 0;
+
+    if (without_reconos && hw_threads > 0)
+    {
+        fprintf(stderr, "We cannot use hardware threads without reconOS!\n");
+        exit(1);
+    }
 
     running_threads = hw_threads + sw_threads;
 
@@ -152,7 +162,8 @@ int main(int argc, char ** argv)
     mbox_init(&mb_stop,  simulation_steps);
 
     // init reconos and communication resources
-    reconos_init();
+    if (!without_reconos)
+        reconos_init();
 
     res[0].type = RECONOS_TYPE_MBOX;
     res[0].ptr  = &mb_start;
@@ -205,7 +216,8 @@ int main(int argc, char ** argv)
     printf("Putting %i blocks into job queue: ", simulation_steps);
     fflush(stdout);
 
-    reconos_cache_flush();
+    if (!without_reconos)
+        reconos_cache_flush();
 
     for (i=0; i<simulation_steps; i++)
     {
@@ -227,7 +239,8 @@ int main(int argc, char ** argv)
     t_stop = gettime();
     t_sort = calc_timediff_ms(t_start,t_stop);
 
-    reconos_cache_flush();
+    if (!without_reconos)
+        reconos_cache_flush();
 
     // check data
     //data[0] = 6666; // manual fault
@@ -243,15 +256,19 @@ int main(int argc, char ** argv)
         printf("expected %5.3f    found %5.3f\n", ((real_t*)expected)[ret], ((real_t*)data)[ret]);
         job = ret / BLOCK_SIZE;
         printf("dumping job %d:\n", job);
-        printf("  expected: "); print_data (expected[job].all, REALS_PER_BLOCK);
-        printf("  actual:   "); print_data (data    [job].all, REALS_PER_BLOCK);
-        printf("  expected: "); print_reals(expected[job].all, REALS_PER_BLOCK);
-        printf("  actual:   "); print_reals(data    [job].all, REALS_PER_BLOCK);
+        printf("  expected:\t"); print_data (expected[job].all, REALS_PER_BLOCK);
+        printf("  actual:  \t"); print_data (data    [job].all, REALS_PER_BLOCK);
+        printf("  expected:\t"); print_reals(expected[job].all, REALS_PER_BLOCK);
+        printf("  actual:  \t"); print_reals(data    [job].all, REALS_PER_BLOCK);
+
+        success = 0;
     }
     else
     {
         printf("success\n");
         //print_data(data, TO_WORDS(buffer_size));
+
+        success = 1;
     }
 
     t_stop = gettime();
@@ -278,7 +295,8 @@ int main(int argc, char ** argv)
     }
 
     printf("\n");
-    print_mmu_stats();
+    if (!without_reconos)
+        print_mmu_stats();
     printf( "Running times (size: %d jobs, %d hw-threads, %d sw-threads):\n"
         "\tGenerate data: %lu ms\n"
         "\tSort data    : %lu ms\n"
@@ -289,6 +307,9 @@ int main(int argc, char ** argv)
     free(data);
     free(expected);
 
-    return 0;
+    if (success)
+        return 0;
+    else
+        return 1;
 }
 

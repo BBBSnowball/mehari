@@ -19,3 +19,6 @@ clean:
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) -o $@ $<
+
+test-without-reconos: $(NAME)
+	qemu-arm-static $(NAME) 0 2 --without-reconos
