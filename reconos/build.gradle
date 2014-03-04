@@ -183,8 +183,10 @@ task cleanBusybox  << { cleanGitRepository("busybox") }
 task cleanDropbear << { cleanWithDistclean("dropbear") }
 task cleanReconos  << { cleanGitRepository("reconos") }
 task cleanRootfs(type: Delete) { delete ROOTFS }
-task cleanZlib(type: Delete) { delete { tasks["extractZlibSource"].targetDir } }
-task cleanSftp(type: Delete) { delete { tasks["extractSftpSource"].targetDir } }
+task cleanZlib  (type: Delete) { delete { tasks["extractZlibSource"  ].targetDir } }
+task cleanSftp  (type: Delete) { delete { tasks["extractSftpSource"  ].targetDir } }
+task cleanExpat (type: Delete) { delete { tasks["extractExpaptSource"].targetDir } }
+task cleanGdb   (type: Delete) { delete { tasks["extractGdbSource"   ].targetDir } }
 
 task clean {
 	dependsOn cleanUboot, cleanKernel, cleanBusybox, cleanDropbear, cleanZlib, cleanSftp, cleanReconos, cleanRootfs
@@ -384,6 +386,20 @@ task extractSftpSource(type: FetchAndExtractSourceTask) {
 	mustRunAfter cleanSftp
 }
 
+task extractExpatSource(type: FetchAndExtractSourceTask) {
+	artifact "net.sourceforge.expat:expat:2.1.0:sources@tar.gz"
+	into "_expat"
+
+	mustRunAfter cleanExpat
+}
+
+task extractGdbSource(type: FetchAndExtractSourceTask) {
+	artifact "org.gnu.gdb:gdb:7.7:sources@tar.bz2"
+	into "_gdb"
+
+	mustRunAfter cleanGdb
+}
+
 def configureZlibCommandline() {
 	def host = getCrosscompileHostSpecAfterReconosConfig()
 	return "CC=${host}-gcc " + escapeForShell(["./configure", "--prefix=$ROOTFS"])
@@ -397,7 +413,7 @@ task configureZlib(type: Exec) {
 		include "config*"
 		exclude "config.h" ; exclude "config*.log" ; exclude "config*.status"
 	}
-	inputs.property("commandLine") { configureSftpCommandline() }
+	inputs.property("commandLine") { configureZlibCommandline() }
 	outputs.file path(extractZlibSource.targetDir, "Makefile")
 	outputs.file path(extractZlibSource.targetDir, "config.h")
 
@@ -518,6 +534,109 @@ task compileSftp(type: CrossCompileMakeTask) {
 	inputs.files configureSftp.sources.collect { source -> rootPath(extractSftpSource.targetDir, source.split("/")) }
 	inputs.file rootPath(extractSftpSource.targetDir, "Makefile-sftp")
 	outputs.file rootPath(extractSftpSource.targetDir, "sftp-server")
+}
+
+def configureExpatCommandline() {
+	def host = getCrosscompileHostSpecAfterReconosConfig()
+	return escapeForShell(["./configure", "--host=$host", "--prefix=$ROOTFS"])
+}
+
+task configureExpat(type: Exec) {
+	dependsOn extractExpatSource, reconosConfig, "installLibc"
+	workingDir extractExpatSource.targetDir
+
+	inputs.files fileTree(extractExpatSource.targetDir) {
+		include "config*"
+		exclude "config.h" ; exclude "config*.log" ; exclude "config*.status"
+	}
+	inputs.property("commandLine") { configureExpatCommandline() }
+	outputs.file path(extractExpatSource.targetDir, "Makefile")
+	outputs.file path(extractExpatSource.targetDir, "config.h")
+
+	doFirst {
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			configureExpatCommandline()
+	}
+}
+
+task compileExpat(type: CrossCompileMakeTask) {
+	target ""
+	workingDir extractExpatSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn configureExpat
+
+	inputs.files fileTree(extractExpatSource.targetDir) {
+		include "**/*.c", "**/*.h", "Makefile"
+		exclude "examples"
+	}
+	outputs.dir rootPath(extractExpatSource.targetDir, ".libs")
+	outputs.file rootPath(extractExpatSource.targetDir, "expat.pc")
+	outputs.file rootPath(extractExpatSource.targetDir, "xmlwf/xmlwf")
+}
+
+task installExpat(type: CrossCompileMakeTask) {
+	target "install"
+	workingDir extractExpatSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn compileExpat
+
+	inputs.files compileExpat.outputs
+	inputs.file path(extractZlibSource.targetDir, "lib", "expat.h")
+	inputs.file path(extractZlibSource.targetDir, "lib", "expat_external.h")
+	outputs.files fileTree(path(ROOTFS, "usr")) {
+		include "lib/libexpat**"
+		include "include/expat*.h"
+		include "bin/xmlwf"
+	}
+}
+
+def configureGdbCommandline() {
+	def host = getCrosscompileHostSpecAfterReconosConfig()
+	return escapeForShell(["./configure", "--host=$host", "--prefix=$ROOTFS"])
+}
+
+task configureGdb(type: Exec) {
+	dependsOn extractGdbSource, reconosConfig, "installLibc"
+	workingDir extractGdbSource.targetDir
+
+	inputs.files fileTree(extractGdbSource.targetDir) {
+		include "config*"
+		exclude "config.h" ; exclude "config*.log" ; exclude "config*.status"
+	}
+	inputs.property("commandLine") { configureGdbCommandline() }
+	outputs.file path(extractGdbSource.targetDir, "Makefile")
+	outputs.file path(extractGdbSource.targetDir, "config.h")
+
+	doFirst {
+		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && " +
+			configureGdbCommandline()
+	}
+}
+
+task compileGdb(type: CrossCompileMakeTask) {
+	target ""
+	workingDir extractGdbSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn configureGdb, installExpat
+
+	inputs.files fileTree(extractGdbSource.targetDir) {
+		include "**/*.c", "**/*.h", "Makefile"
+	}
+	outputs.files rootPath(extractGdbSource.targetDir, "gdb")
+}
+
+task installGdb(type: CrossCompileMakeTask) {
+	target "install"
+	workingDir extractGdbSource.targetDir
+	prependPATH getCrosscompileToolchainDirAfterReconosConfig()
+
+	dependsOn compileGdb
+
+	inputs.files compileGdb.outputs
+	outputs.files rootPath(ROOTFS, "usr", "bin", "gdb")
 }
 
 task compileReconosDriver(type: CrossCompileMakeTask) {
