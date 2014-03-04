@@ -228,6 +228,19 @@ task createCCodeFromIR(type: Exec) {
 }
 
 
+task applyPartitioning(type: Exec) {
+	dependsOn createIR, buildLLVMPasses
+
+	def opt = file("$INSTALL_DIR/llvm/bin/opt")
+	def transform_lib = file("$BUILD_DIR/llvm-passes/lib/Transforms/MehariTransforms.so")
+
+	// TODO better solution for this
+	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
+
+	commandLine "bash", "-c", "$opt -load $transform_lib -partitioning -S $targetfile > /dev/null"
+}
+
+
 task runOptimizationPasses {
 	dependsOn speedUpAnalysis, createIRGraphs, createCCodeFromIR
 }
