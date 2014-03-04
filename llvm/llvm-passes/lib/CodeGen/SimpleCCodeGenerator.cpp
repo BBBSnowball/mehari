@@ -1,4 +1,4 @@
-#include "SimpleCCodeGenerator.h"
+#include "mehari/CodeGen/SimpleCCodeGenerator.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"

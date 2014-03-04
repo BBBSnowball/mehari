@@ -3,18 +3,14 @@
 
 using namespace llvm;
 
-class MehariSpeedupAnalysis : public FunctionPass {
+class PartitioningPass : public FunctionPass {
 
 public:
   static char ID;
 
-  MehariSpeedupAnalysis();
-  ~MehariSpeedupAnalysis();
+  PartitioningPass();
+  ~PartitioningPass();
 
   virtual bool runOnFunction(Function &func);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
-
-private:
-	unsigned int getInstructionCost(Instruction *instruction);
-
 };

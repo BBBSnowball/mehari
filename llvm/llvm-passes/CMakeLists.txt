@@ -19,7 +19,8 @@ add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIRS})
 link_directories(${LLVM_LIBRARY_DIRS})
 
-# Add all directories for custom passes
-add_subdirectory(Analysis)
-add_subdirectory(CodeGen)
-# add_subdirectory(Transform)
+# Add include directory for custom passes
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Add directory for custom passes
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib)
