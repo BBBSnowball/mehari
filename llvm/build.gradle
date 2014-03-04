@@ -193,12 +193,12 @@ task speedUpAnalysis(type: Exec) {
 	dependsOn createIR, buildLLVMPasses
 
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/Analysis/MehariAnalysis.so")
+	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -S $targetfile > /dev/null"
 }
 
 
@@ -206,12 +206,12 @@ task createIRGraphs(type: Exec) {
 	dependsOn createIR, buildLLVMPasses
 
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/Analysis/MehariAnalysis.so")
+	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -print-graph -data -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -dfg -S $targetfile > /dev/null"
 }
 
 
@@ -219,7 +219,7 @@ task createCCodeFromIR(type: Exec) {
 	dependsOn createIR, buildLLVMPasses
 
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def codegen_lib = file("$BUILD_DIR/llvm-passes/CodeGen/MehariCodeGen.so")
+	def codegen_lib = file("$BUILD_DIR/llvm-passes/lib/CodeGen/MehariCodeGen.so")
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/evalS_new.ll")
