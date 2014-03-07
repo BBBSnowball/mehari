@@ -308,6 +308,9 @@ int main(int argc, char ** argv)
     free(data);
     free(expected);
 
+    if (!without_reconos)
+        reconos_cleanup();
+
     if (success)
         return 0;
     else
