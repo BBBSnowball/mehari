@@ -12,6 +12,8 @@ task compileTest(type: Exec) {
 	inputs.files sourceFiles
 	inputs.files fileTree(".").include("**/*.h")
 	outputs.file "test"
+
+	dependsOn ":tools:installGTest", ":tools:installGMock"
 }
 
 task test(type: Exec) {
@@ -67,4 +69,6 @@ task createMakefile {
 			w.writeLine("\t./test")
 		}
 	}
+
+	dependsOn ":tools:installGTest", ":tools:installGMock"
 }

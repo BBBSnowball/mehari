@@ -154,7 +154,7 @@ task installGMockLibs(type: Copy) {
 }
 
 task installGMock {
-	dependsOn installGMockHeaders, installGMockLibs
+	dependsOn installGMockHeaders, installGMockLibs, installGTest
 }
 
 ["compile", "install", "test"].each { name ->
