@@ -24,6 +24,8 @@ void VCat::measure() {
 
 		_height += (*it)->height();
 	}
+
+	measured = true;
 }
 
 int VCat::width()  const {
