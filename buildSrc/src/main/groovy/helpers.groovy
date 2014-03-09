@@ -10,14 +10,14 @@ class HelpersPluginConvention {
 
 	public final String pythonInstallPath
 
-	public final String gtestIncludePath, gtestLibPath
+	public final File gtestIncludeDir, gtestLibDir
 
 	public HelpersPluginConvention(Project project) {
 		this.project = project
 		this.pythonInstallPath = project.file(project.rootDir.toString() + "/tools/_install").absolutePath
 
-		this.gtestIncludePath = project.file(project.rootDir.toString() + "/tools/_install/include").absolutePath
-		this.gtestLibPath     = project.file(project.rootDir.toString() + "/tools/_install/lib"    ).absolutePath
+		this.gtestIncludeDir = project.file(project.rootDir.toString() + "/tools/_install/include")
+		this.gtestLibDir     = project.file(project.rootDir.toString() + "/tools/_install/lib"    )
 
 		this.addExtensions()
 	}
