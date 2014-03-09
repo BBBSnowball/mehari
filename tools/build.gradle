@@ -74,6 +74,10 @@ task compileGTest(type: Exec) {
 
 task installGTestHeaders(type: Copy) {
 	from rootPath(extractGTestSource.targetDir, "include")
+	from(".") {
+		include "gtest_tap.h"
+		rename { "gtest/tap.h" }
+	}
 	into rootPath("_install", "include")
 
 	dependsOn compileGTest
