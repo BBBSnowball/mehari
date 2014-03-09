@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gtest/tap.h>
+#include <gmock/gmock.h>
 
 void enableTap() {
 	// see https://github.com/kinow/gtest-tap-listener/blob/master/samples/src/gtest_main.cc
@@ -9,7 +10,7 @@ void enableTap() {
 }
 
 int main(int argc, char **argv) {
-	::testing::InitGoogleTest(&argc, argv);
+	::testing::InitGoogleMock(&argc, argv);
 	enableTap();
 	return RUN_ALL_TESTS();
 }

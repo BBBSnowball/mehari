@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <boost/scoped_ptr.hpp>
 #include <sstream>
 #include "pprint.h"
@@ -16,4 +17,31 @@
 	int result;                                                                 \
 	EXPECT_OUTPUT(_expected, stream, result = _iter->print(stream, 0, status)); \
 	EXPECT_EQ(_expected.size(), result);                                        \
+}
+
+namespace pprint {
+
+class MockPrettyPrintable : public PrettyPrintable {
+public:
+	MOCK_CONST_METHOD0(prettyPrint, const PrettyPrinted_p());
+};
+
+class MockPrettyPrinted : public PrettyPrinted {
+public:
+	MOCK_CONST_METHOD0(lines, LineIterator*());
+
+	MOCK_CONST_METHOD0(width,  int());
+	MOCK_CONST_METHOD0(height, int());
+};
+
+class MockLineIterator : public LineIterator {
+public:
+	MOCK_METHOD0(next, bool());
+	MOCK_METHOD0(last, bool());
+
+	MOCK_CONST_METHOD0(text,  const std::string());
+	MOCK_CONST_METHOD0(width, int());
+	MOCK_CONST_METHOD3(print, int(std::ostream& stream, int width, PrettyPrintStatus& status));
+};
+
 }
