@@ -8,10 +8,12 @@
 *.pyc
 .tmp-*
 
-# build results
+# build/test results
 _install
 _build
 /buildSrc/build
+*.tap
+/vhdlgen/test
 
 # llvm optimization results
 /llvm-optimizations-application/graph
@@ -21,8 +23,9 @@ _build
 # files created by the Gradle wrapper
 .gradle
 
-# local Gradle properties
+# local files
 /gradle-local.properties
+*.sublime-workspace
 
 # temporary source folders
 /reconos/_sftp/
@@ -35,3 +38,6 @@ _build
 /reconos/_expat/
 /reconos/_gdb/
 /reconos/_termcap/
+
+# generated files
+/vhdlgen/Makefile

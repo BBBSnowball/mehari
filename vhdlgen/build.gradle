@@ -1,0 +1,40 @@
+
+task compileTest(type: Exec) {
+	ext.sourceFiles = ["pprint.cpp", "pprint_text.cpp", "pprint_vcat.cpp", "pprint_hcat.cpp", "test_pprint.cpp",
+		"vhdlgen.cpp", "test_vhdlgen.cpp",
+		"test_main.cpp"]
+	ext.cmdLine = ["g++", "-g", "-o", "test", "-I", gtestIncludeDir, "-L", gtestLibDir] + sourceFiles + ["-lgtest", "-lpthread"]
+
+	commandLine cmdLine
+
+	inputs.property "commandLine", cmdLine
+	inputs.files sourceFiles
+	inputs.files fileTree(".").include("**/*.h")
+	outputs.file "test"
+}
+
+task test(type: Exec) {
+	commandLine "./test"
+
+	dependsOn compileTest
+}
+
+def makeRelative(x, relativeTo = ".") {
+	if (x instanceof File)
+		return relativePathTo(x, file(relativeTo))
+	else
+		return x
+}
+
+task createMakefile {
+	doLast {
+		file("Makefile").withWriter { w ->
+			w.writeLine("test: " + compileTest.inputs.files.files.collect({ makeRelative(it) }).join(" "))
+			w.writeLine("\t" + compileTest.cmdLine.collect({ makeRelative(it) }).join(" "))
+			w.writeLine("")
+
+			w.writeLine("run-test: test")
+			w.writeLine("\t./test")
+		}
+	}
+}
