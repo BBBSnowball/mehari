@@ -6,6 +6,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 
+unsigned int PartitioningPass::partitionCount = 2;
+
+
 PartitioningPass::PartitioningPass() : FunctionPass(ID) {}
 PartitioningPass::~PartitioningPass() {}
 

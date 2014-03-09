@@ -19,10 +19,10 @@ public:
   virtual bool runOnFunction(Function &func);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-private:
 	enum Partitions {CPU, FPGA};
-	unsigned int partitionCount = 2;
+	static unsigned int partitionCount;
 
+private:
 	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
 };
 
