@@ -42,6 +42,56 @@ task installPythonHelpers(type: SymLink) {
 	exclude "*.pyc"
 }
 
+task cleanGTest (type: Delete) { delete { tasks["extractZlibSource"   ].targetDir } }
+
+task extractGTestSource(type: FetchAndExtractSourceTask) {
+	artifact "com.google.code.googletest:gtest:1.7.0:sources@tar.bz2"
+	into "_gtest"
+
+	mustRunAfter cleanGTest
+}
+
+task prepareGTest(type: Exec) {
+	commandLine "cmake", "."
+	workingDir extractGTestSource.targetDir
+
+	dependsOn extractGTestSource
+
+	inputs.files  fileTree(extractGTestSource.targetDir).include("**/CMakeLists.txt", "cmake/internal_utils.cmake")
+	outputs.files fileTree(extractGTestSource.targetDir).include("cmake_install.cmake", "CMakeCache.txt", "Makefile",
+		"CMakeFiles/**/*.cmake", "CMakeFiles/**/*.make", "CMakeFiles/**/Makefile*")
+}
+
+task compileGTest(type: Exec) {
+	commandLine "make"
+	workingDir extractGTestSource.targetDir
+
+	dependsOn prepareGTest
+
+	inputs.files  fileTree(extractGTestSource.targetDir).include("Makefile", "src")
+	outputs.files fileTree(extractGTestSource.targetDir).include("libgtest*.a")
+}
+
+task installGTestHeaders(type: Copy) {
+	from rootPath(extractGTestSource.targetDir, "include")
+	into rootPath("_install", "include")
+
+	dependsOn compileGTest
+}
+
+task installGTestLibs(type: Copy) {
+	from(rootPath(extractGTestSource.targetDir)) {
+		include "*.a"
+	}
+	into rootPath("_install", "lib")
+
+	dependsOn compileGTest
+}
+
+task installGTest {
+	dependsOn installGTestHeaders, installGTestLibs
+}
+
 ["compile", "install", "test"].each { name ->
 	task(name) {
 		dependsOn tasks.findAll { task -> task.name.startsWith(name) && task.name != name }
