@@ -3,7 +3,7 @@ task compileTest(type: Exec) {
 	ext.sourceFiles = fileTree(".").include("**/*.cpp").files
 	ext.cppFlags = ["-g", "-I", gtestIncludeDir]
 	ext.ldFlags  = ["-L", gtestLibDir]
-	ext.libs     = ["-lgtest", "-lpthread"]
+	ext.libs     = ["-lgtest", "-lgmock", "-lpthread"]
 	ext.cmdLine = ["g++", "-o", "test"] + cppFlags + ldFlags + sourceFiles + libs
 
 	commandLine cmdLine
