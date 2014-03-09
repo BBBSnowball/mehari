@@ -52,6 +52,17 @@ public:
 std::ostream& operator <<(std::ostream& stream, const PrettyPrinted&  data);
 std::ostream& operator <<(std::ostream& stream, const PrettyPrinted_p data);
 
+class Empty : public PrettyPrinted {
+public:
+	Empty();
+	virtual ~Empty();
+
+	virtual LineIterator* lines() const;
+
+	virtual int width()  const;
+	virtual int height() const;
+};
+
 class Text : public PrettyPrinted {
 	std::string _text;
 public:

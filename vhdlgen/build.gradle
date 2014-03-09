@@ -1,9 +1,10 @@
 
 task compileTest(type: Exec) {
-	ext.sourceFiles = ["pprint.cpp", "pprint_text.cpp", "pprint_vcat.cpp", "pprint_hcat.cpp", "test_pprint.cpp",
-		"vhdlgen.cpp", "test_vhdlgen.cpp",
-		"test_main.cpp"]
-	ext.cmdLine = ["g++", "-g", "-o", "test", "-I", gtestIncludeDir, "-L", gtestLibDir] + sourceFiles + ["-lgtest", "-lpthread"]
+	ext.sourceFiles = fileTree(".").include("**/*.cpp").files
+	ext.cppFlags = ["-g", "-I", gtestIncludeDir]
+	ext.ldFlags  = ["-L", gtestLibDir]
+	ext.libs     = ["-lgtest", "-lpthread"]
+	ext.cmdLine = ["g++", "-o", "test"] + cppFlags + ldFlags + sourceFiles + libs
 
 	commandLine cmdLine
 
@@ -26,11 +27,40 @@ def makeRelative(x, relativeTo = ".") {
 		return x
 }
 
+def escapeOneForMake(x) {
+	//TODO
+	return x
+}
+
+def escapeForMake(args) {
+	if (args != null && args.class.isArray())
+		args = args.toList()
+	if (args instanceof Collection)
+		return args.collect(this.&escapeOneForMake).join(" ")
+	else
+		return escapeOneForMake(args)
+}
+
 task createMakefile {
 	doLast {
+		def headers = fileTree(".").include("**/*.h").files.collect({ makeRelative(it) })
+
 		file("Makefile").withWriter { w ->
-			w.writeLine("test: " + compileTest.inputs.files.files.collect({ makeRelative(it) }).join(" "))
-			w.writeLine("\t" + compileTest.cmdLine.collect({ makeRelative(it) }).join(" "))
+			w.writeLine(".PHONY: all clean")
+			w.writeLine("all: test")
+			w.writeLine("")
+
+			w.writeLine("%.o: %.cpp " + escapeForMake(headers))
+			w.writeLine('\tg++ -c -o $@ $< ' + escapeForShell(compileTest.cppFlags))
+			w.writeLine("")
+
+			def objs = compileTest.inputs.files.files.collect({ makeRelative(it) })*.replaceFirst(/\.[^.]+$/, ".o")
+			w.writeLine("test: " + escapeForMake(objs))
+			w.writeLine("\tg++ -o test " + escapeForShell(compileTest.ldFlags) + ' $^ ' + escapeForShell(compileTest.libs))
+			w.writeLine("")
+
+			w.writeLine("clean:")
+			w.writeLine("\trm -f test " + escapeForShell(objs))
 			w.writeLine("")
 
 			w.writeLine("run-test: test")
