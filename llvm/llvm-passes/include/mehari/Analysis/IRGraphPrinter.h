@@ -1,3 +1,6 @@
+#ifndef IR_GRAPH_PRINTER_H
+#define IR_GRAPH_PRINTER_H
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 
@@ -18,3 +21,5 @@ public:
   void printControlflowGraph(std::string filename, Function &func);
 
 };
+
+#endif /*IR_GRAPH_PRINTER_H*/
