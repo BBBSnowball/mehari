@@ -83,8 +83,6 @@ public:
 class Keyword : public Text { };
 
 class VCat : public PrettyPrinted, public std::vector<PrettyPrinted_p> {
-	friend class PPrintVCatTest_testCopyConstructor_Test;
-
 	bool measured;
 	int _width;
 	int _height;
@@ -102,6 +100,9 @@ public:
 	inline void add(PrettyPrinted* item) {
 		this->push_back(PrettyPrinted_p(item));
 	}
+
+	// only for testing
+	bool _measured();
 };
 
 class HCat : public PrettyPrinted, public std::vector<PrettyPrinted_p> {
@@ -119,6 +120,9 @@ public:
 	inline void add(PrettyPrinted* item) {
 		this->push_back(PrettyPrinted_p(item));
 	}
+
+	// only for testing
+	bool _measured();
 };
 
 } // end of namespace pprint

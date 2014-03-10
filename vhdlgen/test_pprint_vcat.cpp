@@ -58,7 +58,7 @@ TEST_F(PPrintVCatTest, testCopyConstructor) {
 	vcat.measure();
 
 	VCat vcat2(vcat);
-	ASSERT_TRUE(vcat2.measured);
+	ASSERT_TRUE(vcat2._measured());
 	EXPECT_EQ(3, vcat2.width());
 	EXPECT_EQ(1, vcat2.height());
 }

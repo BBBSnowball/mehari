@@ -78,3 +78,10 @@ TEST_F(PPrintTest, testStreamOperatorsWithMultipleLines) {
 
 	EXPECT_OUTPUT("blub\nab\ncde", stream, stream << pprintable);
 }
+
+
+// methods only for testing
+// There are defined here, so only the tests can use them.
+
+bool VCat::_measured() { return measured; }
+bool HCat::_measured() { return measured; }
