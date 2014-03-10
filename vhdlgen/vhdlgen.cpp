@@ -46,7 +46,7 @@ const pprint::PrettyPrinted_p UsedLibraries::prettyPrint() const {
 
 	for (const_iterator iter = this->begin(); iter != this->end(); ++iter)
 		builder.append()
-			//TODO seperator
+			.seperateBy("")
 			.add(iter->second);
 
 	return builder.build();

@@ -6,10 +6,14 @@
 
 namespace pprint {
 
+struct _PrettyPrintBuilderStackItem;
+
 class PrettyPrintBuilder {
-	std::stack<PrettyPrintedWithChildren_p> containerStack;
+	std::stack<_PrettyPrintBuilderStackItem> containerStack;
 	PrettyPrinted_p _recentItem;
 	PrettyPrintedWithChildren_p _root;
+
+	_PrettyPrintBuilderStackItem& getOrCreateCurrent();
 public:
 	PrettyPrintBuilder();
 	~PrettyPrintBuilder();
@@ -32,6 +36,9 @@ public:
 
 	PrettyPrintBuilder& columns();
 	PrettyPrintBuilder& append();
+
+	PrettyPrintBuilder& seperateBy(PrettyPrinted_p item);
+	PrettyPrintBuilder& seperateBy(std::string text);
 
 	PrettyPrintBuilder& up();
 

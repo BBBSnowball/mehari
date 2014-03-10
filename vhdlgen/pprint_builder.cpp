@@ -1,6 +1,32 @@
 #include "pprint_builder.h"
 
+#include <list>
+
 namespace pprint {
+
+struct _PrettyPrintBuilderStackItem {
+	PrettyPrintedWithChildren_p container;
+
+	std::list<PrettyPrinted_p> seperatedBy;
+	bool first;
+
+	_PrettyPrintBuilderStackItem(PrettyPrintedWithChildren_p container) : container(container), first(true) { }
+
+	void add(PrettyPrinted_p item) {
+		if (first)
+			first = false;
+		else {
+			for (std::list<PrettyPrinted_p>::iterator iter = seperatedBy.begin(); iter != seperatedBy.end(); ++iter)
+				container->add(*iter);
+		}
+
+		container->add(item);
+	}
+
+	void onPop() {
+		container->measure();
+	}
+};
 
 PrettyPrintBuilder::PrettyPrintBuilder() { }
 
@@ -18,7 +44,7 @@ PrettyPrintedWithChildren_p PrettyPrintBuilder::currentContainer() {
 	assert(hasCurrentContainer());
 
 	if (hasCurrentContainer())
-		return containerStack.top();
+		return containerStack.top().container;
 	else
 		return PrettyPrintedWithChildren_p();
 }
@@ -26,7 +52,7 @@ PrettyPrintedWithChildren_p PrettyPrintBuilder::currentContainer() {
 PrettyPrintBuilder& PrettyPrintBuilder::up() {
 	assert(hasCurrentContainer());
 
-	containerStack.top()->measure();
+	containerStack.top().onPop();
 	containerStack.pop();
 
 	return *this;
@@ -34,13 +60,13 @@ PrettyPrintBuilder& PrettyPrintBuilder::up() {
 
 PrettyPrintBuilder& PrettyPrintBuilder::addAndSelect(PrettyPrintedWithChildren_p container) {
 	if (hasCurrentContainer())
-		currentContainer()->add(container);
+		containerStack.top().add(container);
 	else {
 		assert(!_root);
 		_root = container;
 	}
 
-	containerStack.push(container);
+	containerStack.push(_PrettyPrintBuilderStackItem(container));
 	_recentItem = container;
 
 	return *this;
@@ -56,12 +82,16 @@ PrettyPrinted_p PrettyPrintBuilder::recentItem() {
 	return _recentItem;
 }
 
-PrettyPrintBuilder& PrettyPrintBuilder::add(PrettyPrinted_p item) {
+_PrettyPrintBuilderStackItem& PrettyPrintBuilder::getOrCreateCurrent() {
 	if (!hasCurrentContainer())
 		// add default container
 		append();
 
-	currentContainer()->add(item);
+	return containerStack.top();
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::add(PrettyPrinted_p item) {
+	getOrCreateCurrent().add(item);
 	_recentItem = item;
 	return *this;
 }
@@ -101,6 +131,16 @@ PrettyPrintBuilder& PrettyPrintBuilder::add(const PrettyPrintable& item) {
 
 PrettyPrintBuilder& PrettyPrintBuilder::add(const PrettyPrintable* item) {
 	return add(item->prettyPrint());
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::seperateBy(PrettyPrinted_p item) {
+	getOrCreateCurrent().seperatedBy.push_back(item);
+
+	return *this;
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::seperateBy(std::string text) {
+	return seperateBy(Text::create(text));
 }
 
 } // end of namespace pprint

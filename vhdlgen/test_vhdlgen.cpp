@@ -55,7 +55,19 @@ TEST(VHDLUsedLibraries, pprint) {
 		<< "abc.all"
 		<< "def.all";
 
+	libs.add("bar");
+
+	libs.add("bla")
+		<< "x.all";
+
+	// Libraries are sorted, i.e. we will get "bar", "bla", "blub"
+
 	EXPECT_PRETTY_PRINTED(libs,
+		"library bar;\n"
+		"\n"
+		"library bla;\n"
+		"use bla.x.all;\n"
+		"\n"
 		"library blub;\n"
 		"use blub.abc.all;\n"
 		"use blub.def.all;");
