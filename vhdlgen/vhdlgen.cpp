@@ -20,4 +20,36 @@ UsedLibrary& UsedLibraries::add(std::string name) {
 	return lib_in_map;
 }
 
+const pprint::PrettyPrinted_p UsedLibrary::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+	builder.append()
+		.columns()
+			.add("library")
+			.add(" ")
+			.add(name)
+			.add(";")
+			.up();
+
+	for (const_iterator iter = this->begin(); iter != this->end(); ++iter)
+		builder.columns()
+			.add("use")
+			.add(" ")
+			.add(name + "." + *iter)
+			.add(";")
+			.up();
+
+	return builder.build();
+}
+
+const pprint::PrettyPrinted_p UsedLibraries::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	for (const_iterator iter = this->begin(); iter != this->end(); ++iter)
+		builder.append()
+			//TODO seperator
+			.add(iter->second);
+
+	return builder.build();
+}
+
 }

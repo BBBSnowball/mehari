@@ -5,9 +5,11 @@
 #include <vector>
 #include <map>
 
+#include "pprint_builder.h"
+
 namespace vhdl {
 
-class UsedLibrary : public std::vector<std::string> {
+class UsedLibrary : public std::vector<std::string>, public pprint::PrettyPrintable {
 	std::string name;
 public:
 	UsedLibrary(std::string name = "");
@@ -15,11 +17,15 @@ public:
 	UsedLibrary& operator << (std::string element);
 
 	const std::string& getName();
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class UsedLibraries : public std::map<std::string, UsedLibrary> {
+class UsedLibraries : public std::map<std::string, UsedLibrary>, public pprint::PrettyPrintable {
 public:
 	UsedLibrary& add(std::string name);
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
 class VHDLFile {

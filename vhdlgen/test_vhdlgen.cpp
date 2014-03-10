@@ -1,5 +1,4 @@
-#include <gtest/gtest.h>
-#include "vhdlgen.h"
+#include "test_vhdlgen.h"
 
 using namespace vhdl;
 
@@ -47,4 +46,17 @@ TEST(VHDLUsedLibraries, supportsFluentSyntax) {
 		<< "def.all";
 
 	EXPECT_EQ(2, libs["blub"].size());
+}
+
+TEST(VHDLUsedLibraries, pprint) {
+	UsedLibraries libs;
+
+	libs.add("blub")
+		<< "abc.all"
+		<< "def.all";
+
+	EXPECT_PRETTY_PRINTED(libs,
+		"library blub;\n"
+		"use blub.abc.all;\n"
+		"use blub.def.all;");
 }

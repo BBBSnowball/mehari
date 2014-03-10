@@ -95,4 +95,12 @@ PrettyPrinted_p PrettyPrintBuilder::build() {
 	return root;
 }
 
+PrettyPrintBuilder& PrettyPrintBuilder::add(const PrettyPrintable& item) {
+	return add(item.prettyPrint());
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::add(const PrettyPrintable* item) {
+	return add(item->prettyPrint());
+}
+
 } // end of namespace pprint

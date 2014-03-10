@@ -19,6 +19,9 @@ public:
 	PrettyPrintedWithChildren_p currentContainer();
 	PrettyPrinted_p recentItem();
 
+	PrettyPrintBuilder& add(const PrettyPrintable& item);
+	PrettyPrintBuilder& add(const PrettyPrintable* item);
+
 	PrettyPrintBuilder& add(PrettyPrinted_p item);
 	PrettyPrintBuilder& add(PrettyPrinted* item);
 
@@ -34,6 +37,8 @@ public:
 
 	PrettyPrinted_p build();
 };
+
+PrettyPrintBuilder& builder();
 
 } // end of namespace pprint
 
