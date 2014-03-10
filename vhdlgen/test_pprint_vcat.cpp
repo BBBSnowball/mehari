@@ -196,4 +196,18 @@ TEST_F(PPrintVCatTest, testIteratorWithOnlyEmptyItemsDoesntHaveALastLine) {
 	EXPECT_FALSE(iter->last());
 }
 
+TEST_F(PPrintVCatTest, testPrinting) {
+	EXPECT_OUTPUT("", stream, stream << *empty);
+
+	EXPECT_OUTPUT("blub", stream, stream << *single_line);
+
+	EXPECT_OUTPUT("ab\ndef\ng", stream, stream << *multiline);
+
+	EXPECT_OUTPUT("a\nblub\nab\ndef\ng", stream, stream << *nested);
+
+	EXPECT_OUTPUT("g", stream, stream << *with_empty_items);
+
+	EXPECT_OUTPUT("", stream, stream << *only_empty_items);
+}
+
 } // end of namespace pprint

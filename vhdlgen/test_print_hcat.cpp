@@ -30,7 +30,7 @@ protected:
 	//  |     |hi|op  |OP  |de |hi|op
 	//  |     |xy          '
 	//
-	// with_empty_cols_hcat:
+	// with_empty_cols:
 	// g
 	//
 	// empty and only_empty_cols don't produce any output.
@@ -248,6 +248,23 @@ TEST_F(PPrintHCatTest, testIteratorWithOnlyEmptyItemsDoesntHaveALastLine) {
 	boost::scoped_ptr<LineIterator> iter(only_empty_cols->lines());
 
 	EXPECT_FALSE(iter->last());
+}
+
+TEST_F(PPrintHCatTest, testPrinting) {
+	EXPECT_OUTPUT("abc\nde", stream, stream << *single_col);
+
+	EXPECT_OUTPUT("abcg jklm\nde hiop", stream, stream << *same_height);
+
+	EXPECT_OUTPUT("abcdeg jklmJKLM\n     hiop  OP\n     xy", stream, stream << *different_height);
+
+	EXPECT_OUTPUT("aabcdeg jklmJKLMabcg jklm\n      hiop  OP  de hiop\n      xy",
+		stream, stream << *nested);
+
+	EXPECT_OUTPUT("g", stream, stream << *with_empty_cols);
+
+	EXPECT_OUTPUT("", stream, stream << *empty);
+
+	EXPECT_OUTPUT("", stream, stream << *only_empty_cols);
 }
 
 } // end of namespace pprint
