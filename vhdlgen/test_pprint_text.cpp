@@ -93,6 +93,15 @@ TEST(PPrintText, createCanHandleAConsecutiveNewline) {
 	EXPECT_EQ("b", line3->text());
 }
 
+TEST(PPrintText, createCallsMeasure) {
+	PrettyPrinted_p pprinted = Text::create("abc\nblub");
+
+	VCat* vcat = dynamic_cast<VCat*>(pprinted.get());
+
+	ASSERT_NOT_NULL(vcat);
+	ASSERT_TRUE(vcat->_measured());
+}
+
 class PPrintTextLinesIterator : public ::testing::Test {
 protected:
 	Text *empty, *blub;

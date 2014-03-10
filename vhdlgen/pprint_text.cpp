@@ -28,6 +28,8 @@ PrettyPrinted_p Text::create(std::string text) {
 	std::string last_line = text.substr(prev_pos);
 	lines->push_back(PrettyPrinted_p(new Text(last_line)));
 
+	lines->measure();
+
 	return lines;
 }
 
