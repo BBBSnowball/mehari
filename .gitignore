@@ -15,6 +15,7 @@ _build
 *.tap
 /vhdlgen/test
 *.o
+*.d
 
 # llvm optimization results
 /llvm-optimizations-application/graph

@@ -52,21 +52,44 @@ task createMakefile {
 			w.writeLine("all: test")
 			w.writeLine("")
 
-			w.writeLine("%.o: %.cpp " + escapeForMake(headers))
-			w.writeLine('\tg++ -c -o $@ $< ' + escapeForShell(compileTest.cppFlags))
+			w.writeLine("CPPFLAGS=" + escapeForShell(compileTest.cppFlags))
+			w.writeLine("LDFLAGS=" + escapeForShell(compileTest.ldFlags))
+			def objs = compileTest.inputs.files.files.collect({ makeRelative(it) })*.replaceFirst(/\.[^.]+$/, ".o")
+			w.writeLine("OBJS=" + escapeForMake(objs))
+			w.writeLine("LIBS=" + escapeForShell(compileTest.libs))
 			w.writeLine("")
 
-			def objs = compileTest.inputs.files.files.collect({ makeRelative(it) })*.replaceFirst(/\.[^.]+$/, ".o")
-			w.writeLine("test: " + escapeForMake(objs))
-			w.writeLine("\tg++ -o test " + escapeForShell(compileTest.ldFlags) + ' $^ ' + escapeForShell(compileTest.libs))
+			w.writeLine("%.o: %.cpp")
+			w.writeLine('\tg++ -c -o $@ $< $(CPPFLAGS)')
+			w.writeLine("")
+
+			w.writeLine('test: $(OBJS)')
+			w.writeLine('\tg++ -o test $(LDFLAGS) $^ $(LIBS)')
 			w.writeLine("")
 
 			w.writeLine("clean:")
-			w.writeLine("\trm -f test " + escapeForShell(objs))
+			w.writeLine('\trm -f test *.o *.d *.tap')
 			w.writeLine("")
 
 			w.writeLine("run-test: test")
 			w.writeLine("\t./test")
+			w.writeLine("")
+
+			// see https://www.gnu.org/software/make/manual/html_node/Automatic-Prerequisites.html
+			w.writeLine('%.d: %.cpp')
+			w.writeLine('	@set -e; rm -f $@; \\')
+			w.writeLine('	$(CC) -M $(CPPFLAGS) $< > $@.$$$$; \\')
+			w.writeLine('	sed \'s,\\($*\\)\\.o[ :]*,\\1.o $@ : ,g\' < $@.$$$$ > $@; \\')
+			w.writeLine('	rm -f $@.$$$$')
+			w.writeLine('')
+			w.writeLine('all.d: $(OBJS:.o=.d)')
+			w.writeLine('	cat $^ >$@')
+			w.writeLine('')
+			w.writeLine('ifneq (,$(wildcard all.d))')
+			w.writeLine('include all.d')
+			w.writeLine('else')
+			w.writeLine('$(OBJS): all.d')
+			w.writeLine('endif')
 		}
 	}
 
