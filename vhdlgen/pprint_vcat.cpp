@@ -114,4 +114,8 @@ LineIterator* VCat::lines() const {
 	return new VCatLines(this->begin(), this->end());
 }
 
+void VCat::_add(PrettyPrinted_p item) {
+	this->push_back(item);
+}
+
 } // end of namespace pprint

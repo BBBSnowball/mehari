@@ -82,10 +82,31 @@ public:
 
 class Keyword : public Text { };
 
-class VCat : public PrettyPrinted, public std::vector<PrettyPrinted_p> {
+class PrettyPrintedWithChildren;
+typedef boost::shared_ptr<PrettyPrinted> PrettyPrintedWithChildren_p;
+
+class PrettyPrintedWithChildren : public PrettyPrinted {
+protected:
+	virtual void _add(PrettyPrinted_p item) =0;
+
+public:
+	template<typename PP>
+	inline boost::shared_ptr<PP> add(boost::shared_ptr<PP> item);
+
+	template<typename PP>
+	inline boost::shared_ptr<PP> add(PP* item);
+
+	inline PrettyPrinted_p add(std::string text);
+};
+
+class VCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
 	bool measured;
 	int _width;
 	int _height;
+
+protected:
+	virtual void _add(PrettyPrinted_p item);
+
 public:
 	VCat();
 	virtual ~VCat();
@@ -97,22 +118,18 @@ public:
 	virtual int width()  const;
 	virtual int height() const;
 
-	inline void add(PrettyPrinted_p item) {
-		this->push_back(item);
-	}
-
-	inline void add(PrettyPrinted* item) {
-		this->push_back(PrettyPrinted_p(item));
-	}
-
 	// only for testing
 	bool _measured();
 };
 
-class HCat : public PrettyPrinted, public std::vector<PrettyPrinted_p> {
+class HCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
 	bool measured;
 	int _width;
 	int _height;
+
+protected:
+	virtual void _add(PrettyPrinted_p item);
+
 public:
 	HCat();
 	virtual ~HCat();
@@ -124,17 +141,25 @@ public:
 	virtual int width()  const;
 	virtual int height() const;
 
-	inline void add(PrettyPrinted_p item) {
-		this->push_back(item);
-	}
-
-	inline void add(PrettyPrinted* item) {
-		this->push_back(PrettyPrinted_p(item));
-	}
-
 	// only for testing
 	bool _measured();
 };
+
+
+template<typename PP>
+inline boost::shared_ptr<PP> PrettyPrintedWithChildren::add(boost::shared_ptr<PP> item) {
+	_add(item);
+	return item;
+}
+
+template<typename PP>
+inline boost::shared_ptr<PP> PrettyPrintedWithChildren::add(PP* item) {
+	return add(boost::shared_ptr<PP>(item));
+}
+
+inline PrettyPrinted_p PrettyPrintedWithChildren::add(std::string text) {
+	return add(Text::create(text));
+}
 
 } // end of namespace pprint
 

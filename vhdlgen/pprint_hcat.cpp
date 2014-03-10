@@ -185,4 +185,8 @@ LineIterator* HCat::lines() const {
 	return new HCatLines(*this);
 }
 
+void HCat::_add(PrettyPrinted_p item) {
+	this->push_back(item);
+}
+
 } // end of namespace pprint
