@@ -6,7 +6,8 @@ class PPrintVCatTest : public ::testing::Test {
 protected:
 	boost::scoped_ptr<VCat> empty_vcat, single_line_vcat, multiline_vcat,
 		nested_vcat, with_empty_items_vcat, only_empty_items_vcat;
-	const PrettyPrinted *empty, *single_line, *multiline, *nested, *with_empty_items, *only_empty_items;
+	const PrettyPrinted *empty, *single_line, *multiline,
+		*nested, *with_empty_items, *only_empty_items;
 
 	void SetUp() {
 		empty_vcat.reset(new VCat());
@@ -207,4 +208,44 @@ TEST_F(PPrintVCatTest, testPrinting) {
 	EXPECT_OUTPUT("g", stream, stream << *with_empty_items);
 
 	EXPECT_OUTPUT("", stream, stream << *only_empty_items);
+}
+
+TEST_F(PPrintVCatTest, testIsLast) {
+	boost::scoped_ptr<LineIterator> iter(single_line->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_TRUE(iter->isLast());
+
+
+	iter.reset(nested->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_TRUE(iter->isLast());
+}
+
+TEST_F(PPrintVCatTest, isLastDoesntChangeIteratorState) {
+	boost::scoped_ptr<LineIterator> iter(nested->lines());
+
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+
+	iter->isLast();
+
+	EXPECT_TRUE(iter->isLast());
+	EXPECT_EQ("g", iter->text());
 }

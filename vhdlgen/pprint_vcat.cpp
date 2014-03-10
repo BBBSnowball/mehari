@@ -94,6 +94,29 @@ public:
 		return false;
 	}
 
+	virtual bool isLast() const {
+		assert(valid);
+		if (!valid || !nested_current)
+			return false;
+		if (!nested_current)
+			return false;
+
+		if (!nested_current->isLast())
+			return false;
+
+		iter_t current = this->current;
+		++current;
+		while (current != end) {
+			boost::scoped_ptr<LineIterator> lines((*current)->lines());
+			if (lines->next())
+				return false;
+
+			++current;
+		}
+
+		return true;
+	}
+
 	virtual const std::string text() const {
 		assert(valid);
 		return nested_current->text();

@@ -24,6 +24,11 @@ public:
 		return false;
 	}
 
+	virtual bool isLast() const {
+		assert(false);
+		return false;
+	}
+
 	virtual const std::string text() const {
 		assert(false);
 		return "";

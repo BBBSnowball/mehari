@@ -39,6 +39,7 @@ public:
 	MOCK_METHOD0(next, bool());
 	MOCK_METHOD0(last, bool());
 
+	MOCK_CONST_METHOD0(isLast, bool());
 	MOCK_CONST_METHOD0(text,  const std::string());
 	MOCK_CONST_METHOD0(width, int());
 	MOCK_CONST_METHOD3(print, int(std::ostream& stream, int width, PrettyPrintStatus& status));

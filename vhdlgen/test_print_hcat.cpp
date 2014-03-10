@@ -6,7 +6,8 @@ class PPrintHCatTest : public ::testing::Test {
 protected:
 	boost::scoped_ptr<HCat> empty_hcat, single_col_hcat, same_height_hcat, different_height_hcat,
 		nested_hcat, with_empty_cols_hcat, only_empty_cols_hcat;
-	const PrettyPrinted *empty, *single_col, *same_height, *different_height, *nested, *with_empty_cols, *only_empty_cols;
+	const PrettyPrinted *empty, *single_col, *same_height, *different_height,
+		*nested, *with_empty_cols, *only_empty_cols;
 
 	// Test patterns
 	// -------------
@@ -254,7 +255,8 @@ TEST_F(PPrintHCatTest, testPrinting) {
 
 	EXPECT_OUTPUT("abcg jklm\nde hiop", stream, stream << *same_height);
 
-	EXPECT_OUTPUT("abcdeg jklmJKLM\n     hiop  OP\n     xy", stream, stream << *different_height);
+	EXPECT_OUTPUT("abcdeg jklmJKLM\n     hiop  OP\n     xy",
+		stream, stream << *different_height);
 
 	EXPECT_OUTPUT("aabcdeg jklmJKLMabcg jklm\n      hiop  OP  de hiop\n      xy",
 		stream, stream << *nested);
@@ -264,4 +266,39 @@ TEST_F(PPrintHCatTest, testPrinting) {
 	EXPECT_OUTPUT("", stream, stream << *empty);
 
 	EXPECT_OUTPUT("", stream, stream << *only_empty_cols);
+}
+
+TEST_F(PPrintHCatTest, testIsLast) {
+	boost::scoped_ptr<LineIterator> iter(same_height->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_TRUE(iter->isLast());
+
+
+	iter.reset(nested->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_FALSE(iter->isLast());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_TRUE(iter->isLast());
+}
+
+TEST_F(PPrintHCatTest, isLastDoesntChangeIteratorState) {
+	boost::scoped_ptr<LineIterator> iter(nested->lines());
+
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+	ASSERT_TRUE(iter->next());
+
+	iter->isLast();
+
+	EXPECT_TRUE(iter->isLast());
+	EXPECT_EQ("      xy", iter->text());
 }

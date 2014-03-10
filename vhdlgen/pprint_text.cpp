@@ -59,15 +59,23 @@ public:
 		return true;
 	}
 
+	virtual bool isLast() const {
+		assert(line == 0);
+		return line == 0;
+	}
+
 	virtual const std::string text() const {
+		assert(line == 0);
 		return _text;
 	}
 
 	virtual int width() const {
+		assert(line == 0);
 		return _text.size();
 	}
 
 	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+		assert(line == 0);
 		stream << _text;
 		return this->width();
 	}

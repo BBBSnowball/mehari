@@ -169,3 +169,18 @@ TEST_F(PPrintTextLinesIterator, lastLineHasValidData) {
 	EXPECT_EQ("",     it_empty->text());
 	EXPECT_EQ("blub", it_blub->text());
 }
+
+TEST_F(PPrintTextLinesIterator, validLineIsAlwaysTheLastOne) {
+	ASSERT_TRUE(it_blub->next());
+
+	EXPECT_TRUE(it_blub->isLast());
+}
+
+TEST_F(PPrintTextLinesIterator, isLastDoesntChangeIteratorState) {
+	ASSERT_TRUE(it_blub->next());
+
+	it_blub->isLast();
+
+	EXPECT_TRUE(it_blub->isLast());
+	EXPECT_EQ("blub", it_blub->text());
+}

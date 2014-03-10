@@ -121,6 +121,19 @@ public:
 		return valid();
 	}
 
+	virtual bool isLast() const {
+		assert(valid());
+		if (!valid())
+			return false;
+
+		for (const_ll_iter_t iter = line_iters.begin(); iter != line_iters.end(); ++iter) {
+			if (iter->first && !iter->first->isLast())
+				return false;
+		}
+
+		return true;
+	}
+
 	virtual const std::string text() const {
 		assert(valid());
 

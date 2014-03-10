@@ -32,6 +32,8 @@ public:
 	virtual bool next() =0;
 	virtual bool last() =0;
 
+	virtual bool isLast() const =0;
+
 	virtual const std::string text() const =0;
 	virtual int width() const =0;
 
