@@ -1,7 +1,6 @@
 #include "test_pprint.h"
 
-// Tests must be in the same namespace as the tested classes to access private members via a friend declaration.
-namespace pprint {
+using namespace pprint;
 
 class PPrintHCatTest : public ::testing::Test {
 protected:
@@ -266,5 +265,3 @@ TEST_F(PPrintHCatTest, testPrinting) {
 
 	EXPECT_OUTPUT("", stream, stream << *only_empty_cols);
 }
-
-} // end of namespace pprint

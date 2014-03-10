@@ -83,13 +83,15 @@ public:
 class Keyword : public Text { };
 
 class PrettyPrintedWithChildren;
-typedef boost::shared_ptr<PrettyPrinted> PrettyPrintedWithChildren_p;
+typedef boost::shared_ptr<PrettyPrintedWithChildren> PrettyPrintedWithChildren_p;
 
 class PrettyPrintedWithChildren : public PrettyPrinted {
 protected:
 	virtual void _add(PrettyPrinted_p item) =0;
 
 public:
+	virtual void measure() =0;
+
 	template<typename PP>
 	inline boost::shared_ptr<PP> add(boost::shared_ptr<PP> item);
 
@@ -111,7 +113,7 @@ public:
 	VCat();
 	virtual ~VCat();
 
-	void measure();
+	virtual void measure();
 
 	virtual LineIterator* lines() const;
 
@@ -134,7 +136,7 @@ public:
 	HCat();
 	virtual ~HCat();
 
-	void measure();
+	virtual void measure();
 
 	virtual LineIterator* lines() const;
 
