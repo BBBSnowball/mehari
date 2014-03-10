@@ -53,7 +53,10 @@ std::ostream& operator <<(std::ostream& stream, const PrettyPrinted&  data);
 std::ostream& operator <<(std::ostream& stream, const PrettyPrinted_p data);
 
 class Empty : public PrettyPrinted {
+	static boost::shared_ptr<Empty> _instance;
 public:
+	static const boost::shared_ptr<Empty> instance();
+
 	Empty();
 	virtual ~Empty();
 

@@ -44,4 +44,13 @@ LineIterator* Empty::lines() const {
 	return new EmptyLineIterator();
 }
 
+boost::shared_ptr<Empty> Empty::_instance;
+
+const boost::shared_ptr<Empty> Empty::instance() {
+	if (!_instance)
+		_instance.reset(new Empty());
+
+	return _instance;
+}
+
 } // end of namespace pprint

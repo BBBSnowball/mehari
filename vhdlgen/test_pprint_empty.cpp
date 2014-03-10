@@ -24,3 +24,11 @@ TEST(PPrintEmpty, testCopyConstructor) {
 	Empty empty;
 	Empty empty2(empty);
 }
+
+TEST(PPrintEmpty, testInstance) {
+	PrettyPrinted_p empty1 = Empty::instance(),
+	                empty2 = Empty::instance();
+
+	EXPECT_EQ(empty1, empty2);
+	EXPECT_TRUE(dynamic_cast<Empty*>(empty1.get()));
+}
