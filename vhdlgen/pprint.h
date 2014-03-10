@@ -97,6 +97,10 @@ public:
 	virtual int width()  const;
 	virtual int height() const;
 
+	inline void add(PrettyPrinted_p item) {
+		this->push_back(item);
+	}
+
 	inline void add(PrettyPrinted* item) {
 		this->push_back(PrettyPrinted_p(item));
 	}
@@ -106,6 +110,9 @@ public:
 };
 
 class HCat : public PrettyPrinted, public std::vector<PrettyPrinted_p> {
+	bool measured;
+	int _width;
+	int _height;
 public:
 	HCat();
 	virtual ~HCat();
@@ -116,6 +123,10 @@ public:
 
 	virtual int width()  const;
 	virtual int height() const;
+
+	inline void add(PrettyPrinted_p item) {
+		this->push_back(item);
+	}
 
 	inline void add(PrettyPrinted* item) {
 		this->push_back(PrettyPrinted_p(item));

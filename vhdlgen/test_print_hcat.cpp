@@ -1,0 +1,253 @@
+#include "test_pprint.h"
+
+// Tests must be in the same namespace as the tested classes to access private members via a friend declaration.
+namespace pprint {
+
+class PPrintHCatTest : public ::testing::Test {
+protected:
+	boost::scoped_ptr<HCat> empty_hcat, single_col_hcat, same_height_hcat, different_height_hcat,
+		nested_hcat, with_empty_cols_hcat, only_empty_cols_hcat;
+	const PrettyPrinted *empty, *single_col, *same_height, *different_height, *nested, *with_empty_cols, *only_empty_cols;
+
+	// Test patterns
+	// -------------
+	//
+	// single_col:
+	// abc
+	// de
+	//
+	// same_height:
+	// abc|g |jklm
+	// de |hi|op
+	//
+	// different_height:
+	// abcde|g |jklm|JKLM
+	//      |hi|op  |OP
+	//      |xy
+	//
+	// nested:
+	// a|abcde|g |jklm|JKLM|abc|g |jklm
+	//  |     |hi|op  |OP  |de |hi|op
+	//  |     |xy          '
+	//
+	// with_empty_cols_hcat:
+	// g
+	//
+	// empty and only_empty_cols don't produce any output.
+
+	void SetUp() {
+		empty_hcat.reset(new HCat());
+		empty_hcat->measure();
+
+		single_col_hcat.reset(new HCat());
+		single_col_hcat->add(Text::create("abc\nde"));
+		single_col_hcat->measure();
+
+		same_height_hcat.reset(new HCat());
+		same_height_hcat->add(Text::create("abc\nde"));
+		same_height_hcat->add(Text::create("g\nhi"));
+		same_height_hcat->add(Text::create("jklm\nop"));
+		same_height_hcat->measure();
+
+		different_height_hcat.reset(new HCat());
+		different_height_hcat->add(Text::create("abcde"));
+		different_height_hcat->add(Text::create("g\nhi\nxy"));
+		different_height_hcat->add(Text::create("jklm\nop"));
+		different_height_hcat->add(Text::create("JKLM\nOP"));
+		different_height_hcat->measure();
+
+		nested_hcat.reset(new HCat());
+		nested_hcat->add(new Text("a"));
+		nested_hcat->add(new HCat(*different_height_hcat));
+		nested_hcat->add(new HCat(*same_height_hcat));
+		nested_hcat->measure();
+
+		with_empty_cols_hcat.reset(new HCat());
+		with_empty_cols_hcat->add(new Empty());
+		with_empty_cols_hcat->add(new Text("g"));
+		with_empty_cols_hcat->add(new Empty());
+		with_empty_cols_hcat->measure();
+
+		only_empty_cols_hcat.reset(new HCat());
+		only_empty_cols_hcat->add(new Empty());
+		only_empty_cols_hcat->add(new Empty());
+		only_empty_cols_hcat->measure();
+
+		empty            = empty_hcat.get();
+		single_col       = single_col_hcat.get();
+		same_height      = same_height_hcat.get();
+		different_height = different_height_hcat.get();
+		nested           = nested_hcat.get();
+		with_empty_cols  = with_empty_cols_hcat.get();
+		only_empty_cols  = only_empty_cols_hcat.get();
+	}
+
+	void TearDown() {
+	}
+};
+
+TEST_F(PPrintHCatTest, testCopyConstructor) {
+	HCat copy(*single_col_hcat);
+	ASSERT_TRUE(copy._measured());
+	EXPECT_EQ(3, copy.width());
+	EXPECT_EQ(2, copy.height());
+}
+
+TEST_F(PPrintHCatTest, testWidth) {
+	EXPECT_EQ(3, single_col->width());
+	EXPECT_EQ(9, same_height->width());
+}
+
+TEST_F(PPrintHCatTest, testWidthWorksWithDifferentHeights) {
+	EXPECT_EQ(15, different_height->width());
+}
+
+TEST_F(PPrintHCatTest, testWidthWorksWithNestedItems) {
+	EXPECT_EQ(25, nested->width());
+}
+
+TEST_F(PPrintHCatTest, testWidthIgnoresEmptyItems) {
+	EXPECT_EQ(1, with_empty_cols->width());
+}
+
+TEST_F(PPrintHCatTest, testDefaultWidthIsZero) {
+	EXPECT_EQ(0, empty->width());
+	EXPECT_EQ(0, only_empty_cols->width());
+}
+
+TEST_F(PPrintHCatTest, testHeight) {
+	EXPECT_EQ(2, single_col->height());
+	EXPECT_EQ(2, same_height->height());
+}
+
+TEST_F(PPrintHCatTest, testHeightWorksWithColumnsWithDifferentHeights) {
+	EXPECT_EQ(3, different_height->height());
+}
+
+TEST_F(PPrintHCatTest, testHeightWorksWithNestedColumns) {
+	EXPECT_EQ(3, nested->height());
+}
+
+TEST_F(PPrintHCatTest, testHeightIgnoresEmptyItems) {
+	EXPECT_EQ(1, with_empty_cols->height());
+}
+
+TEST_F(PPrintHCatTest, testDefaultHeightIsZero) {
+	EXPECT_EQ(0, empty->height());
+	EXPECT_EQ(0, only_empty_cols->height());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWorksForEmptyHCat) {
+	boost::scoped_ptr<LineIterator> iter(empty->lines());
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWorksForSingleColumn) {
+	boost::scoped_ptr<LineIterator> iter(single_col->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("abc", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("de", iter);
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWorksForMultiColumnAndPaddingIsRight) {
+	boost::scoped_ptr<LineIterator> iter(same_height->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("abcg jklm", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("de hiop", iter);
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWorksForMultiColumnWithDifferentHeight) {
+	boost::scoped_ptr<LineIterator> iter(different_height->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("abcdeg jklmJKLM", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("     hiop  OP", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("     xy", iter);
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWorksForNestedHCat) {
+	boost::scoped_ptr<LineIterator> iter(nested->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("aabcdeg jklmJKLMabcg jklm", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("      hiop  OP  de hiop", iter);
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("      xy", iter);
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorSkipsEmptyItems) {
+	boost::scoped_ptr<LineIterator> iter(with_empty_cols->lines());
+
+	ASSERT_TRUE(iter->next());
+	EXPECT_ITER_LINE_EQ("g", iter);
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testIteratorWithOnlyEmptyItemsIsEmpty) {
+	boost::scoped_ptr<LineIterator> iter(only_empty_cols->lines());
+
+	EXPECT_FALSE(iter->next());
+}
+
+TEST_F(PPrintHCatTest, testEmptyIteratorDoesntHaveALastLine) {
+	boost::scoped_ptr<LineIterator> iter(empty->lines());
+	EXPECT_FALSE(iter->last());
+}
+
+TEST_F(PPrintHCatTest, testLastWorksForSingleColumn) {
+	boost::scoped_ptr<LineIterator> iter(single_col->lines());
+
+	ASSERT_TRUE(iter->last());
+	EXPECT_ITER_LINE_EQ("de", iter);
+}
+
+TEST_F(PPrintHCatTest, testLastWorksForMultiColumn) {
+	boost::scoped_ptr<LineIterator> iter(same_height->lines());
+
+	ASSERT_TRUE(iter->last());
+	EXPECT_ITER_LINE_EQ("de hiop", iter);
+}
+
+TEST_F(PPrintHCatTest, testLastWorksForMultiColumnWithDifferentHeight) {
+	boost::scoped_ptr<LineIterator> iter(different_height->lines());
+
+	ASSERT_TRUE(iter->last());
+	EXPECT_ITER_LINE_EQ("     xy", iter);
+}
+
+TEST_F(PPrintHCatTest, testLastWorksForNestedHCat) {
+	boost::scoped_ptr<LineIterator> iter(nested->lines());
+
+	ASSERT_TRUE(iter->last());
+	EXPECT_ITER_LINE_EQ("      xy", iter);
+}
+
+TEST_F(PPrintHCatTest, testIteratorWithOnlyEmptyItemsDoesntHaveALastLine) {
+	boost::scoped_ptr<LineIterator> iter(only_empty_cols->lines());
+
+	EXPECT_FALSE(iter->last());
+}
+
+} // end of namespace pprint
