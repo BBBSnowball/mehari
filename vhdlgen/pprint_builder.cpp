@@ -1,5 +1,6 @@
 #include "pprint_builder.h"
 
+#include <boost/scoped_ptr.hpp>
 #include <list>
 
 namespace pprint {
@@ -13,11 +14,13 @@ struct _PrettyPrintBuilderStackItem {
 	_PrettyPrintBuilderStackItem(PrettyPrintedWithChildren_p container) : container(container), first(true) { }
 
 	void add(PrettyPrinted_p item) {
-		if (first)
-			first = false;
-		else {
-			for (std::list<PrettyPrinted_p>::iterator iter = seperatedBy.begin(); iter != seperatedBy.end(); ++iter)
-				container->add(*iter);
+		if (isNotEmpty(item)) {
+			if (first)
+				first = false;
+			else {
+				for (std::list<PrettyPrinted_p>::iterator iter = seperatedBy.begin(); iter != seperatedBy.end(); ++iter)
+					container->add(*iter);
+			}
 		}
 
 		container->add(item);
@@ -25,6 +28,11 @@ struct _PrettyPrintBuilderStackItem {
 
 	void onPop() {
 		container->measure();
+	}
+
+	bool isNotEmpty(PrettyPrinted_p item) {
+		boost::scoped_ptr<LineIterator> lines(item->lines());
+		return lines->next();
 	}
 };
 

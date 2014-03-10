@@ -136,3 +136,70 @@ TEST(PPrintBuilderTest, testAddAutomaticallyAddsVCatAsRoot) {
 
 	EXPECT_OUTPUT("abc\ndef", stream, stream << builder.build());
 }
+
+TEST(PPrintBuilderTest, testSeperateBy) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.append()
+			.seperateBy("X")
+			.add("abc")
+			.add("def");
+
+	EXPECT_OUTPUT("abc\nX\ndef", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testSeperateByCreatesDefaultContainer) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.seperateBy("X")
+		.add("abc")
+		.add("def");
+
+	EXPECT_OUTPUT("abc\nX\ndef", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testSeperateByOnlyAffectsTheCurrentContainer) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.append()
+			.columns()
+				.seperateBy("X")
+				.add("abc")
+				.add("def")
+				.up()
+			.columns()
+				.add("ghi")
+				.add("jkl");
+
+	EXPECT_OUTPUT("abcXdef\nghijkl", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testSeperateByDoesntAffectExistingItems) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.columns()
+			.add("abc")
+			.add("def")
+			.seperateBy("X")
+			.add("ghi")
+			.add("jkl");
+
+	EXPECT_OUTPUT("abcdefXghiXjkl", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testSeperateByIgnoresEmptyItems) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.columns()
+			.seperateBy("X")
+			.add("abc")
+			.add(new Empty())
+			.add("jkl");
+
+	EXPECT_OUTPUT("abcXjkl", stream, stream << builder.build());
+}
