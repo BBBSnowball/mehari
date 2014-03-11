@@ -7,7 +7,7 @@ class PPrintTest : public::testing::Test {
 protected:
 	MockPrettyPrintable pprintable;
 	boost::shared_ptr<MockPrettyPrinted> pprinted;
-	boost::scoped_ptr<MockLineIterator> lines;
+	MockLineIterator* lines;	// freed by operator << (see below)
 
 	PPrintTest() : pprinted(new MockPrettyPrinted()), lines(new MockLineIterator()) { }
 
@@ -18,7 +18,8 @@ protected:
 
 		EXPECT_CALL(*pprinted, lines())
 			.Times(1)
-			.WillOnce(Return(lines.get()));
+			// caller owns the reference and will free it
+			.WillOnce(Return(lines));
 	}
 };
 
