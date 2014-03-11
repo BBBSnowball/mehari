@@ -25,6 +25,7 @@ public:
 
 	PrettyPrintBuilder& add(const PrettyPrintable& item);
 	PrettyPrintBuilder& add(const PrettyPrintable* item);
+	PrettyPrintBuilder& add(const boost::shared_ptr<PrettyPrintable> item);
 
 	PrettyPrintBuilder& add(PrettyPrinted_p item);
 	PrettyPrintBuilder& add(PrettyPrinted* item);

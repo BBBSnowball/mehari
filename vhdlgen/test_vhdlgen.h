@@ -9,3 +9,5 @@
 #define EXPECT_OUTPUT(output, stream, code) { std::stringstream stream; code; EXPECT_EQ(output, stream.str()); }
 
 #define EXPECT_PRETTY_PRINTED(object, expected) EXPECT_OUTPUT(expected, stream, stream << (object).prettyPrint())
+
+#define EXPECT_IS_INSTANCE(pointer_type, object) EXPECT_TRUE(dynamic_cast<pointer_type>(object))

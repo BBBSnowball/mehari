@@ -184,6 +184,10 @@ PrettyPrintBuilder& PrettyPrintBuilder::add(const PrettyPrintable* item) {
 	return add(item->prettyPrint());
 }
 
+PrettyPrintBuilder& PrettyPrintBuilder::add(const boost::shared_ptr<PrettyPrintable> item) {
+	return add(item->prettyPrint());
+}
+
 PrettyPrintBuilder& PrettyPrintBuilder::seperateBy(PrettyPrinted_p item) {
 	getOrCreateCurrent().seperatedBy.push_back(item);
 
