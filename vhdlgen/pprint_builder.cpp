@@ -50,7 +50,6 @@ struct _PrettyPrintBuilderStackItem {
 	bool isNotEmpty(PrettyPrinted_p item) {
 		boost::scoped_ptr<LineIterator> lines(item->lines());
 		bool not_empty = lines->next();
-		std::cout << "item " << item << " is " << (not_empty ? "not " : "") << "empty." << std::endl;
 		return not_empty;
 	}
 };
