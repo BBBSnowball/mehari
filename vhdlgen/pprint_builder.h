@@ -38,6 +38,10 @@ public:
 	PrettyPrintBuilder& append();
 	PrettyPrintBuilder& appendOverlapping();
 
+	PrettyPrintBuilder& indent();
+	PrettyPrintBuilder& indent(std::string indent);
+	PrettyPrintBuilder& endIndent();
+
 	PrettyPrintBuilder& seperateBy(PrettyPrinted_p item);
 	PrettyPrintBuilder& seperateBy(std::string text);
 

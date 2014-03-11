@@ -1,5 +1,6 @@
 #include "pprint_builder.h"
 #include "test_pprint.h"
+#include <list>
 
 using namespace pprint;
 
@@ -239,4 +240,21 @@ TEST(PPrintBuilderTest, testSeperatorIsAddedBeforeContainer) {
 			.up();
 
 	EXPECT_OUTPUT("foo bar", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testIndent) {
+	PrettyPrintBuilder builder;
+
+	builder.append()
+		.indent()
+			.add("foo")
+			.add("bar")
+			.endIndent()
+		.indent("  ")
+			.add("foo")
+			.add("bar")
+			.endIndent()
+		.add("blub");
+
+	EXPECT_OUTPUT("    foo\n    bar\n  foo\n  bar\nblub", stream, stream << builder.build());
 }

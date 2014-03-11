@@ -146,6 +146,23 @@ PrettyPrintBuilder& PrettyPrintBuilder::appendOverlapping() {
 	return addAndSelect(new VCatOverlapping());
 }
 
+PrettyPrintBuilder& PrettyPrintBuilder::indent() {
+	return indent("    ");
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::indent(std::string indent) {
+	columns();
+	add(indent);
+	append();
+	return *this;
+}
+
+PrettyPrintBuilder& PrettyPrintBuilder::endIndent() {
+	up();
+	up();
+	return *this;
+}
+
 PrettyPrinted_p PrettyPrintBuilder::build() {
 	assert(_root);
 
