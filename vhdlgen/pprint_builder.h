@@ -31,6 +31,9 @@ public:
 
 	PrettyPrintBuilder& add(std::string text);
 
+	template<typename InputIterator>
+	PrettyPrintBuilder& add(InputIterator first, InputIterator last);
+
 	PrettyPrintBuilder& addAndSelect(PrettyPrintedWithChildren_p container);
 	PrettyPrintBuilder& addAndSelect(PrettyPrintedWithChildren* container);
 
@@ -50,7 +53,13 @@ public:
 	PrettyPrinted_p build();
 };
 
-PrettyPrintBuilder& builder();
+template<typename InputIterator>
+PrettyPrintBuilder& PrettyPrintBuilder::add(InputIterator first, InputIterator last) {
+	for (InputIterator iter = first; iter != last; ++iter)
+		add(*iter);
+
+	return *this;
+}
 
 } // end of namespace pprint
 

@@ -258,3 +258,15 @@ TEST(PPrintBuilderTest, testIndent) {
 
 	EXPECT_OUTPUT("    foo\n    bar\n  foo\n  bar\nblub", stream, stream << builder.build());
 }
+
+TEST(PPrintBuilderTest, testAddMany) {
+	std::list<const char*> lines;
+	lines.push_back("abc");
+	lines.push_back("def");
+	lines.push_back("ghi");
+
+	PrettyPrintBuilder builder;
+	builder.append().add(lines.begin(), lines.end());
+
+	EXPECT_OUTPUT("abc\ndef\nghi", stream, stream << builder.build());
+}
