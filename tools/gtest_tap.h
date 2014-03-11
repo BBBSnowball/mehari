@@ -212,8 +212,8 @@ public:
 			std::string tapStream = testSet.toString();
 			// std::cout << tapStream << std::endl;
 			std::ofstream tapFile;
-			const char* tapFileName = (iter->first + ".tap").c_str();
-			tapFile.open(tapFileName);
+			std::string tapFileName = iter->first + ".tap";
+			tapFile.open(tapFileName.c_str());
 			tapFile << tapStream;
 			tapFile.close();
 #endif
