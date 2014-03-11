@@ -212,3 +212,31 @@ TEST(PPrintBuilderTest, testSeperateByIgnoresEmptyItems) {
 
 	EXPECT_OUTPUT("abcXjkl", stream, stream << builder.build());
 }
+
+TEST(PPrintBuilderTest, testSeperatorIsAddedAfterFirstContainer) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.columns().seperateBy(" ")
+			.columns()
+				.add("foo")
+				.up()
+			.add("bar")
+			.up();
+
+	EXPECT_OUTPUT("foo bar", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testSeperatorIsAddedBeforeContainer) {
+	PrettyPrintBuilder builder;
+
+	builder
+		.columns().seperateBy(" ")
+			.add("foo")
+			.columns()
+				.add("bar")
+				.up()
+			.up();
+
+	EXPECT_OUTPUT("foo bar", stream, stream << builder.build());
+}

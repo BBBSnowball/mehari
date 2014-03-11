@@ -10,10 +10,33 @@ struct _PrettyPrintBuilderStackItem {
 
 	std::list<PrettyPrinted_p> seperatedBy;
 	bool first;
+	PrettyPrintedWithChildren_p pendingContainer;
 
 	_PrettyPrintBuilderStackItem(PrettyPrintedWithChildren_p container) : container(container), first(true) { }
 
 	void add(PrettyPrinted_p item) {
+		maybeAddSeperatorBefore(item);
+
+		container->add(item);
+	}
+
+	void addContainer(PrettyPrintedWithChildren_p container) {
+		// Defer adding the container because we have to know
+		// whether it will be empty.
+		pendingContainer = container;
+	}
+
+	void onPop() {
+		container->measure();
+	}
+
+	void onChildContainerFinished() {
+		maybeAddSeperatorBefore(pendingContainer);
+
+		container->add(pendingContainer);
+	}
+
+	void maybeAddSeperatorBefore(PrettyPrinted_p item) {
 		if (isNotEmpty(item)) {
 			if (first)
 				first = false;
@@ -22,17 +45,13 @@ struct _PrettyPrintBuilderStackItem {
 					container->add(*iter);
 			}
 		}
-
-		container->add(item);
-	}
-
-	void onPop() {
-		container->measure();
 	}
 
 	bool isNotEmpty(PrettyPrinted_p item) {
 		boost::scoped_ptr<LineIterator> lines(item->lines());
-		return lines->next();
+		bool not_empty = lines->next();
+		std::cout << "item " << item << " is " << (not_empty ? "not " : "") << "empty." << std::endl;
+		return not_empty;
 	}
 };
 
@@ -63,12 +82,15 @@ PrettyPrintBuilder& PrettyPrintBuilder::up() {
 	containerStack.top().onPop();
 	containerStack.pop();
 
+	if (!containerStack.empty())
+		containerStack.top().onChildContainerFinished();
+
 	return *this;
 }
 
 PrettyPrintBuilder& PrettyPrintBuilder::addAndSelect(PrettyPrintedWithChildren_p container) {
 	if (hasCurrentContainer())
-		containerStack.top().add(container);
+		containerStack.top().addContainer(container);
 	else {
 		assert(!_root);
 		_root = container;
