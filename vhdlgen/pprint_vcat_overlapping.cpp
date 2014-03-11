@@ -19,13 +19,13 @@ void VCatOverlapping::measure() {
 	_width  = 0;
 	_height = 0;
 
-	int prev_last_line_width = 0;
+	unsigned int prev_last_line_width = 0;
 	for (iter_t it = this->begin(); it != this->end(); ++it) {
-		int width = (*it)->width();
+		unsigned int width = (*it)->width();
 		if (width > _width)
 			_width = width;
 
-		int height = (*it)->height();
+		unsigned int height = (*it)->height();
 		if (_height == 0)
 			// This is the first (probably) non-empty item.
 			_height = height;
@@ -41,9 +41,9 @@ void VCatOverlapping::measure() {
 				// This is also the last line, so it may overlap with the next item.
 				prev_last_line_width += lines->width();
 			} else {
-				int first_line_width = lines->width();
+				unsigned int first_line_width = lines->width();
 				lines.reset((*it)->lines());
-				int last_line_width = lines->last() ? lines->width() : 0;
+				unsigned int last_line_width = lines->last() ? lines->width() : 0;
 
 				if (prev_last_line_width + first_line_width > width)
 					_width = prev_last_line_width + first_line_width;
@@ -64,13 +64,13 @@ void VCatOverlapping::measure() {
 	measured = true;
 }
 
-int VCatOverlapping::width()  const {
+unsigned int VCatOverlapping::width()  const {
 	assert(measured);
 
 	return _width;
 }
 
-int VCatOverlapping::height() const {
+unsigned int VCatOverlapping::height() const {
 	assert(measured);
 
 	return _height;
@@ -185,10 +185,10 @@ public:
 
 	typedef std::list<boost::shared_ptr<LineIterator> >::const_iterator const_ll_iter_t;
 
-	virtual int width() const {
+	virtual unsigned int width() const {
 		assert(valid);
 
-		int width = 0;
+		unsigned int width = 0;
 		for (const_ll_iter_t iter = current_lines.begin(); iter != current_lines.end(); ++iter) {
 			width += (*iter)->width();
 		}
@@ -196,12 +196,12 @@ public:
 		return width;
 	}
 
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const {
 		assert(valid);
 
-		int actual_width = 0;
+		unsigned int actual_width = 0;
 		for (const_ll_iter_t iter = current_lines.begin(); iter != current_lines.end(); ++iter) {
-			int column_width;
+			unsigned int column_width;
 			if (iter != --current_lines.end())
 				// no padding
 				column_width = 0;

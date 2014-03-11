@@ -339,11 +339,13 @@ CompilationUnit::CompilationUnit()
 boost::shared_ptr<UsedLibraries> CompilationUnit::libraries() { return _libraries; }
 
 CompilationUnit& CompilationUnit::add(ToplevelDeclaration* decl) {
-	add(shared_ptr<ToplevelDeclaration>(decl));
+	return add(shared_ptr<ToplevelDeclaration>(decl));
 }
 
 CompilationUnit& CompilationUnit::add(shared_ptr<ToplevelDeclaration> decl) {
 	push_back(decl);
+
+	return *this;
 }
 
 const pprint::PrettyPrinted_p CompilationUnit::prettyPrint() const {

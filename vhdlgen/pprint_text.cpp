@@ -69,12 +69,12 @@ public:
 		return _text;
 	}
 
-	virtual int width() const {
+	virtual unsigned int width() const {
 		assert(line == 0);
 		return _text.size();
 	}
 
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const {
 		assert(line == 0);
 		stream << _text;
 		return this->width();
@@ -86,7 +86,7 @@ LineIterator* Text::lines() const {
 }
 
 const std::string Text::text()   const { return _text; }
-int               Text::width()  const { return _text.size(); }
-int               Text::height() const { return 1; }
+unsigned int      Text::width()  const { return _text.size(); }
+unsigned int      Text::height() const { return 1; }
 
 } // end of namespace pprint

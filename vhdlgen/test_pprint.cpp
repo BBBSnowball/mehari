@@ -43,7 +43,7 @@ TEST_F(PPrintTest, testStreamOperatorsReturnStream) {
 class PrintLine {
 	std::string line;
 public:
-	const Action<int(std::ostream&, int, PrettyPrintStatus&)> action;
+	const Action<unsigned int(std::ostream&, unsigned int, PrettyPrintStatus&)> action;
 
 	PrintLine(std::string line) : line(line), action(Invoke(this, &PrintLine::doIt)) { }
 

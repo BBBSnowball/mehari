@@ -59,44 +59,44 @@ TEST_F(PPrintVCatTest, testCopyConstructor) {
 
 	VCat vcat2(vcat);
 	ASSERT_TRUE(vcat2._measured());
-	EXPECT_EQ(3, vcat2.width());
-	EXPECT_EQ(1, vcat2.height());
+	EXPECT_EQ(3u, vcat2.width());
+	EXPECT_EQ(1u, vcat2.height());
 }
 
 TEST_F(PPrintVCatTest, testWidth) {
-	EXPECT_EQ(4, single_line->width());
-	EXPECT_EQ(3, multiline->width());
+	EXPECT_EQ(4u, single_line->width());
+	EXPECT_EQ(3u, multiline->width());
 }
 
 TEST_F(PPrintVCatTest, testWidthWorksWithNestedItems) {
-	EXPECT_EQ(4, nested->width());
+	EXPECT_EQ(4u, nested->width());
 }
 
 TEST_F(PPrintVCatTest, testWidthIgnoresEmptyItems) {
-	EXPECT_EQ(1, with_empty_items->width());
+	EXPECT_EQ(1u, with_empty_items->width());
 }
 
 TEST_F(PPrintVCatTest, testDefaultWidthIsZero) {
-	EXPECT_EQ(0, empty->width());
-	EXPECT_EQ(0, only_empty_items->width());
+	EXPECT_EQ(0u, empty->width());
+	EXPECT_EQ(0u, only_empty_items->width());
 }
 
 TEST_F(PPrintVCatTest, testHeight) {
-	EXPECT_EQ(1, single_line->height());
-	EXPECT_EQ(3, multiline->height());
+	EXPECT_EQ(1u, single_line->height());
+	EXPECT_EQ(3u, multiline->height());
 }
 
 TEST_F(PPrintVCatTest, testHeightWorksWithNestedItems) {
-	EXPECT_EQ(5, nested->height());
+	EXPECT_EQ(5u, nested->height());
 }
 
 TEST_F(PPrintVCatTest, testHeightIgnoresEmptyItems) {
-	EXPECT_EQ(1, with_empty_items->height());
+	EXPECT_EQ(1u, with_empty_items->height());
 }
 
 TEST_F(PPrintVCatTest, testDefaultHeightIsZero) {
-	EXPECT_EQ(0, empty->height());
-	EXPECT_EQ(0, only_empty_items->height());
+	EXPECT_EQ(0u, empty->height());
+	EXPECT_EQ(0u, only_empty_items->height());
 }
 
 TEST_F(PPrintVCatTest, testIteratorWorksForEmptyVCat) {

@@ -26,7 +26,7 @@ TEST(VHDLUsedLibrary, elementsAreSorted) {
 	lib << "ghi.all";
 	lib << "def.all";
 
-	ASSERT_EQ(3, lib.size());
+	ASSERT_EQ(3u, lib.size());
 	UsedLibrary::iterator iter = lib.begin();
 	EXPECT_EQ("abc.all", *    iter);
 	EXPECT_EQ("def.all", * ++ iter);
@@ -41,7 +41,7 @@ TEST(VHDLUsedLibrary, duplicatesAreIgnored) {
 	lib << "abc.all";
 	lib << "ghi.all";
 
-	ASSERT_EQ(3, lib.size());
+	ASSERT_EQ(3u, lib.size());
 	UsedLibrary::iterator iter = lib.begin();
 	EXPECT_EQ("abc.all", *    iter);
 	EXPECT_EQ("def.all", * ++ iter);
@@ -53,7 +53,7 @@ TEST(VHDLUsedLibrary, librarySupportsFluentSyntax) {
 	lib << "abc.all"
 	    << "def.all";
 
-	EXPECT_EQ(2, lib.size());
+	EXPECT_EQ(2u, lib.size());
 }
 
 TEST(VHDLUsedLibraries, supportsFluentSyntax) {
@@ -63,7 +63,7 @@ TEST(VHDLUsedLibraries, supportsFluentSyntax) {
 		<< "abc.all"
 		<< "def.all";
 
-	EXPECT_EQ(2, libs["blub"].size());
+	EXPECT_EQ(2u, libs["blub"].size());
 }
 
 TEST(VHDLUsedLibraries, pprint) {
@@ -226,7 +226,7 @@ TEST(VHDLPort, getters) {
 	EXPECT_TRUE(port.pinsByName().find("foo") != port.pinsByName().end());
 	EXPECT_EQ(&port.pinsByName(), &port.pinsByName());
 
-	ASSERT_EQ(2, port.pins().size());
+	ASSERT_EQ(2u, port.pins().size());
 	EXPECT_EQ("foo", port.pins().at(0)->name());
 }
 

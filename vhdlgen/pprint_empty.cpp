@@ -7,8 +7,8 @@ Empty::Empty() { }
 
 Empty::~Empty() { }
 
-int Empty::width()  const { return 0; }
-int Empty::height() const { return 0; }
+unsigned int Empty::width()  const { return 0; }
+unsigned int Empty::height() const { return 0; }
 
 class EmptyLineIterator : public LineIterator {
 public:
@@ -34,12 +34,12 @@ public:
 		return "";
 	}
 
-	virtual int width() const {
+	virtual unsigned int width() const {
 		assert(false);
 		return 0;
 	}
 
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const {
 		assert(false);
 		return 0;
 	}

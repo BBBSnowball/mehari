@@ -5,8 +5,8 @@ using namespace pprint;
 TEST(PPrintEmpty, simpleMethods) {
 	Empty empty;
 
-	EXPECT_EQ(0, empty.width());
-	EXPECT_EQ(0, empty.height());
+	EXPECT_EQ(0u, empty.width());
+	EXPECT_EQ(0u, empty.height());
 }
 
 TEST(PPrintEmpty, lineIterator) {

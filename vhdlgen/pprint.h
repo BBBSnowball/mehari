@@ -35,10 +35,10 @@ public:
 	virtual bool isLast() const =0;
 
 	virtual const std::string text() const =0;
-	virtual int width() const =0;
+	virtual unsigned int width() const =0;
 
 	// print current line without newline, return width
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const =0;
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const =0;
 };
 
 class PrettyPrinted {
@@ -47,8 +47,8 @@ public:
 
 	virtual LineIterator* lines() const =0;
 
-	virtual int width()  const =0;
-	virtual int height() const =0;
+	virtual unsigned int width()  const =0;
+	virtual unsigned int height() const =0;
 };
 
 std::ostream& operator <<(std::ostream& stream, const PrettyPrinted&   data);
@@ -64,8 +64,8 @@ public:
 
 	virtual LineIterator* lines() const;
 
-	virtual int width()  const;
-	virtual int height() const;
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
 };
 
 class Text : public PrettyPrinted {
@@ -81,8 +81,8 @@ public:
 
 	virtual LineIterator* lines() const;
 
-	virtual int width()  const;
-	virtual int height() const;
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
 };
 
 class Keyword : public Text { };
@@ -108,8 +108,8 @@ public:
 
 class VCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
 	bool measured;
-	int _width;
-	int _height;
+	unsigned int _width;
+	unsigned int _height;
 
 protected:
 	virtual void _add(PrettyPrinted_p item);
@@ -122,8 +122,8 @@ public:
 
 	virtual LineIterator* lines() const;
 
-	virtual int width()  const;
-	virtual int height() const;
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
 
 	// only for testing
 	bool _measured();
@@ -131,8 +131,8 @@ public:
 
 class HCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
 	bool measured;
-	int _width;
-	int _height;
+	unsigned int _width;
+	unsigned int _height;
 
 protected:
 	virtual void _add(PrettyPrinted_p item);
@@ -145,8 +145,8 @@ public:
 
 	virtual LineIterator* lines() const;
 
-	virtual int width()  const;
-	virtual int height() const;
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
 
 	// only for testing
 	bool _measured();
@@ -154,8 +154,8 @@ public:
 
 class VCatOverlapping : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
 	bool measured;
-	int _width;
-	int _height;
+	unsigned int _width;
+	unsigned int _height;
 
 protected:
 	virtual void _add(PrettyPrinted_p item);
@@ -168,8 +168,8 @@ public:
 
 	virtual LineIterator* lines() const;
 
-	virtual int width()  const;
-	virtual int height() const;
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
 
 	// only for testing
 	bool _measured();

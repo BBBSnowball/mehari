@@ -8,7 +8,7 @@ TEST(PPrintBuilderTest, testDefaultValues) {
 	PrettyPrintBuilder builder;
 
 	EXPECT_FALSE(builder.hasCurrentContainer());
-	EXPECT_EQ(0, builder.depth());
+	EXPECT_EQ(0u, builder.depth());
 }
 
 TEST(PPrintBuilderTest, testWithOneContainer) {
@@ -18,7 +18,7 @@ TEST(PPrintBuilderTest, testWithOneContainer) {
 	builder.addAndSelect(container);
 
 	ASSERT_TRUE(         builder.hasCurrentContainer());
-	EXPECT_EQ(1,         builder.depth());
+	EXPECT_EQ(1u,        builder.depth());
 	EXPECT_EQ(container, builder.currentContainer().get());
 	EXPECT_EQ(container, builder.recentItem().get());
 }
@@ -32,7 +32,7 @@ TEST(PPrintBuilderTest, testWithOneContainerAndOnePieceOfContent) {
 	builder.add(text);
 
 	ASSERT_TRUE(         builder.hasCurrentContainer());
-	EXPECT_EQ(1,         builder.depth());
+	EXPECT_EQ(1u,        builder.depth());
 	EXPECT_EQ(container, builder.currentContainer().get());
 	EXPECT_EQ(text,      builder.recentItem().get());
 }
@@ -46,7 +46,7 @@ TEST(PPrintBuilderTest, testWithTwoContainers) {
 	builder.addAndSelect(container2);
 
 	ASSERT_TRUE(          builder.hasCurrentContainer());
-	ASSERT_EQ(2,          builder.depth());
+	ASSERT_EQ(2u,          builder.depth());
 	EXPECT_EQ(container2, builder.currentContainer().get());
 	EXPECT_EQ(container2, builder.recentItem().get());
 }
@@ -59,11 +59,11 @@ TEST(PPrintBuilderTest, testUp) {
 	builder.addAndSelect(container);
 	builder.addAndSelect(container2);
 
-	ASSERT_EQ(2, builder.depth());
+	ASSERT_EQ(2u, builder.depth());
 
 	builder.up();
 
-	ASSERT_EQ(1, builder.depth());
+	ASSERT_EQ(1u, builder.depth());
 
 	EXPECT_EQ(container,  builder.currentContainer().get());
 	EXPECT_EQ(container2, builder.recentItem().get());
@@ -125,7 +125,7 @@ TEST(PPrintBuilderTest, testBuildAscendsToTopLevel) {
 			.build());
 
 	EXPECT_FALSE(builder.hasCurrentContainer());
-	EXPECT_EQ(0, builder.depth());
+	EXPECT_EQ(0u, builder.depth());
 }
 
 TEST(PPrintBuilderTest, testBuilderCanBeReused) {
@@ -142,7 +142,7 @@ TEST(PPrintBuilderTest, testAddAutomaticallyAddsVCatAsRoot) {
 	builder.add("abc").add("def");
 
 	EXPECT_TRUE(builder.hasCurrentContainer());
-	EXPECT_EQ(1, builder.depth());
+	EXPECT_EQ(1u, builder.depth());
 
 	EXPECT_OUTPUT("abc\ndef", stream, stream << builder.build());
 }

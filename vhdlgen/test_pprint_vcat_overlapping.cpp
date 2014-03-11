@@ -14,19 +14,19 @@ protected:
 		std::string info = info_stream.str();
 
 		std::list<std::string> lines2;
-		for (int i=0; i<count; i++)
+		for (unsigned int i=0; i<count; i++)
 			lines2.push_back(std::string(lines[i]));
 
 		line_iter iter;
-		int expected_width = 0;
+		unsigned int expected_width = 0;
 		for (iter = lines2.begin(); iter != lines2.end(); ++iter) {
-			int width = iter->size();
+			unsigned int width = iter->size();
 			if (width > expected_width)
 				expected_width = width;
 		}
-		int expected_height = lines2.size();
+		unsigned int expected_height = lines2.size();
 
-		int line_number = 1;
+		unsigned int line_number = 1;
 		boost::scoped_ptr<LineIterator> line_iter(pprinted->lines());
 		for (iter = lines2.begin(); iter != lines2.end(); ++iter) {
 			std::stringstream line_info_stream;
@@ -72,7 +72,7 @@ protected:
 
 		PrettyPrintStatus status;
 		std::stringstream stream;
-		int width_returned_by_print = line_iter->print(stream, 0, status);
+		unsigned int width_returned_by_print = line_iter->print(stream, 0, status);
 		EXPECT_EQ(expected_line, stream.str()) << line_info;
 		EXPECT_EQ(expected_line.size(), width_returned_by_print) << line_info;
 	}

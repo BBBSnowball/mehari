@@ -18,7 +18,7 @@ void VCat::measure() {
 	_height = 0;
 
 	for (iter_t it = this->begin(); it != this->end(); ++it) {
-		int width = (*it)->width();
+		unsigned int width = (*it)->width();
 		if (width > _width)
 			_width = width;
 
@@ -28,13 +28,13 @@ void VCat::measure() {
 	measured = true;
 }
 
-int VCat::width()  const {
+unsigned int VCat::width()  const {
 	assert(measured);
 
 	return _width;
 }
 
-int VCat::height() const {
+unsigned int VCat::height() const {
 	assert(measured);
 
 	return _height;
@@ -122,12 +122,12 @@ public:
 		return nested_current->text();
 	}
 
-	virtual int width() const {
+	virtual unsigned int width() const {
 		assert(valid);
 		return nested_current->width();
 	}
 
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const {
 		assert(valid);
 		return nested_current->print(stream, width, status);
 	}

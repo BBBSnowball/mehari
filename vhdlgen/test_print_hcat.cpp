@@ -89,52 +89,52 @@ protected:
 TEST_F(PPrintHCatTest, testCopyConstructor) {
 	HCat copy(*single_col_hcat);
 	ASSERT_TRUE(copy._measured());
-	EXPECT_EQ(3, copy.width());
-	EXPECT_EQ(2, copy.height());
+	EXPECT_EQ(3u, copy.width());
+	EXPECT_EQ(2u, copy.height());
 }
 
 TEST_F(PPrintHCatTest, testWidth) {
-	EXPECT_EQ(3, single_col->width());
-	EXPECT_EQ(9, same_height->width());
+	EXPECT_EQ(3u, single_col->width());
+	EXPECT_EQ(9u, same_height->width());
 }
 
 TEST_F(PPrintHCatTest, testWidthWorksWithDifferentHeights) {
-	EXPECT_EQ(15, different_height->width());
+	EXPECT_EQ(15u, different_height->width());
 }
 
 TEST_F(PPrintHCatTest, testWidthWorksWithNestedItems) {
-	EXPECT_EQ(25, nested->width());
+	EXPECT_EQ(25u, nested->width());
 }
 
 TEST_F(PPrintHCatTest, testWidthIgnoresEmptyItems) {
-	EXPECT_EQ(1, with_empty_cols->width());
+	EXPECT_EQ(1u, with_empty_cols->width());
 }
 
 TEST_F(PPrintHCatTest, testDefaultWidthIsZero) {
-	EXPECT_EQ(0, empty->width());
-	EXPECT_EQ(0, only_empty_cols->width());
+	EXPECT_EQ(0u, empty->width());
+	EXPECT_EQ(0u, only_empty_cols->width());
 }
 
 TEST_F(PPrintHCatTest, testHeight) {
-	EXPECT_EQ(2, single_col->height());
-	EXPECT_EQ(2, same_height->height());
+	EXPECT_EQ(2u, single_col->height());
+	EXPECT_EQ(2u, same_height->height());
 }
 
 TEST_F(PPrintHCatTest, testHeightWorksWithColumnsWithDifferentHeights) {
-	EXPECT_EQ(3, different_height->height());
+	EXPECT_EQ(3u, different_height->height());
 }
 
 TEST_F(PPrintHCatTest, testHeightWorksWithNestedColumns) {
-	EXPECT_EQ(3, nested->height());
+	EXPECT_EQ(3u, nested->height());
 }
 
 TEST_F(PPrintHCatTest, testHeightIgnoresEmptyItems) {
-	EXPECT_EQ(1, with_empty_cols->height());
+	EXPECT_EQ(1u, with_empty_cols->height());
 }
 
 TEST_F(PPrintHCatTest, testDefaultHeightIsZero) {
-	EXPECT_EQ(0, empty->height());
-	EXPECT_EQ(0, only_empty_cols->height());
+	EXPECT_EQ(0u, empty->height());
+	EXPECT_EQ(0u, only_empty_cols->height());
 }
 
 TEST_F(PPrintHCatTest, testIteratorWorksForEmptyHCat) {

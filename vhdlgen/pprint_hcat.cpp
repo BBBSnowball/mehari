@@ -18,7 +18,7 @@ void HCat::measure() {
 	for (iter_t it = this->begin(); it != this->end(); ++it) {
 		_width += (*it)->width();
 
-		int height = (*it)->height();
+		unsigned int height = (*it)->height();
 		if (height > _height)
 			_height = height;
 	}
@@ -26,25 +26,25 @@ void HCat::measure() {
 	measured = true;
 }
 
-int HCat::width() const {
+unsigned int HCat::width() const {
 	assert(measured);
 
 	return _width;
 }
 
-int HCat::height() const {
+unsigned int HCat::height() const {
 	assert(measured);
 
 	return _height;
 }
 
 class HCatLines : public LineIterator {
-	typedef std::pair<LineIterator*, int> LinesAndWidth;
+	typedef std::pair<LineIterator*, unsigned int> LinesAndWidth;
 	std::list<LinesAndWidth> line_iters;
 	typedef std::list<LinesAndWidth>::iterator ll_iter_t;
 	typedef std::list<LinesAndWidth>::const_iterator const_ll_iter_t;
 
-	int live_iterators;
+	unsigned int live_iterators;
 
 	const HCat& hcat;
 
@@ -98,7 +98,7 @@ public:
 			// This is a serious error, so we cannot continue.
 			return false;
 
-		int height = hcat.height();
+		unsigned int height = hcat.height();
 
 		iter_t iter;
 		ll_iter_t ll_iter;
@@ -143,10 +143,10 @@ public:
 		return stream.str();
 	}
 
-	virtual int width() const {
+	virtual unsigned int width() const {
 		assert(valid());
 
-		int width = 0;
+		unsigned int width = 0;
 		for (const_ll_iter_t iter = line_iters.begin(); iter != line_iters.end(); ++iter) {
 			if (iter != --line_iters.end())
 				width += iter->second;
@@ -158,33 +158,33 @@ public:
 		return width;
 	}
 
-	virtual int print(std::ostream& stream, int width, PrettyPrintStatus& status) const {
+	virtual unsigned int print(std::ostream& stream, unsigned int width, PrettyPrintStatus& status) const {
 		assert(valid());
 
-		int actual_width = 0;
+		unsigned int actual_width = 0;
 		for (const_ll_iter_t iter = line_iters.begin(); iter != line_iters.end(); ++iter) {
 			if (iter != --line_iters.end()) {
-				int column_width = iter->second;
-				int used_width = 0;
+				unsigned int column_width = iter->second;
+				unsigned int used_width = 0;
 				if (iter->first)
 					used_width = iter->first->print(stream, column_width, status);
 
 				actual_width += column_width;
 
 				if (used_width < column_width) {
-					int remaining_space = column_width - used_width;
+					unsigned int remaining_space = column_width - used_width;
 
-					for (int i=0; i<remaining_space; i++)
+					for (unsigned int i=0; i<remaining_space; i++)
 						stream << ' ';
 				}
 			} else if (iter->first) {
 				// last column is not padded and it may use all the remaining width
-				int column_width = iter->second;
-				int remaining_width = width - actual_width;
+				unsigned int column_width = iter->second;
+				unsigned int remaining_width = width - actual_width;
 				if (column_width < remaining_width)
 					column_width = remaining_width;
 
-				int used_width = iter->first->print(stream, column_width, status);
+				unsigned int used_width = iter->first->print(stream, column_width, status);
 
 				actual_width += used_width;
 			}

@@ -14,7 +14,7 @@
 	EXPECT_EQ(_expected, _iter->text());                                        \
 	EXPECT_EQ(_expected.size(), _iter->width());                                \
 	PrettyPrintStatus status;                                                   \
-	int result;                                                                 \
+	unsigned int result;                                                        \
 	EXPECT_OUTPUT(_expected, stream, result = _iter->print(stream, 0, status)); \
 	EXPECT_EQ(_expected.size(), result);                                        \
 }
@@ -30,8 +30,8 @@ class MockPrettyPrinted : public PrettyPrinted {
 public:
 	MOCK_CONST_METHOD0(lines, LineIterator*());
 
-	MOCK_CONST_METHOD0(width,  int());
-	MOCK_CONST_METHOD0(height, int());
+	MOCK_CONST_METHOD0(width,  unsigned int());
+	MOCK_CONST_METHOD0(height, unsigned int());
 };
 
 class MockLineIterator : public LineIterator {
@@ -41,8 +41,8 @@ public:
 
 	MOCK_CONST_METHOD0(isLast, bool());
 	MOCK_CONST_METHOD0(text,  const std::string());
-	MOCK_CONST_METHOD0(width, int());
-	MOCK_CONST_METHOD3(print, int(std::ostream& stream, int width, PrettyPrintStatus& status));
+	MOCK_CONST_METHOD0(width, unsigned int());
+	MOCK_CONST_METHOD3(print, unsigned int(std::ostream& stream, unsigned int width, PrettyPrintStatus& status));
 };
 
 }

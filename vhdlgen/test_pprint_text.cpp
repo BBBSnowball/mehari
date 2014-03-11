@@ -6,8 +6,8 @@ TEST(PPrintText, simpleMethods) {
 	Text text("blub");
 
 	EXPECT_EQ("blub", text.text());
-	EXPECT_EQ(4, text.width());
-	EXPECT_EQ(1, text.height());
+	EXPECT_EQ(4u, text.width());
+	EXPECT_EQ(1u, text.height());
 }
 
 TEST(PPrintText, testCopyConstructor) {
@@ -15,8 +15,8 @@ TEST(PPrintText, testCopyConstructor) {
 	Text text2(text);
 
 	EXPECT_EQ("blub", text2.text());
-	EXPECT_EQ(4, text2.width());
-	EXPECT_EQ(1, text2.height());
+	EXPECT_EQ(4u, text2.width());
+	EXPECT_EQ(1u, text2.height());
 }
 
 TEST(PPrintText, createReturnsEmptyLineForEmptyString) {
@@ -45,7 +45,7 @@ TEST(PPrintText, createReturnsVCatForMultipleLines) {
 	VCat* vcat = dynamic_cast<VCat*>(pprinted.get());
 
 	ASSERT_NOT_NULL(vcat);
-	ASSERT_EQ(2, vcat->size());
+	ASSERT_EQ(2u, vcat->size());
 
 	Text* line1 = dynamic_cast<Text*>(vcat->at(0).get());
 	Text* line2 = dynamic_cast<Text*>(vcat->at(1).get());
@@ -62,7 +62,7 @@ TEST(PPrintText, createCanHandleASingleNewline) {
 	VCat* vcat = dynamic_cast<VCat*>(pprinted.get());
 
 	ASSERT_NOT_NULL(vcat);
-	ASSERT_EQ(2, vcat->size());
+	ASSERT_EQ(2u, vcat->size());
 
 	Text* line1 = dynamic_cast<Text*>(vcat->at(0).get());
 	Text* line2 = dynamic_cast<Text*>(vcat->at(1).get());
@@ -79,7 +79,7 @@ TEST(PPrintText, createCanHandleAConsecutiveNewline) {
 	VCat* vcat = dynamic_cast<VCat*>(pprinted.get());
 
 	ASSERT_NOT_NULL(vcat);
-	ASSERT_EQ(3, vcat->size());
+	ASSERT_EQ(3u, vcat->size());
 
 	Text* line1 = dynamic_cast<Text*>(vcat->at(0).get());
 	Text* line2 = dynamic_cast<Text*>(vcat->at(1).get());
@@ -146,15 +146,15 @@ TEST_F(PPrintTextLinesIterator, firstLineHasValidData) {
 	EXPECT_EQ("",     it_empty->text());
 	EXPECT_EQ("blub", it_blub->text());
 
-	EXPECT_EQ(0, it_empty->width());
-	EXPECT_EQ(4, it_blub->width());
+	EXPECT_EQ(0u, it_empty->width());
+	EXPECT_EQ(4u, it_blub->width());
 
 	PrettyPrintStatus status;
-	int result;
+	unsigned int result;
 	EXPECT_OUTPUT("", stream, result = it_empty->print(stream, 0, status));
-	EXPECT_EQ(0, result);
+	EXPECT_EQ(0u, result);
 	EXPECT_OUTPUT("blub", stream, result = it_blub->print(stream, 0, status));
-	EXPECT_EQ(4, result);
+	EXPECT_EQ(4u, result);
 }
 
 TEST_F(PPrintTextLinesIterator, lastReturnsTrue) {
