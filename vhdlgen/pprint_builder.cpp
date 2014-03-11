@@ -120,6 +120,10 @@ PrettyPrintBuilder& PrettyPrintBuilder::append() {
 	return addAndSelect(new VCat());
 }
 
+PrettyPrintBuilder& PrettyPrintBuilder::appendOverlapping() {
+	return addAndSelect(new VCatOverlapping());
+}
+
 PrettyPrinted_p PrettyPrintBuilder::build() {
 	assert(_root);
 

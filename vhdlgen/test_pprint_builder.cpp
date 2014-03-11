@@ -83,6 +83,15 @@ TEST(PPrintBuilderTest, testColumns) {
 	EXPECT_OUTPUT("blubxyz", stream, stream << builder.columns().add("blub").add("xyz").build());
 }
 
+TEST(PPrintBuilderTest, testAppendOverlapping) {
+	PrettyPrintBuilder builder;
+	builder.appendOverlapping()
+		.add("abc\ndef")
+		.add("ghi\njkl");
+
+	EXPECT_OUTPUT("abc\ndefghi\njkl", stream, stream << builder.build());
+}
+
 TEST(PPrintBuilderTest, testTable) {
 	PrettyPrintBuilder builder;
 	EXPECT_OUTPUT("blubg\nxyz hijk", stream,

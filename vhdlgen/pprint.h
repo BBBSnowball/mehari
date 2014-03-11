@@ -152,6 +152,29 @@ public:
 	bool _measured();
 };
 
+class VCatOverlapping : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
+	bool measured;
+	int _width;
+	int _height;
+
+protected:
+	virtual void _add(PrettyPrinted_p item);
+
+public:
+	VCatOverlapping();
+	virtual ~VCatOverlapping();
+
+	virtual void measure();
+
+	virtual LineIterator* lines() const;
+
+	virtual int width()  const;
+	virtual int height() const;
+
+	// only for testing
+	bool _measured();
+};
+
 
 template<typename PP>
 inline boost::shared_ptr<PP> PrettyPrintedWithChildren::add(boost::shared_ptr<PP> item) {

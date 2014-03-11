@@ -36,6 +36,7 @@ public:
 
 	PrettyPrintBuilder& columns();
 	PrettyPrintBuilder& append();
+	PrettyPrintBuilder& appendOverlapping();
 
 	PrettyPrintBuilder& seperateBy(PrettyPrinted_p item);
 	PrettyPrintBuilder& seperateBy(std::string text);
