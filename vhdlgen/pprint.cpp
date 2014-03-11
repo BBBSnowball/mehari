@@ -4,6 +4,9 @@
 
 namespace pprint {
 
+PrettyPrintable::~PrettyPrintable() { }
+
+
 std::ostream& operator <<(std::ostream& stream, const PrettyPrintable& data) {
 	return stream << data.prettyPrint();
 }

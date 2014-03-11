@@ -13,6 +13,8 @@ typedef boost::shared_ptr<PrettyPrinted> PrettyPrinted_p;
 
 class PrettyPrintable {
 public:
+	virtual ~PrettyPrintable();
+	
 	virtual const PrettyPrinted_p prettyPrint() const =0;
 };
 
