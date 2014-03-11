@@ -81,6 +81,11 @@ task installGTestHeaders(type: Copy) {
 	into rootPath("_install", "include")
 
 	dependsOn compileGTest
+
+	doFirst {
+		// fix permissions of target files, so we can overwrite them
+		fileTree(destinationDir).each { chmod(it, 0644) }
+	}
 }
 
 task installGTestLibs(type: Copy) {
@@ -116,6 +121,7 @@ task prepareGMock(type: Exec) {
 		"CMakeFiles/**/*.cmake", "CMakeFiles/**/*.make", "CMakeFiles/**/Makefile*", "CMakeLists.txt")
 
 	doFirst {
+		//TODO undo after compiling...
 		cmake_file = rootPath(extractGMockSource.targetDir, "CMakeLists.txt")
 		chmod(cmake_file, 0644)
 		cmake_file.withWriterAppend { w ->
@@ -151,6 +157,11 @@ task installGMockLibs(type: Copy) {
 	into rootPath("_install", "lib")
 
 	dependsOn compileGMock
+
+	doFirst {
+		// fix permissions of target files, so we can overwrite them
+		fileTree(destinationDir).each { chmod(it, 0644) }
+	}
 }
 
 task installGMock {
