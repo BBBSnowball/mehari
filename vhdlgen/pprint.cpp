@@ -18,7 +18,7 @@ PrettyPrinted::~PrettyPrinted() { }
 LineIterator::~LineIterator() { }
 
 
-std::ostream& operator <<(std::ostream& stream, const boost::shared_ptr<PrettyPrinted> data) {
+std::ostream& operator <<(std::ostream& stream, const boost::shared_ptr<PrettyPrinted>& data) {
 	return stream << *data;
 }
 
@@ -34,6 +34,8 @@ std::ostream& operator <<(std::ostream& stream, const PrettyPrinted& data) {
 
 		iter->print(stream, 0, status);
 	}
+
+	return stream;
 }
 
 } // end of namespace pprint

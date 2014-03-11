@@ -30,6 +30,15 @@ TEST_F(PPrintTest, testStreamOperatorsForEmptyObject) {
 	EXPECT_OUTPUT("", stream, stream << pprintable);
 }
 
+TEST_F(PPrintTest, testStreamOperatorsReturnStream) {
+	EXPECT_CALL(*lines, next())
+		.Times(1)
+		.WillOnce(Return(false));
+
+	std::stringstream stream;
+	EXPECT_EQ(&stream, &(stream << pprintable));
+}
+
 class PrintLine {
 	std::string line;
 public:

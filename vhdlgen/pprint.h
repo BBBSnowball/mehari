@@ -51,8 +51,8 @@ public:
 	virtual int height() const =0;
 };
 
-std::ostream& operator <<(std::ostream& stream, const PrettyPrinted&  data);
-std::ostream& operator <<(std::ostream& stream, const PrettyPrinted_p data);
+std::ostream& operator <<(std::ostream& stream, const PrettyPrinted&   data);
+std::ostream& operator <<(std::ostream& stream, const PrettyPrinted_p& data);
 
 class Empty : public PrettyPrinted {
 	static boost::shared_ptr<Empty> _instance;
