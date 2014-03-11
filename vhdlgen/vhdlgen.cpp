@@ -170,17 +170,21 @@ std::pair<A, B> pair(const A& a, const B& b) {
 	return std::pair<A, B>(a, b);
 }
 
-void Port::add(boost::shared_ptr<Pin> pin) {
+Port& Port::add(boost::shared_ptr<Pin> pin) {
 	assert(!contains(pin->name()));
 
 	_byName.insert(pair(pin->name(), pin));
 	_order.push_back(pin);
+
+	return *this;
 }
 
-void Port::add(const Pin& pin) {
+Port& Port::add(const Pin& pin) {
 	boost::shared_ptr<Pin> pin_ptr(new Pin(pin));
 
 	add(pin_ptr);
+
+	return *this;
 }
 
 const std::map<std::string, boost::shared_ptr<Pin> >& Port::pinsByName() const { return _byName; }
@@ -212,6 +216,143 @@ const pprint::PrettyPrinted_p Port::prettyPrint() const {
 					.up()
 				.endIndent()
 			.add(");");
+
+	return builder.build();
+}
+
+
+Comment::Comment(const std::string& text) : _text(text) { }
+
+const std::string& Comment::text() const { return _text; }
+
+static std::string commentLine(const std::string& line) {
+	if (line.empty())
+		return "--";
+	else
+		return "-- " + line;
+}
+
+const pprint::PrettyPrinted_p Comment::prettyPrint() const {
+	if (_text.empty())
+		return pprint::Empty::instance();
+
+	pprint::PrettyPrintBuilder builder;
+
+	//TODO make an Indent class and use that
+
+	builder.append();
+
+	size_t pos, from = 0;
+	while ((pos = _text.find('\n', from)) != std::string::npos) {
+		builder.add(commentLine(_text.substr(from, pos-from)));
+		from = pos+1;
+	}
+
+	builder.add(commentLine(_text.substr(from)));
+
+	return builder.build();
+}
+
+
+Entity::Entity(const std::string& name) : _name(name) { }
+
+const std::string& Entity::name() const { return _name; }
+Port& Entity::port() { return _port; }
+
+const pprint::PrettyPrinted_p Entity::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.append()
+		.columns()
+			.seperateBy(" ")
+			.add("entity")
+			.add(name())
+			.add("is")
+			.up();
+
+	if (!_port.pins().empty())
+		builder.indent()
+			.add(_port)
+			.endIndent();
+
+	builder.columns()
+			.add("end ")
+			.add(name())
+			.add(";")
+			.up()
+		.up();
+
+	return builder.build();
+}
+
+Architecture::Architecture(const std::string& name, const std::string& entityName)
+	: _name(name), _entityName(entityName) { }
+
+Architecture::Architecture(const std::string& name, shared_ptr<Entity> entity)
+	: _name(name), _entity(entity) { }
+
+const std::string& Architecture::name() const { return _name; }
+shared_ptr<Entity> Architecture::entity() { return _entity; }
+
+const std::string& Architecture::entityName() const {
+	if (_entity)
+		return _entity->name();
+	else
+		return _entityName;
+}
+
+const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.append()
+		.columns()
+			.seperateBy(" ")
+			.add("architecture")
+			.add(name())
+			.add("of")
+			.add(entityName())
+			.add("is")
+			.up();
+
+	//TODO add declarations
+
+	builder.add("begin");
+
+	//TODO add body
+
+	builder.columns()
+			.add("end ")
+			.add(name())
+			.add(";")
+			.up()
+		.up();
+
+	return builder.build();
+}
+
+
+CompilationUnit::CompilationUnit()
+		: _libraries(new UsedLibraries()) {
+	add(_libraries);
+}
+
+boost::shared_ptr<UsedLibraries> CompilationUnit::libraries() { return _libraries; }
+
+CompilationUnit& CompilationUnit::add(ToplevelDeclaration* decl) {
+	add(shared_ptr<ToplevelDeclaration>(decl));
+}
+
+CompilationUnit& CompilationUnit::add(shared_ptr<ToplevelDeclaration> decl) {
+	push_back(decl);
+}
+
+const pprint::PrettyPrinted_p CompilationUnit::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.append()
+		.seperateBy("\n")
+		.add(this->begin(), this->end())
+		.up();
 
 	return builder.build();
 }

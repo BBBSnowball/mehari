@@ -111,7 +111,7 @@ TEST(VHDLDirectionTest, pprint) {
 }
 
 TEST(VHDLDirectionTest, pprintOfDefaultIsEmpty) {
-	EXPECT_IS_INSTANCE(pprint::Empty*, Direction::Default.prettyPrint().get());
+	EXPECT_PRETTY_PRINTED_IS_EMPTY(Direction::Default);
 }
 
 TEST(VHDLDirectionTest, isCopyConstructable) {
@@ -236,4 +236,99 @@ TEST(VHDLPort, pprint) {
 
 	EXPECT_PRETTY_PRINTED(emptyPort, "port( );");
 	EXPECT_PRETTY_PRINTED(port, "port(\n    foo : out std_logic;\n    blub : in std_logic\n);");
+}
+
+
+Comment makeComment() {
+	return Comment("abc\n\ndef");
+}
+
+TEST(VHDLComment, getters) {
+	Comment comment(makeComment());
+
+	EXPECT_EQ("abc\n\ndef", comment.text());
+}
+
+TEST(VHDLComment, pprint) {
+	Comment emptyComment("");
+	Comment comment(makeComment());
+
+	EXPECT_PRETTY_PRINTED_IS_EMPTY(emptyComment);
+	EXPECT_PRETTY_PRINTED(comment, "-- abc\n--\n-- def");
+}
+
+
+Entity makeEntity() {
+	Entity entity("blub");
+	entity.port() = makePort();
+	return entity;
+}
+
+TEST(VHDLEntity, getters) {
+	Entity entity(makeEntity());
+
+	EXPECT_EQ("blub", entity.name());
+}
+
+TEST(VHDLEntity, pprint) {
+	Entity emptyEntity("empty");
+	Entity entity(makeEntity());
+
+	EXPECT_PRETTY_PRINTED(emptyEntity,
+		"entity empty is\nend empty;");
+	EXPECT_PRETTY_PRINTED(entity,
+		"entity blub is\n"
+		"    port(\n        foo : out std_logic;\n        blub : in std_logic\n    );\n"
+		"end blub;");
+}
+
+
+Architecture makeArchitecture1() {
+	return Architecture("behavior", "bla");
+}
+
+Architecture makeArchitecture2() {
+	return Architecture("structural", shared_ptr<Entity>(new Entity(makeEntity())));
+}
+
+TEST(VHDLArchitecture, getters) {
+	Architecture architecture1(makeArchitecture1());
+	Architecture architecture2(makeArchitecture2());
+
+	EXPECT_EQ("behavior",   architecture1.name());
+	EXPECT_EQ("structural", architecture2.name());
+
+	EXPECT_EQ("bla",  architecture1.entityName());
+	EXPECT_EQ("blub", architecture2.entityName());
+
+	EXPECT_FALSE(architecture1.entity());
+	EXPECT_EQ("blub", architecture2.entity()->name());
+}
+
+TEST(VHDLArchitecture, pprint) {
+	Architecture architecture1(makeArchitecture1());
+	Architecture architecture2(makeArchitecture2());
+
+	EXPECT_PRETTY_PRINTED(architecture1,
+		"architecture behavior of bla is\nbegin\nend behavior;");
+	EXPECT_PRETTY_PRINTED(architecture2,
+		"architecture structural of blub is\nbegin\nend structural;");
+}
+
+
+TEST(VHDLCompilationUnit, pprint) {
+	CompilationUnit file;
+
+	file.add(new Architecture(makeArchitecture1()));
+
+	file.libraries()->add("ieee")
+		<< "std_logic_1164.all"
+		<< "numeric_std.all";
+
+	EXPECT_PRETTY_PRINTED(file,
+		"library ieee;\n"
+		"use ieee.numeric_std.all;\n"
+		"use ieee.std_logic_1164.all;\n"
+		"\n\n"
+		"architecture behavior of bla is\nbegin\nend behavior;");
 }

@@ -10,6 +10,15 @@
 
 namespace vhdl {
 
+using boost::shared_ptr;
+
+class PrettyPrintable : public virtual pprint::PrettyPrintable { };
+
+class ToplevelDeclaration : public PrettyPrintable { };
+
+class LocalDeclaration : public PrettyPrintable { };
+
+
 class UsedLibrary : public std::set<std::string>, public pprint::PrettyPrintable {
 	std::string name;
 public:
@@ -22,7 +31,7 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class UsedLibraries : public std::map<std::string, UsedLibrary>, public pprint::PrettyPrintable {
+class UsedLibraries : public std::map<std::string, UsedLibrary>, public ToplevelDeclaration {
 public:
 	UsedLibrary& add(std::string name);
 
@@ -81,7 +90,7 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class ValueDeclaration : public pprint::PrettyPrintable {
+class ValueDeclaration : public PrettyPrintable {
 protected:
 	virtual void build(pprint::PrettyPrintBuilder& builder) const;
 
@@ -124,8 +133,8 @@ class Port : public pprint::PrettyPrintable {
 	std::map<std::string, boost::shared_ptr<Pin> > _byName;
 	std::vector<boost::shared_ptr<Pin> > _order;
 public:
-	void add(const Pin& pin);
-	void add(boost::shared_ptr<Pin> pin);
+	Port& add(const Pin& pin);
+	Port& add(boost::shared_ptr<Pin> pin);
 
 	const std::map<std::string, boost::shared_ptr<Pin> >& pinsByName() const;
 	const std::vector<boost::shared_ptr<Pin> >& pins() const;
@@ -136,9 +145,54 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class VHDLFile {
+class Comment : public ToplevelDeclaration, public LocalDeclaration {
+	std::string _text;
 public:
-	UsedLibraries libraries;
+	//TODO accept any PrettyPrintable or PrettyPrinted object
+	Comment(const std::string& text);
+
+	const std::string& text() const;
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
+class Entity : public ToplevelDeclaration {
+	std::string _name;
+	Port _port;
+public:
+	Entity(const std::string& name);
+
+	const std::string& name() const;
+	Port& port();
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
+class Architecture : public ToplevelDeclaration {
+	std::string _name, _entityName;
+	shared_ptr<Entity> _entity;
+public:
+	Architecture(const std::string& name, const std::string& entityName);
+	Architecture(const std::string& name, shared_ptr<Entity> entity);
+
+	const std::string& name() const;
+	const std::string& entityName() const;
+	shared_ptr<Entity> entity();
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
+class CompilationUnit : std::vector<boost::shared_ptr<ToplevelDeclaration> > {
+	boost::shared_ptr<UsedLibraries> _libraries;
+public:
+	CompilationUnit();
+
+	boost::shared_ptr<UsedLibraries> libraries();
+
+	CompilationUnit& add(ToplevelDeclaration* decl);
+	CompilationUnit& add(boost::shared_ptr<ToplevelDeclaration> decl);
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
 }
