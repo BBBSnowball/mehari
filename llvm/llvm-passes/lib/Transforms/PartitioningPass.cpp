@@ -14,6 +14,11 @@ PartitioningPass::~PartitioningPass() {}
 
 
 bool PartitioningPass::runOnFunction(Function &func) {
+
+  if (func.getName() != "evalS")
+    // just handle the evalS function, later choose this by command line parameter
+    return false;
+  
 	// create worklist containing all instructions of the function
 	std::vector<Instruction*> worklist;
   	for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I)

@@ -21,6 +21,10 @@ SpeedupAnalysis::~SpeedupAnalysis() {}
 
 bool SpeedupAnalysis::runOnFunction(Function &func) {
 
+  if (func.getName() != "evalS")
+    // just handle the evalS function, later choose this by command line parameter
+    return false;
+  
   errs() << "\n\nspeedup analysis: " << func.getName() << "\n";
 
   // create worklist containing all instructions of the function
