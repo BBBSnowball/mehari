@@ -30,8 +30,10 @@ SpeedupAnalysis::~SpeedupAnalysis() {}
 
 bool SpeedupAnalysis::runOnFunction(Function &func) {
 
+  std::string functionName = func.getName().str();
+
   // just handle those functions specified by the command line parameter
-  if (std::find(targetFunctions.begin(), targetFunctions.end(), func.getName()) == targetFunctions.end())
+  if (std::find(targetFunctions.begin(), targetFunctions.end(), functionName) == targetFunctions.end())
     return false;
   
   errs() << "\n\nspeedup analysis: " << func.getName() << "\n";
@@ -99,7 +101,7 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
 
 
   if (Graphviz)
-    printGraphviz();
+    printGraphviz(functionName);
 
   return false;
 }
@@ -127,7 +129,7 @@ void SpeedupAnalysis::buildDependencyGraph(InstructionDependencyList &dependenci
 }
 
 
-void SpeedupAnalysis::printGraphviz() {
+void SpeedupAnalysis::printGraphviz(std::string &name) {
   std::map<std::string, std::string> graph_attr, vertex_attr, edge_attr;
   vertex_attr["shape"] = "rectangle";
 
@@ -142,7 +144,8 @@ void SpeedupAnalysis::printGraphviz() {
 
   boost::property_map<Graph, boost::edge_weight_t>::type trans_delay = get(boost::edge_weight, depGraph);
 
-  std::ofstream dotfile("_output/speedup-analysis-graph.dot");
+  std::string fileName = "_output/speedup-analysis-graph-" + name + ".dot";
+  std::ofstream dotfile(fileName.c_str());
   boost::write_graphviz(dotfile, depGraph,
                           boost::make_label_writer(vertex_names),
                           boost::make_label_writer(trans_delay),

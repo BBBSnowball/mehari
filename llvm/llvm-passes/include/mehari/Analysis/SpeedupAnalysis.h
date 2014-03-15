@@ -27,7 +27,7 @@ private:
   
 	unsigned int getInstructionCost(Instruction *instruction);
 	void buildDependencyGraph(InstructionDependencyList &dependencies);
-	void printGraphviz();
+	void printGraphviz(std::string &name);
 
 	typedef boost::property<boost::edge_weight_t, int> EdgeWeightProperty;
 	typedef boost::adjacency_list<boost::listS, boost::vecS, boost::bidirectionalS, boost::no_property, EdgeWeightProperty > Graph;
