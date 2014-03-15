@@ -22,6 +22,9 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 private:
+  std::vector<std::string> targetFunctions;
+  void parseTargetFunctions();
+  
 	unsigned int getInstructionCost(Instruction *instruction);
 	void buildDependencyGraph(InstructionDependencyList &dependencies);
 	void printGraphviz();

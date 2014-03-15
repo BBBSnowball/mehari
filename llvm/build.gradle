@@ -223,7 +223,7 @@ task speedUpAnalysis(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -t \"evalS evalND\" -S $targetfile > /dev/null"
 }
 
 

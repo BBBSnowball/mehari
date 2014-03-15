@@ -8,21 +8,30 @@
 #include <boost/graph/bellman_ford_shortest_paths.hpp>
 #include <boost/graph/graphviz.hpp>
 
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
+
 #include <vector>
 #include <algorithm>
 
 
 static cl::opt<bool> Graphviz ("dot", cl::desc("Enable writing the dependency graph to a graphviz file."));
+static cl::opt<std::string> TargetFunctions("speedup-functions", 
+            cl::desc("Specify the functions the speedup analysis will be applyed on (seperated by whitespace)"), 
+            cl::value_desc("target-functions"));
 
 
-SpeedupAnalysis::SpeedupAnalysis() : FunctionPass(ID) {}
+SpeedupAnalysis::SpeedupAnalysis() : FunctionPass(ID) {
+  parseTargetFunctions();
+}
+
 SpeedupAnalysis::~SpeedupAnalysis() {}
 
 
 bool SpeedupAnalysis::runOnFunction(Function &func) {
 
-  if (func.getName() != "evalS")
-    // just handle the evalS function, later choose this by command line parameter
+  // just handle those functions specified by the command line parameter
+  if (std::find(targetFunctions.begin(), targetFunctions.end(), func.getName()) == targetFunctions.end())
     return false;
   
   errs() << "\n\nspeedup analysis: " << func.getName() << "\n";
@@ -99,6 +108,11 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
 void SpeedupAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<InstructionDependencyAnalysis>();
   AU.setPreservesAll();
+}
+
+
+void SpeedupAnalysis::parseTargetFunctions() {
+  boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
 }
 
 
