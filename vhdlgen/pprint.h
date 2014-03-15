@@ -14,7 +14,7 @@ typedef boost::shared_ptr<PrettyPrinted> PrettyPrinted_p;
 class PrettyPrintable {
 public:
 	virtual ~PrettyPrintable();
-	
+
 	virtual const PrettyPrinted_p prettyPrint() const =0;
 };
 
@@ -175,6 +175,31 @@ public:
 
 	// only for testing
 	bool _measured();
+};
+
+class Indent : public PrettyPrintedWithChildren {
+protected:
+	virtual void _add(PrettyPrinted_p item);
+
+	PrettyPrinted_p _child;
+	std::string _prefix, _postfix;
+public:
+	Indent(std::string prefix = "", std::string postfix = "");
+	virtual ~Indent();
+
+	virtual void measure();
+
+	virtual LineIterator* lines() const;
+
+	virtual unsigned int width()  const;
+	virtual unsigned int height() const;
+
+	// only for testing
+	bool _measured();
+
+	const PrettyPrinted_p child() const;
+	const std::string& prefix() const;
+	const std::string& postfix() const;
 };
 
 

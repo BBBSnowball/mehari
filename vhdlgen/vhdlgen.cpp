@@ -214,7 +214,7 @@ const pprint::PrettyPrinted_p Port::prettyPrint() const {
 					.seperateBy(";\n")
 					.add(_order.begin(), _order.end())
 					.up()
-				.endIndent()
+				.up()
 			.add(");");
 
 	return builder.build();
@@ -273,7 +273,7 @@ const pprint::PrettyPrinted_p Entity::prettyPrint() const {
 	if (!_port.pins().empty())
 		builder.indent()
 			.add(_port)
-			.endIndent();
+			.up();
 
 	builder.columns()
 			.add("end ")

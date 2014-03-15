@@ -150,15 +150,7 @@ PrettyPrintBuilder& PrettyPrintBuilder::indent() {
 }
 
 PrettyPrintBuilder& PrettyPrintBuilder::indent(std::string indent) {
-	columns();
-	add(indent);
-	append();
-	return *this;
-}
-
-PrettyPrintBuilder& PrettyPrintBuilder::endIndent() {
-	up();
-	up();
+	addAndSelect(new Indent(indent));
 	return *this;
 }
 

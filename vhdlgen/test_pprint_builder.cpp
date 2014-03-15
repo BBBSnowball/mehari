@@ -247,16 +247,17 @@ TEST(PPrintBuilderTest, testIndent) {
 
 	builder.append()
 		.indent()
-			.add("foo")
-			.add("bar")
-			.endIndent()
+			.append()
+				.add("foo")
+				.add("bar")
+				.up()
+			.up()
 		.indent("  ")
 			.add("foo")
-			.add("bar")
-			.endIndent()
+			.up()
 		.add("blub");
 
-	EXPECT_OUTPUT("    foo\n    bar\n  foo\n  bar\nblub", stream, stream << builder.build());
+	EXPECT_OUTPUT("    foo\n    bar\n  foo\nblub", stream, stream << builder.build());
 }
 
 TEST(PPrintBuilderTest, testAddMany) {
@@ -269,4 +270,30 @@ TEST(PPrintBuilderTest, testAddMany) {
 	builder.append().add(lines.begin(), lines.end());
 
 	EXPECT_OUTPUT("abc\ndef\nghi", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testEmptyIndentIsEmpty) {
+	PrettyPrintBuilder builder;
+
+	builder.append()
+		.add("foo")
+		.indent()
+			.up()
+		.add("bar");
+
+	EXPECT_OUTPUT("foo\nbar", stream, stream << builder.build());
+}
+
+TEST(PPrintBuilderTest, testIndentIsRepeatedForEachLine) {
+	PrettyPrintBuilder builder;
+
+	builder.append()
+		.indent("// ")
+			.append()
+				.add("foo")
+				.add("bar")
+				.up()
+			.up();
+
+	EXPECT_OUTPUT("// foo\n// bar", stream, stream << builder.build());
 }
