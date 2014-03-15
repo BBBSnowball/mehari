@@ -31,11 +31,13 @@ PartitioningPass::~PartitioningPass() {}
 
 bool PartitioningPass::runOnFunction(Function &func) {
 
+	std::string functionName = func.getName().str();
+
   // just handle those functions specified by the command line parameter
-  if (std::find(targetFunctions.begin(), targetFunctions.end(), func.getName()) == targetFunctions.end())
+  if (std::find(targetFunctions.begin(), targetFunctions.end(), functionName) == targetFunctions.end())
     return false;
   
-  errs() << "\n\npartitioning: " << func.getName() << "\n";
+  errs() << "\n\npartitioning: " << functionName << "\n\n";
 
 	// create worklist containing all instructions of the function
 	std::vector<Instruction*> worklist;
@@ -55,8 +57,8 @@ bool PartitioningPass::runOnFunction(Function &func) {
 	applyRandomPartitioning(pGraph, 42);
 
 	// print results
-	pGraph.printGraph();
-	pGraph.printGraphviz();
+	pGraph.printGraph(functionName);
+	pGraph.printGraphviz(functionName);
 
 	return false;
 }

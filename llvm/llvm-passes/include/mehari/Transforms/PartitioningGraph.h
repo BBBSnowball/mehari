@@ -50,8 +50,8 @@ public:
 	void createVertices(std::vector<Instruction*> &instructions);
 	void addEdges(InstructionDependencyList &dependencies);
 
-	void printGraph(void);
-	void printGraphviz(void);
+	void printGraph(std::string &name);
+	void printGraphviz(std::string &name);
 
 private:
 

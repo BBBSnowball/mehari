@@ -112,7 +112,8 @@ void PartitioningGraph::setPartition(PartitioningGraph::VertexDescriptor vd, uns
 }
 
 
-void PartitioningGraph::printGraph(void) {
+void PartitioningGraph::printGraph(std::string &name) {
+	errs() << "Partitioning Graph: " << name << "\n";
 	errs() << "\nVERTICES:\n";
 	Graph::vertex_iterator vertexIt, vertexEnd;
 	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt) { 
@@ -134,11 +135,12 @@ void PartitioningGraph::printGraph(void) {
 }
 
 
-void PartitioningGraph::printGraphviz(void) {
+void PartitioningGraph::printGraphviz(std::string &name) {
 	// set some node colors to visualize the different partitions
 	const char *nodeColors[] = { "greenyellow", "gold", "cornflowerblue", "darkorange", "aquamarine1" };
 
-  std::ofstream dotfile("_output/partitioning-graph.dot");
+	std::string filename = "_output/partitioning-graph-" + name + ".dot";
+  std::ofstream dotfile(filename.c_str());
 
   dotfile << "digraph G {\n"
     << "  edge[style=\"bold\"];\n" 
