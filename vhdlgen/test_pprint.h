@@ -2,6 +2,7 @@
 #include <gmock/gmock.h>
 #include <boost/scoped_ptr.hpp>
 #include <sstream>
+#include <list>
 #include "pprint.h"
 
 #define ASSERT_NOT_NULL(x) ASSERT_TRUE(x) << #x << " must not be NULL."
@@ -18,6 +19,21 @@
 	EXPECT_OUTPUT(_expected, stream, result = _iter->print(stream, 0, status)); \
 	EXPECT_EQ(_expected.size(), result);                                        \
 }
+
+class PrettyPrintTestHelpers {
+protected:
+	typedef std::list<std::string>::iterator line_iter;
+	void expect_lines(std::string file, unsigned int line, std::string pprinted_code,
+			pprint::PrettyPrinted_p pprinted, const char** lines, size_t count);
+
+	void expect_current_line(const std::string& expected_line, bool should_be_last_line,
+			pprint::LineIterator* line_iter, std::string line_info);
+};
+
+#define EXPECT_LINES(pprinted, ...) {                                                      \
+		const char* lines[] = { __VA_ARGS__ };                                                  \
+		expect_lines(__FILE__, __LINE__, #pprinted, (pprinted), lines, sizeof(lines)/sizeof(*lines)); \
+	}
 
 namespace pprint {
 
