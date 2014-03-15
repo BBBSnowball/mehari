@@ -14,6 +14,10 @@ public:
   ~AddAlwaysInlineAttributePass();
 
   virtual bool runOnModule(Module &M);
+
+private:
+  std::vector<std::string> targetFunctions;
+  void parseTargetFunctions();
 };
 
 #endif /*ADD_ALWAYS_INLINE_ATTRIBUTE_PASS_H*/

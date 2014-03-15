@@ -198,7 +198,7 @@ task prepareInlining(type: Exec) {
 	def sourcefile = file("$OUTPUT_DIR/example.ll")
 	def targetfile = file("$OUTPUT_DIR/example-prepare-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -add-attr-always-inline -S $sourcefile > $targetfile"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -add-attr-always-inline -inline-functions \"evalParameterCouplings\" -S $sourcefile > $targetfile"
 }
 
 task applyInlining(type: Exec) {
@@ -223,7 +223,7 @@ task speedUpAnalysis(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -t \"evalS evalND\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -speedup-functions \"evalS evalND\" -S $targetfile > /dev/null"
 }
 
 
