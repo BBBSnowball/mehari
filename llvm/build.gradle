@@ -263,7 +263,7 @@ task applyPartitioning(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -partitioning -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -partitioning -partitioning-functions \"evalS\" -S $targetfile > /dev/null"
 }
 
 

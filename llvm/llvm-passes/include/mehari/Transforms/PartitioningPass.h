@@ -23,6 +23,9 @@ public:
 	static unsigned int partitionCount;
 
 private:
+  std::vector<std::string> targetFunctions;
+  void parseTargetFunctions();
+  
 	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
 };
 
