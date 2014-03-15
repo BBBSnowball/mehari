@@ -16,12 +16,14 @@ IRGraphPrinter::~IRGraphPrinter() {}
 
 
 bool IRGraphPrinter::runOnFunction(Function &func) {
-  printDataflowGraph("_output/dataflow_graph.dot", func);
+  std::string functionName = func.getName().str();
+  std::string fileName = "_output/dataflow-graph-" + functionName + ".dot";
+  printDataflowGraph(fileName, func);
   return false;
 }
 
 
-void IRGraphPrinter::printDataflowGraph(std::string filename, Function &func) {
+void IRGraphPrinter::printDataflowGraph(std::string &filename, Function &func) {
   // create worklist containing all instructions of the function
   std::vector<Instruction*> worklist;
   for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I)

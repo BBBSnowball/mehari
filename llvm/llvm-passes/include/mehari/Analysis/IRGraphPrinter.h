@@ -17,9 +17,7 @@ public:
   virtual bool runOnFunction(Function &func);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-  void printDataflowGraph(std::string filename, Function &func);
-  void printControlflowGraph(std::string filename, Function &func);
-
+  void printDataflowGraph(std::string &filename, Function &func);
 };
 
 #endif /*IR_GRAPH_PRINTER_H*/
