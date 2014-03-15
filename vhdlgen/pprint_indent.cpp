@@ -9,6 +9,9 @@ namespace pprint {
 Indent::Indent(std::string prefix, std::string postfix)
 	: _prefix(prefix), _postfix(postfix) { }
 
+Indent::Indent(std::string prefix, PrettyPrinted_p child, std::string postfix)
+	: _prefix(prefix), _postfix(postfix), _child(child) { }
+
 Indent::~Indent() { }
 
 void Indent::measure() {

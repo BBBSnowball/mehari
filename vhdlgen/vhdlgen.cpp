@@ -221,36 +221,16 @@ const pprint::PrettyPrinted_p Port::prettyPrint() const {
 }
 
 
-Comment::Comment(const std::string& text) : _text(text) { }
+Comment::Comment(pprint::PrettyPrinted_p content) : _content(content) { }
 
-const std::string& Comment::text() const { return _text; }
+Comment::Comment(pprint::PrettyPrintable_p content)
+	: _content(content->prettyPrint()) { }
 
-static std::string commentLine(const std::string& line) {
-	if (line.empty())
-		return "--";
-	else
-		return "-- " + line;
-}
+Comment::Comment(const std::string& text)
+	: _content(pprint::Text::create(text)) { }
 
 const pprint::PrettyPrinted_p Comment::prettyPrint() const {
-	if (_text.empty())
-		return pprint::Empty::instance();
-
-	pprint::PrettyPrintBuilder builder;
-
-	//TODO make an Indent class and use that
-
-	builder.append();
-
-	size_t pos, from = 0;
-	while ((pos = _text.find('\n', from)) != std::string::npos) {
-		builder.add(commentLine(_text.substr(from, pos-from)));
-		from = pos+1;
-	}
-
-	builder.add(commentLine(_text.substr(from)));
-
-	return builder.build();
+	return pprint::PrettyPrinted_p(new pprint::Indent("-- ", _content));
 }
 
 

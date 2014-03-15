@@ -146,12 +146,11 @@ public:
 };
 
 class Comment : public ToplevelDeclaration, public LocalDeclaration {
-	std::string _text;
+	pprint::PrettyPrinted_p _content;
 public:
-	//TODO accept any PrettyPrintable or PrettyPrinted object
+	Comment(pprint::PrettyPrintable_p content);
+	Comment(pprint::PrettyPrinted_p content);
 	Comment(const std::string& text);
-
-	const std::string& text() const;
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };

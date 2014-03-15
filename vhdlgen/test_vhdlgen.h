@@ -13,3 +13,8 @@
 #define EXPECT_IS_INSTANCE(pointer_type, object) EXPECT_TRUE(dynamic_cast<pointer_type>(object))
 
 #define EXPECT_PRETTY_PRINTED_IS_EMPTY(object) EXPECT_IS_INSTANCE(pprint::Empty*, (object).prettyPrint().get())
+
+#define EXPECT_HAS_NO_LINES(object) { \
+		boost::scoped_ptr<pprint::LineIterator> lines((object).prettyPrint()->lines()); \
+		EXPECT_FALSE(lines->next()); \
+	}

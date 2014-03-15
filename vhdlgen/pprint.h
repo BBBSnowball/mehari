@@ -20,6 +20,8 @@ public:
 
 std::ostream& operator <<(std::ostream& stream, const PrettyPrintable& data);
 
+typedef boost::shared_ptr<PrettyPrintable> PrettyPrintable_p;
+
 
 class PrettyPrintStatus {
 public:
@@ -181,10 +183,11 @@ class Indent : public PrettyPrintedWithChildren {
 protected:
 	virtual void _add(PrettyPrinted_p item);
 
-	PrettyPrinted_p _child;
 	std::string _prefix, _postfix;
+	PrettyPrinted_p _child;
 public:
 	Indent(std::string prefix = "", std::string postfix = "");
+	Indent(std::string prefix, PrettyPrinted_p child, std::string postfix = "");
 	virtual ~Indent();
 
 	virtual void measure();

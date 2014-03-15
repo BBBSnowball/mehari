@@ -243,18 +243,14 @@ Comment makeComment() {
 	return Comment("abc\n\ndef");
 }
 
-TEST(VHDLComment, getters) {
-	Comment comment(makeComment());
-
-	EXPECT_EQ("abc\n\ndef", comment.text());
-}
-
 TEST(VHDLComment, pprint) {
-	Comment emptyComment("");
+	Comment emptyComment(pprint::Empty::instance());
+	Comment emptyLineComment("");
 	Comment comment(makeComment());
 
-	EXPECT_PRETTY_PRINTED_IS_EMPTY(emptyComment);
-	EXPECT_PRETTY_PRINTED(comment, "-- abc\n--\n-- def");
+	EXPECT_HAS_NO_LINES(emptyComment);
+	EXPECT_PRETTY_PRINTED(emptyLineComment, "-- ");
+	EXPECT_PRETTY_PRINTED(comment, "-- abc\n-- \n-- def");
 }
 
 

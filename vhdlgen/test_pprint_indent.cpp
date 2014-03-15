@@ -88,3 +88,9 @@ TEST_F(PPrintIndentTest, testMeasureDoesntFail) {
 	subject->add(Empty::instance());
 	subject->measure();
 }
+
+TEST_F(PPrintIndentTest, testThreeArgumentConstructor) {
+	boost::shared_ptr<Indent> subject(new Indent("a", Text::create("foo\nbar"), "c"));
+	
+	EXPECT_LINES(subject, "afooc", "abarc");
+}
