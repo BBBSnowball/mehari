@@ -50,3 +50,17 @@ SET_SOURCE_FILES_PROPERTIES(vhdlgen.i PROPERTIES CPLUSPLUS ON)
 SWIG_ADD_MODULE(vhdlgen python vhdlgen.i dummy.cpp)
 SWIG_LINK_LIBRARIES(vhdlgen ${PYTHON_LIBRARIES} pprint vhdlgen)
 set_property(TARGET _vhdlgen PROPERTY COMPILE_FLAGS "${cxx_debug}")
+
+
+add_custom_command(
+  OUTPUT test.dummy
+  COMMAND ./test
+  DEPENDS test
+  COMMENT "Run tests"
+  VERBATIM
+)
+
+add_custom_target(
+  run-test ALL
+  DEPENDS test.dummy
+)
