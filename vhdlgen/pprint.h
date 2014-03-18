@@ -110,7 +110,13 @@ public:
 	inline PrettyPrinted_p add(std::string text);
 };
 
-class VCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
+#ifndef SWIG
+	typedef std::vector<PrettyPrinted_p> vector_of_pretty_printed_p;
+#else
+#	define vector_of_pretty_printed_p std::vector<pprint::PrettyPrinted_p>
+#endif
+
+class VCat : public PrettyPrintedWithChildren, public vector_of_pretty_printed_p {
 	bool measured;
 	unsigned int _width;
 	unsigned int _height;
@@ -133,7 +139,7 @@ public:
 	bool _measured();
 };
 
-class HCat : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
+class HCat : public PrettyPrintedWithChildren, public vector_of_pretty_printed_p {
 	bool measured;
 	unsigned int _width;
 	unsigned int _height;
@@ -156,7 +162,7 @@ public:
 	bool _measured();
 };
 
-class VCatOverlapping : public PrettyPrintedWithChildren, public std::vector<PrettyPrinted_p> {
+class VCatOverlapping : public PrettyPrintedWithChildren, public vector_of_pretty_printed_p {
 	bool measured;
 	unsigned int _width;
 	unsigned int _height;
@@ -174,9 +180,6 @@ public:
 
 	virtual unsigned int width()  const;
 	virtual unsigned int height() const;
-
-	// only for testing
-	bool _measured();
 };
 
 class Indent : public PrettyPrintedWithChildren {
@@ -196,9 +199,6 @@ public:
 
 	virtual unsigned int width()  const;
 	virtual unsigned int height() const;
-
-	// only for testing
-	bool _measured();
 
 	const PrettyPrinted_p child() const;
 	const std::string& prefix() const;

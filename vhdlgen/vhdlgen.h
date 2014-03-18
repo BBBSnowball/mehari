@@ -12,11 +12,11 @@ namespace vhdl {
 
 using boost::shared_ptr;
 
-class PrettyPrintable : public virtual pprint::PrettyPrintable { };
+class PrettyPrintableV : public virtual pprint::PrettyPrintable { };
 
-class ToplevelDeclaration : public PrettyPrintable { };
+class ToplevelDeclaration : public virtual PrettyPrintableV { };
 
-class LocalDeclaration : public PrettyPrintable { };
+class LocalDeclaration : public virtual PrettyPrintableV { };
 
 
 class UsedLibrary : public std::set<std::string>, public pprint::PrettyPrintable {
@@ -51,10 +51,12 @@ class Direction : public pprint::PrettyPrintable {
 
 	Direction(_Direction _direction, std::string text);
 public:
+#ifndef SWIG
 	const static Direction Default;
 	const static Direction In;
 	const static Direction Out;
 	const static Direction InOut;
+#endif
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 
@@ -90,7 +92,7 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class ValueDeclaration : public PrettyPrintable {
+class ValueDeclaration : public PrettyPrintableV {
 protected:
 	virtual void build(pprint::PrettyPrintBuilder& builder) const;
 
@@ -181,7 +183,7 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class CompilationUnit : std::vector<boost::shared_ptr<ToplevelDeclaration> > {
+class CompilationUnit : public std::vector<boost::shared_ptr<ToplevelDeclaration> > {
 	boost::shared_ptr<UsedLibraries> _libraries;
 public:
 	CompilationUnit();
