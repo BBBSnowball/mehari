@@ -2,6 +2,9 @@
 
 %{
 #include "pprint.h"
+#include "pprint_builder.h"
+
+#include <sstream>
 
 using boost::shared_ptr;
 %}
@@ -38,4 +41,31 @@ namespace std {
 %ignore pprint::VCat::_measured;
 %ignore pprint::HCat::_measured;
 
+// shadowed, so it would be ignored anyway -> ignore it to avoid a warning
+//TODO The warning is printed, anyway.
+%ignore pprint::PrettyPrintBuilder::add(pprint::PrettyPrintable const *);
+
+%extend pprint::PrettyPrinted {
+	const std::string __str__() const {
+		std::stringstream stream;
+		stream << *$self;
+		return stream.str();
+	}
+}
+
+%extend pprint::PrettyPrintable {
+	const std::string __str__() const {
+		std::stringstream stream;
+		stream << $self->prettyPrint();
+		return stream.str();
+	}
+}
+
+%newobject pprint::PrettyPrinted::lines();
+%delobject PrettyPrintedWithChildren::add;
+%delobject PrettyPrintBuilder::add;
+%delobject PrettyPrintBuilder::addAndSelect;
+%delobject PrettyPrintBuilder::seperateBy;
+
 %include "pprint.h"
+%include "pprint_builder.h"

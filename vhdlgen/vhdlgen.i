@@ -38,11 +38,22 @@ namespace std {
 
 %import "pprint.i"
 
+%extend vhdl::UsedLibrary {
+	vhdl::UsedLibrary& use(const std::string& element) {
+		*$self << element;
+		return *$self;
+	}
+}
+
 %ignore vhdl::Port::operator[];
 %extend vhdl::Port {
 	const Pin& __getitem__(const std::string& name) const {
 		return (*$self)[name];
 	}
 }
+
+// This doesn't work, so we have to use "#ifndef SWIG" in vhdlgen.h:
+//%delobject vhdl::CompilationUnit::add;
+//%rename ("$ignore", fullname=1) vhdl::CompilationUnit::add(vhdl::ToplevelDeclaration* decl);
 
 %include "vhdlgen.h"

@@ -190,7 +190,9 @@ public:
 
 	boost::shared_ptr<UsedLibraries> libraries();
 
+#ifndef SWIG
 	CompilationUnit& add(ToplevelDeclaration* decl);
+#endif
 	CompilationUnit& add(boost::shared_ptr<ToplevelDeclaration> decl);
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
