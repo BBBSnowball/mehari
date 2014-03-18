@@ -4,3 +4,5 @@
 /python-ctemplate_*.tar.gz
 /python-ctemplate_*.tar.bz2
 /_gtest
+/_gmock
+
