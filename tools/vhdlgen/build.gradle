@@ -76,6 +76,34 @@ task compile {
 	dependsOn compilePPrint, compileVhdlgen, compilePPrintPython, compileVhdlgenPython, compileTest
 }
 
+task testPythonModules(type: Exec) {
+	commandLine "python", "test.py"
+
+	dependsOn compilePPrintPython, compileVhdlgenPython
+}
+
+task test {
+	dependsOn testPPrintAndVdhlgen, testPythonModules
+}
+
+task install(type: Copy) {
+	from(".") {
+		include "*.h"
+		exclude "test*"
+		rename ".*", 'include/$0'
+	}
+	from(".") {
+		include "lib*.so"
+		rename ".*", 'lib/$0'
+	}
+	from(".") {
+		include "pprint.py", "vhdlgen.py", "_*.so"
+	}
+	into "../_install"
+
+	dependsOn compile
+}
+
 task clean(type: Delete) {
 	delete "pprint.py"
 	delete "vhdlgen.py"
@@ -88,18 +116,11 @@ task clean(type: Delete) {
 		.include("*.so")
 		.include("*.pyc")
 		.include("*.tap")
-}
-
-task testPythonModules(type: Exec) {
-	commandLine "python", "test.py"
-
-	dependsOn compilePPrintPython, compileVhdlgenPython
-}
-
-task test {
-	dependsOn testPPrintAndVdhlgen, testPythonModules
-}
-
-task install {
-	//TODO
+	delete(fileTree(install.destinationDir) {
+		["pprint", "vhdlgen"].each { lib ->
+			include "_${lib}.so", "${lib}.py"
+			include "lib/lib${lib}.so"
+			include "include/${lib}*.h"
+		}
+	})
 }
