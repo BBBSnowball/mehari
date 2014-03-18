@@ -38,7 +38,7 @@ task compileTest(type: Exec) {
 	dependsOn prepareCMake, ":tools:installGTest", ":tools:installGMock"
 }
 
-task test(type: Exec) {
+task testPPrintAndVdhlgen(type: Exec) {
 	commandLine "./test"
 
 	dependsOn compileTest
@@ -88,4 +88,18 @@ task clean(type: Delete) {
 		.include("*.so")
 		.include("*.pyc")
 		.include("*.tap")
+}
+
+task testPythonModules(type: Exec) {
+	commandLine "python", "test.py"
+
+	dependsOn compilePPrintPython, compileVhdlgenPython
+}
+
+task test {
+	dependsOn testPPrintAndVdhlgen, testPythonModules
+}
+
+task install {
+	//TODO
 }
