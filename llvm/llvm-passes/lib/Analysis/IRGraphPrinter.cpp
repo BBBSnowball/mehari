@@ -17,7 +17,7 @@ IRGraphPrinter::~IRGraphPrinter() {}
 
 bool IRGraphPrinter::runOnFunction(Function &func) {
   std::string functionName = func.getName().str();
-  std::string fileName = "_output/dataflow-graph-" + functionName + ".dot";
+  std::string fileName = "_output/graph/dataflow-graph-" + functionName + ".dot";
   printDataflowGraph(fileName, func);
   return false;
 }

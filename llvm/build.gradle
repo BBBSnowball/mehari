@@ -13,7 +13,9 @@ ext {
 
 	BUILD_DIR = file("$projectDir/_build")
 	INSTALL_DIR = file("$projectDir/_install")
+
 	OUTPUT_DIR = file("$projectDir/_output")
+	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
 }
 
 
@@ -217,6 +219,10 @@ task applyInlining(type: Exec) {
 task speedUpAnalysis(type: Exec) {
 	dependsOn buildLLVMPasses, createIR, applyInlining
 
+	doFirst {
+		OUTPUT_GRAPH_DIR.mkdirs()
+	}
+
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
 	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
 
@@ -229,6 +235,10 @@ task speedUpAnalysis(type: Exec) {
 
 task createIRGraphs(type: Exec) {
 	dependsOn buildLLVMPasses, createIR, applyInlining
+
+	doFirst {
+		OUTPUT_GRAPH_DIR.mkdirs()
+	}
 
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
 	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
@@ -256,6 +266,10 @@ task createCCodeFromIR(type: Exec) {
 task applyPartitioning(type: Exec) {
 	dependsOn buildLLVMPasses, createIR, applyInlining
 
+	doFirst {
+		OUTPUT_GRAPH_DIR.mkdirs()
+	}
+
 	def opt = file("$INSTALL_DIR/llvm/bin/opt")
 	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
 	def transform_lib = file("$BUILD_DIR/llvm-passes/lib/Transforms/MehariTransforms.so")
@@ -270,3 +284,26 @@ task applyPartitioning(type: Exec) {
 task runOptimizationPasses {
 	dependsOn speedUpAnalysis, createIRGraphs, applyPartitioning //, createCCodeFromIR 
 }
+
+
+task createGraphImages() {
+	dependsOn runOptimizationPasses
+
+	def dot_files = fileTree(OUTPUT_DIR) {
+		include "**/*.dot"
+	}
+	dot_files.each { File file ->
+		def command_create_png = "dot -Tpng $file -o $file"+".png"
+		def command_create_pdf = "dot -Tpdf $file -o $file"+".pdf"
+		def proc1  = command_create_png.execute();
+    	proc1.waitFor();
+		def proc2  = command_create_pdf.execute();
+    	proc2.waitFor();
+	}
+}
+
+
+task createResults() {
+	dependsOn createGraphImages
+}
+

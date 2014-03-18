@@ -144,7 +144,7 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
 
   boost::property_map<Graph, boost::edge_weight_t>::type trans_delay = get(boost::edge_weight, depGraph);
 
-  std::string fileName = "_output/speedup-analysis-graph-" + name + ".dot";
+  std::string fileName = "_output/graph/speedup-analysis-graph-" + name + ".dot";
   std::ofstream dotfile(fileName.c_str());
   boost::write_graphviz(dotfile, depGraph,
                           boost::make_label_writer(vertex_names),

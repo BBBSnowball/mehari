@@ -139,7 +139,7 @@ void PartitioningGraph::printGraphviz(std::string &name) {
 	// set some node colors to visualize the different partitions
 	const char *nodeColors[] = { "greenyellow", "gold", "cornflowerblue", "darkorange", "aquamarine1" };
 
-	std::string filename = "_output/partitioning-graph-" + name + ".dot";
+	std::string filename = "_output/graph/partitioning-graph-" + name + ".dot";
   std::ofstream dotfile(filename.c_str());
 
   dotfile << "digraph G {\n"
