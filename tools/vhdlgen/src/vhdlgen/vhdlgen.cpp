@@ -311,18 +311,26 @@ const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
 }
 
 
-CompilationUnit::CompilationUnit()
-		: _libraries(new UsedLibraries()) {
-	add(_libraries);
-}
+CompilationUnit::CompilationUnit() { }
 
-boost::shared_ptr<UsedLibraries> CompilationUnit::libraries() { return _libraries; }
+boost::shared_ptr<UsedLibraries> CompilationUnit::libraries() {
+	if (!_libraries) {
+		_libraries = boost::shared_ptr<UsedLibraries>(new UsedLibraries());
+		add(_libraries);
+	}
+
+	return _libraries;
+}
 
 CompilationUnit& CompilationUnit::add(ToplevelDeclaration* decl) {
 	return add(shared_ptr<ToplevelDeclaration>(decl));
 }
 
 CompilationUnit& CompilationUnit::add(shared_ptr<ToplevelDeclaration> decl) {
+	if (!dynamic_cast<Comment*>(decl.get()))
+		// This declaration comes after the libraries.
+		libraries();
+
 	push_back(decl);
 
 	return *this;

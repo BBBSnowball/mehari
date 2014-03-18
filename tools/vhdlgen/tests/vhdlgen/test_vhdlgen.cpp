@@ -315,6 +315,40 @@ TEST(VHDLArchitecture, pprint) {
 TEST(VHDLCompilationUnit, pprint) {
 	CompilationUnit file;
 
+	file.libraries()->add("ieee")
+		<< "std_logic_1164.all"
+		<< "numeric_std.all";
+
+	file.add(new Architecture(makeArchitecture1()));
+
+	EXPECT_PRETTY_PRINTED(file,
+		"library ieee;\n"
+		"use ieee.numeric_std.all;\n"
+		"use ieee.std_logic_1164.all;\n"
+		"\n\n"
+		"architecture behavior of bla is\nbegin\nend behavior;");
+}
+
+TEST(VHDLCompilationUnit, addCommentBeforeLibraries) {
+	CompilationUnit file;
+
+	file.add(new Comment("blub"));
+
+	file.libraries()->add("ieee")
+		<< "std_logic_1164.all"
+		<< "numeric_std.all";
+
+	EXPECT_PRETTY_PRINTED(file,
+		"-- blub\n"
+		"\n\n"
+		"library ieee;\n"
+		"use ieee.numeric_std.all;\n"
+		"use ieee.std_logic_1164.all;");
+}
+
+TEST(VHDLCompilationUnit, onlyCommentsCanBeAddedBeforeLibraries) {
+	CompilationUnit file;
+
 	file.add(new Architecture(makeArchitecture1()));
 
 	file.libraries()->add("ieee")
