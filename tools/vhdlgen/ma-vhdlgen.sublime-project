@@ -1,10 +1,21 @@
 {
-    "build_systems":
-    [
-        {
-            "name": "Run tests for vhdlgen",
-            "cmd": ["make", "run-test"],
-            "file_regex": "^(?!Expected:|make:)([^:\n ]+):(?|([0-9]+):)?(?|([0-9]+):)?([^\n]*)$|make:"
-        }
-    ]
+	"build_systems":
+	[
+		{
+			"cmd":
+			[
+				"make",
+				"run-test"
+			],
+			"file_regex": "^(?!Expected:|make:)([^:\n ]+):(?|([0-9]+):)?(?|([0-9]+):)?([^\n]*)$|make:",
+			"name": "Run tests for vhdlgen",
+			"working_dir": "$project_path/_build"
+		}
+	],
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	]
 }
