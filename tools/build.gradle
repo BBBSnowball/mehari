@@ -181,8 +181,14 @@ task installGMock {
 	dependsOn installGMockHeaders, installGMockLibs, installGTest
 }
 
+def subproject_names = ["vhdlgen"]
+
 ["compile", "install", "test"].each { name ->
 	task(name) {
 		dependsOn tasks.findAll { task -> task.name.startsWith(name) && task.name != name }
+
+		subproject_names.each { subproject ->
+			dependsOn "$subproject:$name"
+		}
 	}
 }

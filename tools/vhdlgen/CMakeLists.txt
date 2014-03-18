@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
-INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/../tools/_install/include")
-LINK_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/../tools/_install/lib")
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/../_install/include")
+LINK_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib")
 
 # SWIG doesn't generate files that work with -Werror, so we only add
 # these for our targets

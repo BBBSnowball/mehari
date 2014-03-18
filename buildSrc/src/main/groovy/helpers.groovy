@@ -56,7 +56,8 @@ class HelpersPluginConvention {
 	def forAllNormalTestTasks(closure) {
 		// 'normal' means not for a tool
 		project.allprojects {
-			if (name != "tools") {
+			def is_tool_project = path ==~ /^:tools($|:.*)/
+			if (!is_tool_project) {
 				tasks.all { task ->
 					if (task.name.startsWith("test"))
 						closure(task)

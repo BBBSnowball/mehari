@@ -1,5 +1,5 @@
 include "tools", "single-pendulum-vhdl", "llvm", "reconos"
-include "vhdlgen"
+include "tools:vhdlgen"
 
 if (new File(rootDir, "private").isDirectory()) {
 	include "private"
