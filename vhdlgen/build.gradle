@@ -1,19 +1,41 @@
+task prepareCMake(type: Exec) {
+	commandLine "cmake", "."
+
+	inputs.file file("CMakeLists.txt")
+	outputs.file file("Makefile")
+}
+
+task compilePPrint(type: Exec) {
+	commandLine "make", "pprint"
+
+	dependsOn prepareCMake
+
+	inputs.files prepareCMake.outputs
+	inputs.files fileTree(".").include("**/*.h").include("**/pprint_*.cpp")
+	outputs.file "libpprint.so"
+}
+
+task compileVhdlgen(type: Exec) {
+	commandLine "make", "vhdlgen"
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.files fileTree(".").include("**/*.h").include("**/vhdlgen*.cpp")
+	inputs.files compilePPrint.outputs
+	outputs.file file("libvhdlgen.so")
+}
 
 task compileTest(type: Exec) {
+	commandLine "make", "test"
+
 	ext.sourceFiles = fileTree(".").include("**/*.cpp").files
-	ext.cppFlags = ["-g", "-I", gtestIncludeDir, "-Werror", "-Wall"]
-	ext.ldFlags  = ["-L", gtestLibDir]
-	ext.libs     = ["-lgtest", "-lgmock", "-lpthread"]
-	ext.cmdLine = ["g++", "-o", "test"] + cppFlags + ldFlags + sourceFiles + libs
 
-	commandLine cmdLine
+	inputs.files prepareCMake.outputs
+	inputs.files fileTree(".").include("**/*.h").include("**/test*.cpp")
+	outputs.file file("test")
 
-	inputs.property "commandLine", cmdLine
-	inputs.files sourceFiles
-	inputs.files fileTree(".").include("**/*.h")
-	outputs.file "test"
-
-	dependsOn ":tools:installGTest", ":tools:installGMock"
+	dependsOn prepareCMake, ":tools:installGTest", ":tools:installGMock"
 }
 
 task test(type: Exec) {
@@ -22,76 +44,48 @@ task test(type: Exec) {
 	dependsOn compileTest
 }
 
-def makeRelative(x, relativeTo = ".") {
-	if (x instanceof File)
-		return relativePathTo(x, file(relativeTo))
-	else
-		return x
+task compilePPrintPython(type: Exec) {
+	commandLine "make", "_pprint"
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.files compilePPrint.outputs
+	inputs.files fileTree(".").include("**/*.h")
+	inputs.file  file("pprint.i")
+	outputs.file file("pprint.py")
+	outputs.file file("_pprint.so")
 }
 
-def escapeOneForMake(x) {
-	//TODO
-	return x
+task compileVhdlgenPython(type: Exec) {
+	commandLine "make", "_vhdlgen"
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.files compilePPrint.outputs
+	inputs.files compileVhdlgen.outputs
+	inputs.files fileTree(".").include("**/*.h")
+	inputs.file  file("pprint.i")
+	inputs.file  file("vhdlgen.i")
+	outputs.file file("vhdlgen.py")
+	outputs.file file("_vhdlgen.so")
 }
 
-def escapeForMake(args) {
-	if (args != null && args.class.isArray())
-		args = args.toList()
-	if (args instanceof Collection)
-		return args.collect(this.&escapeOneForMake).join(" ")
-	else
-		return escapeOneForMake(args)
+task compile {
+	dependsOn compilePPrint, compileVhdlgen, compilePPrintPython, compileVhdlgenPython, compileTest
 }
 
-task createMakefile {
-	doLast {
-		def headers = fileTree(".").include("**/*.h").files.collect({ makeRelative(it) })
-
-		file("Makefile").withWriter { w ->
-			w.writeLine(".PHONY: all clean")
-			w.writeLine("all: test")
-			w.writeLine("")
-
-			w.writeLine("CPPFLAGS=" + escapeForShell(compileTest.cppFlags))
-			w.writeLine("LDFLAGS=" + escapeForShell(compileTest.ldFlags))
-			def objs = compileTest.inputs.files.files.collect({ makeRelative(it) })*.replaceFirst(/\.[^.]+$/, ".o")
-			w.writeLine("OBJS=" + escapeForMake(objs))
-			w.writeLine("LIBS=" + escapeForShell(compileTest.libs))
-			w.writeLine("")
-
-			w.writeLine("%.o: %.cpp")
-			w.writeLine('\tg++ -c -o $@ $< $(CPPFLAGS)')
-			w.writeLine("")
-
-			w.writeLine('test: $(OBJS)')
-			w.writeLine('\tg++ -o test $(LDFLAGS) $^ $(LIBS)')
-			w.writeLine("")
-
-			w.writeLine("clean:")
-			w.writeLine('\trm -f test *.o *.d *.tap')
-			w.writeLine("")
-
-			w.writeLine("run-test: test")
-			w.writeLine("\t./test")
-			w.writeLine("")
-
-			// see https://www.gnu.org/software/make/manual/html_node/Automatic-Prerequisites.html
-			w.writeLine('%.d: %.cpp')
-			w.writeLine('	@set -e; rm -f $@; \\')
-			w.writeLine('	$(CC) -M $(CPPFLAGS) $< > $@.$$$$; \\')
-			w.writeLine('	sed \'s,\\($*\\)\\.o[ :]*,\\1.o $@ : ,g\' < $@.$$$$ > $@; \\')
-			w.writeLine('	rm -f $@.$$$$')
-			w.writeLine('')
-			w.writeLine('all.d: $(OBJS:.o=.d)')
-			w.writeLine('	cat $^ >$@')
-			w.writeLine('')
-			w.writeLine('ifneq (,$(wildcard all.d))')
-			w.writeLine('include all.d')
-			w.writeLine('else')
-			w.writeLine('$(OBJS): all.d')
-			w.writeLine('endif')
-		}
-	}
-
-	dependsOn ":tools:installGTest", ":tools:installGMock"
+task clean(type: Delete) {
+	delete "pprint.py"
+	delete "vhdlgen.py"
+	delete "cmake_install.cmake"
+	delete "CMakeCache.txt"
+	delete "CMakeFiles"
+	delete "Makefile"
+	delete fileTree(".")
+		.include("*_wrap.cxx")
+		.include("*.so")
+		.include("*.pyc")
+		.include("*.tap")
 }
