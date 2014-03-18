@@ -68,10 +68,22 @@ SWIG_LINK_LIBRARIES(vhdlgen ${PYTHON_LIBRARIES} pprint vhdlgen)
 set_property(TARGET _vhdlgen PROPERTY COMPILE_FLAGS "${cxx_debug}")
 
 
+# We have to install the libraries because it will (sometimes?) prefer this location for some reason.
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libpprint.so
+  COMMAND cp libpprint.so "${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libpprint.so"
+  DEPENDS pprint)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libvhdlgen.so
+  COMMAND cp libvhdlgen.so "${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libvhdlgen.so"
+  DEPENDS vhdlgen)
+
 add_custom_command(
   OUTPUT test.dummy
   COMMAND ./test
   DEPENDS test
+    ${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libpprint.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/../_install/lib/libvhdlgen.so
   COMMENT "Run tests"
   VERBATIM
 )
