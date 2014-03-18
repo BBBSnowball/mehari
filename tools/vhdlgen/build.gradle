@@ -98,10 +98,9 @@ task compile {
 task testPythonModules(type: Exec) {
 	commandLine "python", file("tests/swig/test.py")
 	workingDir prepareCMake.buildDir
-	//TODO path for tappy module
-	environment "PYTHONPATH", file(prepareCMake.buildDir)
+	environment "PYTHONPATH", pythonInstallPath + File.pathSeparator + file(prepareCMake.buildDir)
 
-	dependsOn compilePPrintPython, compileVhdlgenPython
+	dependsOn compilePPrintPython, compileVhdlgenPython, ":tools:installPythonHelpers"
 }
 
 task test {

@@ -8,8 +8,11 @@ try:
 except ImportError:
     tappy_available = False
 
+import os
+print("PYTHONPATH: " + os.environ["PYTHONPATH"])
+
 if __name__ == '__main__':
     if tappy_available:
-        tappy.unittest_main(tapfile="python-ctemplate.tap")
+        tappy.unittest_main(tapfile="python-pprint-and-vhdlgen.tap")
     else:
         unittest.main()

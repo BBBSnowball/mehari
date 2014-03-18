@@ -27,6 +27,6 @@ class PPrintTests(unittest.TestCase):
 
 if __name__ == '__main__':
     if tappy_available:
-        tappy.unittest_main(tapfile="python-ctemplate.tap")
+        tappy.unittest_main(tapfile="python-pprint.tap")
     else:
         unittest.main()
