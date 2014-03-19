@@ -292,13 +292,15 @@ task createGraphImages() {
 	def dot_files = fileTree(OUTPUT_DIR) {
 		include "**/*.dot"
 	}
-	dot_files.each { File file ->
-		def command_create_png = "dot -Tpng $file -o $file"+".png"
-		def command_create_pdf = "dot -Tpdf $file -o $file"+".pdf"
-		def proc1  = command_create_png.execute();
-    	proc1.waitFor();
-		def proc2  = command_create_pdf.execute();
-    	proc2.waitFor();
+
+	doLast {
+		dot_files.each { File file ->
+			["png", "pdf"].each { type ->
+				exec {
+					commandLine "dot", "-T"+type, file, "-o", "${file}.${type}"
+				}
+			}
+		}
 	}
 }
 
