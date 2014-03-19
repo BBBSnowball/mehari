@@ -29,6 +29,8 @@ using boost::shared_ptr;
 %shared_ptr(vhdl::Entity)
 %shared_ptr(vhdl::Architecture)
 %shared_ptr(vhdl::Signal)
+%shared_ptr(vhdl::Constant)
+%shared_ptr(vhdl::Variable)
 %shared_ptr(vhdl::LocalValueDeclaration)
 %shared_ptr(vhdl::Component)
 

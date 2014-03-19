@@ -116,12 +116,14 @@ public:
 class ValueDeclarationWithOptionalDefault : public ValueDeclaration {
 protected:
 	virtual void build(pprint::PrettyPrintBuilder& builder) const;
+	virtual std::string prefix() const =0;
 
 	const Value _value;
-
+public:
+	ValueDeclarationWithOptionalDefault(std::string name, Type type);
+	ValueDeclarationWithOptionalDefault(std::string name, Type type, Value value);
 	ValueDeclarationWithOptionalDefault(std::string name, Direction direction, Type type);
 	ValueDeclarationWithOptionalDefault(std::string name, Direction direction, Type type, Value value);
-public:
 	virtual ~ValueDeclarationWithOptionalDefault();
 
 	bool hasValue() const;
@@ -161,12 +163,32 @@ public:
 
 class Signal : public ValueDeclarationWithOptionalDefault {
 protected:
-	virtual void build(pprint::PrettyPrintBuilder& builder) const;
+	virtual std::string prefix() const;
 public:
 	Signal(std::string name, Type type);
 	Signal(std::string name, Type type, Value value);
 	Signal(std::string name, Direction direction, Type type);
 	Signal(std::string name, Direction direction, Type type, Value value);
+};
+
+class Constant : public ValueDeclarationWithOptionalDefault {
+protected:
+	virtual std::string prefix() const;
+public:
+	Constant(std::string name, Type type);
+	Constant(std::string name, Type type, Value value);
+	Constant(std::string name, Direction direction, Type type);
+	Constant(std::string name, Direction direction, Type type, Value value);
+};
+
+class Variable : public ValueDeclarationWithOptionalDefault {
+protected:
+	virtual std::string prefix() const;
+public:
+	Variable(std::string name, Type type);
+	Variable(std::string name, Type type, Value value);
+	Variable(std::string name, Direction direction, Type type);
+	Variable(std::string name, Direction direction, Type type, Value value);
 };
 
 class LocalValueDeclaration : public LocalDeclaration {

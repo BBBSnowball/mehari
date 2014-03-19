@@ -36,6 +36,7 @@ architecture.addDeclaration(component)
 
 architecture.addDeclaration(v.Comment("Clock"))
 architecture.addDeclaration(v.Signal("aclk", v.Type("std_logic"), v.Value("'0'")))
+architecture.addDeclaration(v.Constant("aclk_period", v.Type("time"), v.Value("10 ns")))
 
 architecture.addDeclaration(v.Comment("Inputs"))
 architecture.addDeclaration(v.Signal("input_a_tdata",  v.Type("double"),    v.Value("(others => '0')")))

@@ -172,6 +172,10 @@ TEST(VHDLValueDeclaration, pprint) {
 
 
 class MyValueDeclarationWithOptionalDefault : public ValueDeclarationWithOptionalDefault {
+protected:
+	virtual std::string prefix() const {
+		return "my";
+	}
 public:
 	MyValueDeclarationWithOptionalDefault(std::string name, Direction direction, Type type)
 		: ValueDeclarationWithOptionalDefault(name, direction, type) { }
@@ -201,8 +205,8 @@ TEST(VHDLValueDeclarationWithOptionalDefault, pprint) {
 		vdecl1("blub", Direction::In, Type("std_logic_vector(42 downto 17)")),
 		vdecl2("blub", Direction::In, Type("std_logic_vector(42 downto 17)"), Value("(others => '0')"));
 
-	EXPECT_PRETTY_PRINTED(vdecl1, "blub : in std_logic_vector(42 downto 17)");
-	EXPECT_PRETTY_PRINTED(vdecl2, "blub : in std_logic_vector(42 downto 17) := (others => '0')");
+	EXPECT_PRETTY_PRINTED(vdecl1, "my blub : in std_logic_vector(42 downto 17)");
+	EXPECT_PRETTY_PRINTED(vdecl2, "my blub : in std_logic_vector(42 downto 17) := (others => '0')");
 }
 
 
@@ -302,6 +306,58 @@ TEST(VHDLSignal, pprint) {
 
 	EXPECT_PRETTY_PRINTED(Signal("x", Type("int"), Value("(others => '1')")),
 		"signal x : int := (others => '1')");
+}
+
+
+Constant makeConstant1() {
+	return Constant("abc", Direction::Default, Type("double"));
+}
+
+Constant makeConstant2() {
+	return Constant("abc", Direction::Default, Type("double"), Value("(others => '0')"));
+}
+
+TEST(VHDLConstant, pprint) {
+	EXPECT_PRETTY_PRINTED(makeConstant1(),
+		"constant abc : double");
+
+	EXPECT_PRETTY_PRINTED(makeConstant2(),
+		"constant abc : double := (others => '0')");
+
+	EXPECT_PRETTY_PRINTED(Constant("x", Direction::In, Type("int")),
+		"constant x : in int");
+
+	EXPECT_PRETTY_PRINTED(Constant("x", Type("int")),
+		"constant x : int");
+
+	EXPECT_PRETTY_PRINTED(Constant("x", Type("int"), Value("(others => '1')")),
+		"constant x : int := (others => '1')");
+}
+
+
+Variable makeVariable1() {
+	return Variable("abc", Direction::Default, Type("double"));
+}
+
+Variable makeVariable2() {
+	return Variable("abc", Direction::Default, Type("double"), Value("(others => '0')"));
+}
+
+TEST(VHDLVariable, pprint) {
+	EXPECT_PRETTY_PRINTED(makeVariable1(),
+		"variable abc : double");
+
+	EXPECT_PRETTY_PRINTED(makeVariable2(),
+		"variable abc : double := (others => '0')");
+
+	EXPECT_PRETTY_PRINTED(Variable("x", Direction::In, Type("int")),
+		"variable x : in int");
+
+	EXPECT_PRETTY_PRINTED(Variable("x", Type("int")),
+		"variable x : int");
+
+	EXPECT_PRETTY_PRINTED(Variable("x", Type("int"), Value("(others => '1')")),
+		"variable x : int := (others => '1')");
 }
 
 

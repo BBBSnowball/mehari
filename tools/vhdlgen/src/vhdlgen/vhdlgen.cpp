@@ -137,6 +137,15 @@ const Direction&   ValueDeclaration::direction() const { return _direction; }
 const Type&        ValueDeclaration::type()      const { return _type;      }
 
 
+
+ValueDeclarationWithOptionalDefault::ValueDeclarationWithOptionalDefault(
+	std::string name, Type type)
+	: ValueDeclaration(name, Direction::Default, type), _value("") { }
+
+ValueDeclarationWithOptionalDefault::ValueDeclarationWithOptionalDefault(
+	std::string name, Type type, Value value)
+	: ValueDeclaration(name, Direction::Default, type), _value(value) { }
+
 ValueDeclarationWithOptionalDefault::ValueDeclarationWithOptionalDefault(
 	std::string name, Direction direction, Type type)
 	: ValueDeclaration(name, direction, type), _value("") { }
@@ -152,6 +161,11 @@ const Value& ValueDeclarationWithOptionalDefault::value()     const { return _va
 
 void ValueDeclarationWithOptionalDefault::build(pprint::PrettyPrintBuilder& builder) const {
 	builder.columns().seperateBy(" ");
+
+	std::string prefix = this->prefix();
+	if (!prefix.empty())
+		builder.add(prefix);
+
 	ValueDeclaration::build(builder);
 
 	if (hasValue())
@@ -222,20 +236,39 @@ const pprint::PrettyPrinted_p Port::prettyPrint() const {
 
 
 Signal::Signal(std::string name, Type type)
-	: ValueDeclarationWithOptionalDefault(name, Direction::Default, type) { }
+	: ValueDeclarationWithOptionalDefault(name, type) { }
 Signal::Signal(std::string name, Type type, Value value)
-	: ValueDeclarationWithOptionalDefault(name, Direction::Default, type, value) { }
+	: ValueDeclarationWithOptionalDefault(name, type, value) { }
 Signal::Signal(std::string name, Direction direction, Type type)
 	: ValueDeclarationWithOptionalDefault(name, direction, type) { }
 Signal::Signal(std::string name, Direction direction, Type type, Value value)
 	: ValueDeclarationWithOptionalDefault(name, direction, type, value) { }
 
-void Signal::build(pprint::PrettyPrintBuilder& builder) const {
-	builder.columns()
-		.seperateBy(" ")
-		.add("signal");
-	ValueDeclarationWithOptionalDefault::build(builder);
-}
+std::string Signal::prefix() const { return "signal"; }
+
+
+Constant::Constant(std::string name, Type type)
+	: ValueDeclarationWithOptionalDefault(name, type) { }
+Constant::Constant(std::string name, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, type, value) { }
+Constant::Constant(std::string name, Direction direction, Type type)
+	: ValueDeclarationWithOptionalDefault(name, direction, type) { }
+Constant::Constant(std::string name, Direction direction, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, direction, type, value) { }
+
+std::string Constant::prefix() const { return "constant"; }
+
+
+Variable::Variable(std::string name, Type type)
+	: ValueDeclarationWithOptionalDefault(name, type) { }
+Variable::Variable(std::string name, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, type, value) { }
+Variable::Variable(std::string name, Direction direction, Type type)
+	: ValueDeclarationWithOptionalDefault(name, direction, type) { }
+Variable::Variable(std::string name, Direction direction, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, direction, type, value) { }
+
+std::string Variable::prefix() const { return "variable"; }
 
 
 LocalValueDeclaration::LocalValueDeclaration(boost::shared_ptr<ValueDeclaration> inner)
