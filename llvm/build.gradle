@@ -309,3 +309,8 @@ task createResults() {
 	dependsOn createGraphImages
 }
 
+
+task test() {
+	dependsOn runOptimizationPasses
+	dependsOn createResults
+}
