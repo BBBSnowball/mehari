@@ -38,12 +38,16 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
+#ifndef SWIG
 enum _Direction {
 	Direction_Default = 0,
 	Direction_In,
 	Direction_Out,
 	Direction_InOut
 };
+#else
+typedef int _Direction;
+#endif
 
 class Direction : public pprint::PrettyPrintable {
 	_Direction _direction;
@@ -51,12 +55,10 @@ class Direction : public pprint::PrettyPrintable {
 
 	Direction(_Direction _direction, std::string text);
 public:
-#ifndef SWIG
-	const static Direction Default;
-	const static Direction In;
-	const static Direction Out;
-	const static Direction InOut;
-#endif
+	static const Direction Default;
+	static const Direction In;
+	static const Direction Out;
+	static const Direction InOut;
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 
@@ -92,7 +94,7 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class ValueDeclaration : public PrettyPrintableV {
+class ValueDeclaration : public virtual PrettyPrintableV {
 protected:
 	virtual void build(pprint::PrettyPrintBuilder& builder) const;
 
@@ -157,6 +159,24 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
+class Signal : public ValueDeclarationWithOptionalDefault {
+protected:
+	virtual void build(pprint::PrettyPrintBuilder& builder) const;
+public:
+	Signal(std::string name, Type type);
+	Signal(std::string name, Type type, Value value);
+	Signal(std::string name, Direction direction, Type type);
+	Signal(std::string name, Direction direction, Type type, Value value);
+};
+
+class LocalValueDeclaration : public LocalDeclaration {
+	boost::shared_ptr<ValueDeclaration> _inner;
+public:
+	LocalValueDeclaration(boost::shared_ptr<ValueDeclaration> inner);
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
 class Entity : public ToplevelDeclaration {
 	std::string _name;
 	Port _port;
@@ -169,9 +189,22 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
+class Component : public LocalDeclaration {
+	std::string _name;
+	Port _port;
+public:
+	Component(const std::string& name);
+
+	const std::string& name() const;
+	Port& port();
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
 class Architecture : public ToplevelDeclaration {
 	std::string _name, _entityName;
 	shared_ptr<Entity> _entity;
+	std::vector<boost::shared_ptr<LocalDeclaration> > _declarations;
 public:
 	Architecture(const std::string& name, const std::string& entityName);
 	Architecture(const std::string& name, shared_ptr<Entity> entity);
@@ -179,6 +212,10 @@ public:
 	const std::string& name() const;
 	const std::string& entityName() const;
 	shared_ptr<Entity> entity();
+	const std::vector<boost::shared_ptr<LocalDeclaration> >& declarations() const;
+
+	Architecture& addDeclaration(const boost::shared_ptr<ValueDeclaration>& declaration);
+	Architecture& addDeclaration(const boost::shared_ptr<LocalDeclaration>& declaration);
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
@@ -197,6 +234,11 @@ public:
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
+
+template<typename T>
+inline boost::shared_ptr<T> ptr(const T& item) {
+	return boost::shared_ptr<T>(new T(item));
+}
 
 }
 

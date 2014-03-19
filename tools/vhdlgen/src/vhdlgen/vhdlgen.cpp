@@ -221,6 +221,40 @@ const pprint::PrettyPrinted_p Port::prettyPrint() const {
 }
 
 
+Signal::Signal(std::string name, Type type)
+	: ValueDeclarationWithOptionalDefault(name, Direction::Default, type) { }
+Signal::Signal(std::string name, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, Direction::Default, type, value) { }
+Signal::Signal(std::string name, Direction direction, Type type)
+	: ValueDeclarationWithOptionalDefault(name, direction, type) { }
+Signal::Signal(std::string name, Direction direction, Type type, Value value)
+	: ValueDeclarationWithOptionalDefault(name, direction, type, value) { }
+
+void Signal::build(pprint::PrettyPrintBuilder& builder) const {
+	builder.columns()
+		.seperateBy(" ")
+		.add("signal");
+	ValueDeclarationWithOptionalDefault::build(builder);
+}
+
+
+LocalValueDeclaration::LocalValueDeclaration(boost::shared_ptr<ValueDeclaration> inner)
+		: _inner(inner) {
+	assert(inner);
+}
+
+const pprint::PrettyPrinted_p LocalValueDeclaration::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.columns()
+		.add(_inner)
+		.add(";")
+		.up();
+
+	return builder.build();
+}
+
+
 Comment::Comment(pprint::PrettyPrinted_p content) : _content(content) { }
 
 Comment::Comment(pprint::PrettyPrintable_p content)
@@ -265,6 +299,38 @@ const pprint::PrettyPrinted_p Entity::prettyPrint() const {
 	return builder.build();
 }
 
+
+Component::Component(const std::string& name) : _name(name) { }
+
+const std::string& Component::name() const { return _name; }
+Port& Component::port() { return _port; }
+
+const pprint::PrettyPrinted_p Component::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.append()
+		.columns()
+			.seperateBy(" ")
+			.add("component")
+			.add(name())
+			.up();
+
+	if (!_port.pins().empty())
+		builder.indent()
+			.add(_port)
+			.up();
+
+	builder.columns()
+			.add("end ")
+			.add("component")
+			.add(";")
+			.up()
+		.up();
+
+	return builder.build();
+}
+
+
 Architecture::Architecture(const std::string& name, const std::string& entityName)
 	: _name(name), _entityName(entityName) { }
 
@@ -281,6 +347,19 @@ const std::string& Architecture::entityName() const {
 		return _entityName;
 }
 
+const std::vector<boost::shared_ptr<LocalDeclaration> >& Architecture::declarations() const {
+	return _declarations;
+}
+
+Architecture& Architecture::addDeclaration(const boost::shared_ptr<ValueDeclaration>& declaration) {
+	return addDeclaration(ptr<LocalValueDeclaration>(declaration));
+}
+
+Architecture& Architecture::addDeclaration(const boost::shared_ptr<LocalDeclaration>& declaration) {
+	_declarations.push_back(declaration);
+	return *this;
+}
+
 const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
 	pprint::PrettyPrintBuilder builder;
 
@@ -294,7 +373,11 @@ const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
 			.add("is")
 			.up();
 
-	//TODO add declarations
+	builder.indent()
+		.append()
+			.add(_declarations.begin(), _declarations.end())
+			.up()
+		.up();
 
 	builder.add("begin");
 

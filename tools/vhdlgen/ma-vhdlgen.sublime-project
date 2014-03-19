@@ -10,6 +10,18 @@
 			"file_regex": "^(?!Expected:|make:)([^:\n ]+):(?|([0-9]+):)?(?|([0-9]+):)?([^\n]*)$|make:",
 			"name": "Run tests for vhdlgen",
 			"working_dir": "$project_path/_build"
+		},
+		{
+			"cmd":
+			[
+				"python",
+				"blub.py"
+			],
+			"name": "Generate test_binary_real_function.vhd.tpl2",
+			"env": {
+				"PYTHONPATH": "_build"
+			},
+			"working_dir": "$project_path"
 		}
 	],
 	"folders":

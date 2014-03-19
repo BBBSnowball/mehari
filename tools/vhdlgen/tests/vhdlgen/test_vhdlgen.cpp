@@ -279,6 +279,57 @@ TEST(VHDLEntity, pprint) {
 }
 
 
+Signal makeSignal1() {
+	return Signal("abc", Direction::Default, Type("double"));
+}
+
+Signal makeSignal2() {
+	return Signal("abc", Direction::Default, Type("double"), Value("(others => '0')"));
+}
+
+TEST(VHDLSignal, pprint) {
+	EXPECT_PRETTY_PRINTED(makeSignal1(),
+		"signal abc : double");
+
+	EXPECT_PRETTY_PRINTED(makeSignal2(),
+		"signal abc : double := (others => '0')");
+
+	EXPECT_PRETTY_PRINTED(Signal("x", Direction::In, Type("int")),
+		"signal x : in int");
+
+	EXPECT_PRETTY_PRINTED(Signal("x", Type("int")),
+		"signal x : int");
+
+	EXPECT_PRETTY_PRINTED(Signal("x", Type("int"), Value("(others => '1')")),
+		"signal x : int := (others => '1')");
+}
+
+
+Component makeComponent() {
+	Component component("blub");
+	component.port() = makePort();
+	return component;
+}
+
+TEST(VHDLComponent, getters) {
+	Component component(makeComponent());
+
+	EXPECT_EQ("blub", component.name());
+}
+
+TEST(VHDLComponent, pprint) {
+	Component emptyComponent("empty");
+	Component component(makeComponent());
+
+	EXPECT_PRETTY_PRINTED(emptyComponent,
+		"component empty\nend component;");
+	EXPECT_PRETTY_PRINTED(component,
+		"component blub\n"
+		"    port(\n        foo : out std_logic;\n        blub : in std_logic\n    );\n"
+		"end component;");
+}
+
+
 Architecture makeArchitecture1() {
 	return Architecture("behavior", "bla");
 }
@@ -301,6 +352,16 @@ TEST(VHDLArchitecture, getters) {
 	EXPECT_EQ("blub", architecture2.entity()->name());
 }
 
+TEST(VHDLArchitecture, declarations) {
+	Architecture architecture1(makeArchitecture1());
+
+	boost::shared_ptr<Comment> comment = ptr(Comment("abc"));
+	architecture1.addDeclaration(comment);
+
+	ASSERT_EQ(1u, architecture1.declarations().size());
+	EXPECT_EQ(comment, architecture1.declarations().at(0));
+}
+
 TEST(VHDLArchitecture, pprint) {
 	Architecture architecture1(makeArchitecture1());
 	Architecture architecture2(makeArchitecture2());
@@ -309,6 +370,19 @@ TEST(VHDLArchitecture, pprint) {
 		"architecture behavior of bla is\nbegin\nend behavior;");
 	EXPECT_PRETTY_PRINTED(architecture2,
 		"architecture structural of blub is\nbegin\nend structural;");
+}
+
+TEST(VHDLArchitecture, testWithSignals) {
+	Architecture architecture(makeArchitecture2());
+
+	architecture.addDeclaration(ptr(makeSignal1()));
+	architecture.addDeclaration(ptr(makeSignal2()));
+
+	EXPECT_PRETTY_PRINTED(architecture,
+		"architecture structural of blub is\n"
+		"    signal abc : double;\n"
+		"    signal abc : double := (others => '0');\n"
+		"begin\nend structural;");
 }
 
 
