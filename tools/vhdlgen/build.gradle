@@ -120,7 +120,7 @@ task install(type: Copy) {
 	from(prepareCMake.buildDir) {
 		include "pprint.py", "vhdlgen.py", "_*.so"
 	}
-	into "../_install"
+	into "_install"
 
 	dependsOn compile
 }
