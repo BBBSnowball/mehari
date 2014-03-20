@@ -1,5 +1,7 @@
-#include <cctype>
 #include "vhdlgen.h"
+
+#include <cctype>
+#include <boost/foreach.hpp>
 
 namespace vhdl {
 
@@ -364,6 +366,80 @@ const pprint::PrettyPrinted_p Component::prettyPrint() const {
 }
 
 
+Instance::Instance(const std::string& label, boost::shared_ptr<Component> component)
+	: _label(label), _component(component) { }
+
+boost::shared_ptr<Signal> Instance::createDummySignal(const std::string& signal_name) const {
+	return boost::shared_ptr<Signal>(new Signal(signal_name, Type("-unknown-")));
+}
+
+Instance& Instance::mapPin(const Pin& pin, boost::shared_ptr<Signal> signal) {
+	assert(_component->port().contains(pin.name()));
+	//assert(_component->port()[pin.name()] == pin);
+
+	return mapPin(pin.name(), signal);
+}
+
+Instance& Instance::mapPin(const Pin& pin, std::string signal) {
+	return mapPin(pin, createDummySignal(signal));
+}
+
+Instance& Instance::mapPin(const std::string& pin, boost::shared_ptr<Signal> signal) {
+	assert(_component->port().contains(pin));
+	assert(signal);
+
+	bool alreadyMapped = _portMap.find(pin) != _portMap.end();
+	assert(!alreadyMapped);
+	if (!alreadyMapped) {
+		_portMapOrder.push_back(pair(pin, signal->name()));
+		_portMap.insert(pair(pin, signal->name()));
+		_portMapWithSignals.insert(pair(pin, signal));
+	}
+
+	return *this;
+}
+
+Instance& Instance::mapPin(const std::string& pin, const std::string& signal) {
+	return mapPin(pin, createDummySignal(signal));
+}
+
+typedef std::pair<std::string, std::string> string_pair_t;
+
+const pprint::PrettyPrinted_p Instance::prettyPrint() const {
+	pprint::PrettyPrintBuilder builder;
+
+	builder.append()
+		.columns()
+			.seperateBy(" ")
+			.add(_label)
+			.add(":")
+			.add(_component->name())
+			.add("port map (")
+			.up();
+
+	builder
+		.indent()
+			.appendOverlapping()
+			.seperateBy(",\n");
+
+	BOOST_FOREACH( const string_pair_t& x, _portMapOrder ) {
+		builder.columns()
+			.seperateBy(" ")
+			.add(x.first)
+			.add("=>")
+			.add(x.second)
+			.up();
+	}
+
+	builder.up().up();
+
+	builder.add(");");
+	builder.up();
+
+	return builder.build();
+}
+
+
 Architecture::Architecture(const std::string& name, const std::string& entityName)
 	: _name(name), _entityName(entityName) { }
 
@@ -393,6 +469,11 @@ Architecture& Architecture::addDeclaration(const boost::shared_ptr<LocalDeclarat
 	return *this;
 }
 
+Architecture& Architecture::addStatement(const boost::shared_ptr<Statement>& declaration) {
+	_statements.push_back(declaration);
+	return *this;
+}
+
 const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
 	pprint::PrettyPrintBuilder builder;
 
@@ -414,7 +495,11 @@ const pprint::PrettyPrinted_p Architecture::prettyPrint() const {
 
 	builder.add("begin");
 
-	//TODO add body
+	builder.indent()
+		.append()
+			.add(_statements.begin(), _statements.end())
+			.up()
+		.up();
 
 	builder.columns()
 			.add("end ")

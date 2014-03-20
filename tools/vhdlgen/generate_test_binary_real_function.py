@@ -51,6 +51,21 @@ architecture.addDeclaration(v.Signal("input_b_tready", v.Type("std_logic")))
 architecture.addDeclaration(v.Signal("result_tdata",   v.Type("double")))
 architecture.addDeclaration(v.Signal("result_tvalid",  v.Type("std_logic")))
 
+architecture.addStatement(v.Comment("Instantiate the Unit Under Test (UUT)"))
+uut = v.Instance("uut", component)
+(uut
+	.mapPin("aclk", "aclk")
+    .mapPin("{{input_a_name}}_tdata",  "input_a_tdata")
+    .mapPin("{{input_a_name}}_tvalid", "input_a_tvalid")
+    .mapPin("{{input_a_name}}_tready", "input_a_tready")
+    .mapPin("{{input_b_name}}_tdata",  "input_b_tdata")
+    .mapPin("{{input_b_name}}_tvalid", "input_b_tvalid")
+    .mapPin("{{input_b_name}}_tready", "input_b_tready")
+    .mapPin("{{result_name}}_tdata",   "result_tdata")
+    .mapPin("{{result_name}}_tvalid",  "result_tvalid")
+    .mapPin("{{result_name}}_tready",  "result_tready"))
+architecture.addStatement(uut)
+
 with open("test_binary_real_function.vhd.tpl2", "w") as f:
 	f.write(str(file.prettyPrint()))
 

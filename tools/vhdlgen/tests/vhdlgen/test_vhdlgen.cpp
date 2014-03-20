@@ -394,6 +394,29 @@ TEST(VHDLComponent, pprint) {
 }
 
 
+Instance makeInstance() {
+	Instance instance("inst", ptr(makeComponent()));
+
+	instance.mapPin("foo", "foo_signal");
+	instance.mapPin("blub", ptr(Signal("blub_signal", Type("std_logic"))));
+
+	return instance;
+}
+
+TEST(VHDLInstance, pprint) {
+	Instance emptyInstance("empty", ptr(makeComponent()));
+	Instance instance(makeInstance());
+
+	EXPECT_PRETTY_PRINTED(emptyInstance,
+		"empty : blub port map (\n);");
+	EXPECT_PRETTY_PRINTED(instance,
+		"inst : blub port map (\n"
+		"    foo => foo_signal,\n"
+		"    blub => blub_signal\n"
+		");");
+}
+
+
 Architecture makeArchitecture1() {
 	return Architecture("behavior", "bla");
 }
@@ -447,6 +470,30 @@ TEST(VHDLArchitecture, testWithSignals) {
 		"    signal abc : double;\n"
 		"    signal abc : double := (others => '0');\n"
 		"begin\nend structural;");
+}
+
+class DummyStatement : public Statement {
+	std::string text;
+public:
+	DummyStatement(const std::string& text) : text(text) { }
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const {
+		return pprint::Text::create(text);
+	}
+};
+
+TEST(VHDLArchitecture, testWithStatements) {
+	Architecture architecture(makeArchitecture2());
+
+	architecture.addStatement(ptr(DummyStatement("dummy <= 42;")));
+	architecture.addStatement(ptr(DummyStatement("report \"blub\";")));
+
+	EXPECT_PRETTY_PRINTED(architecture,
+		"architecture structural of blub is\n"
+		"begin\n"
+		"    dummy <= 42;\n"
+		"    report \"blub\";\n"
+		"end structural;");
 }
 
 

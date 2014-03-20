@@ -33,6 +33,8 @@ using boost::shared_ptr;
 %shared_ptr(vhdl::Variable)
 %shared_ptr(vhdl::LocalValueDeclaration)
 %shared_ptr(vhdl::Component)
+%shared_ptr(vhdl::Statement)
+%shared_ptr(vhdl::Instance)
 
 %shared_ptr(std::map< std::string,vhdl::UsedLibrary >)
 

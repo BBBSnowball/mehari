@@ -151,7 +151,9 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
-class Comment : public ToplevelDeclaration, public LocalDeclaration {
+class Statement : public virtual PrettyPrintableV { };
+
+class Comment : public ToplevelDeclaration, public LocalDeclaration, public Statement {
 	pprint::PrettyPrinted_p _content;
 	std::string _prefix;
 public:
@@ -224,10 +226,30 @@ public:
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
 
+class Instance : public Statement {
+	std::string _label;
+	boost::shared_ptr<Component> _component;
+	std::vector< std::pair<std::string, std::string> > _portMapOrder;
+	std::map<std::string, std::string> _portMap;
+	std::map<std::string, boost::shared_ptr<Signal> > _portMapWithSignals;
+
+	boost::shared_ptr<Signal> createDummySignal(const std::string& signal_name) const;
+public:
+	Instance(const std::string& label, boost::shared_ptr<Component> component);
+
+	Instance& mapPin(const Pin& pin, boost::shared_ptr<Signal> signal);
+	Instance& mapPin(const Pin& pin, std::string signal);
+	Instance& mapPin(const std::string& pin, boost::shared_ptr<Signal> signal);
+	Instance& mapPin(const std::string& pin, const std::string& signal);
+
+	virtual const pprint::PrettyPrinted_p prettyPrint() const;
+};
+
 class Architecture : public ToplevelDeclaration {
 	std::string _name, _entityName;
 	shared_ptr<Entity> _entity;
 	std::vector<boost::shared_ptr<LocalDeclaration> > _declarations;
+	std::vector<boost::shared_ptr<Statement> > _statements;
 public:
 	Architecture(const std::string& name, const std::string& entityName);
 	Architecture(const std::string& name, shared_ptr<Entity> entity);
@@ -239,6 +261,8 @@ public:
 
 	Architecture& addDeclaration(const boost::shared_ptr<ValueDeclaration>& declaration);
 	Architecture& addDeclaration(const boost::shared_ptr<LocalDeclaration>& declaration);
+
+	Architecture& addStatement(const boost::shared_ptr<Statement>& declaration);
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };
