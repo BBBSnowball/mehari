@@ -288,16 +288,16 @@ const pprint::PrettyPrinted_p LocalValueDeclaration::prettyPrint() const {
 }
 
 
-Comment::Comment(pprint::PrettyPrinted_p content) : _content(content) { }
+Comment::Comment(pprint::PrettyPrinted_p content, const std::string& prefix) : _content(content), _prefix(prefix) { }
 
-Comment::Comment(pprint::PrettyPrintable_p content)
-	: _content(content->prettyPrint()) { }
+Comment::Comment(pprint::PrettyPrintable_p content, const std::string& prefix)
+	: _content(content->prettyPrint()), _prefix(prefix) { }
 
-Comment::Comment(const std::string& text)
-	: _content(pprint::Text::create(text)) { }
+Comment::Comment(const std::string& text, const std::string& prefix)
+	: _content(pprint::Text::create(text)), _prefix(prefix) { }
 
 const pprint::PrettyPrinted_p Comment::prettyPrint() const {
-	return pprint::PrettyPrinted_p(new pprint::Indent("-- ", _content));
+	return pprint::PrettyPrinted_p(new pprint::Indent("--" + _prefix, _content));
 }
 
 

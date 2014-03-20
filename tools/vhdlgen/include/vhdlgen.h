@@ -153,10 +153,11 @@ public:
 
 class Comment : public ToplevelDeclaration, public LocalDeclaration {
 	pprint::PrettyPrinted_p _content;
+	std::string _prefix;
 public:
-	Comment(pprint::PrettyPrintable_p content);
-	Comment(pprint::PrettyPrinted_p content);
-	Comment(const std::string& text);
+	Comment(pprint::PrettyPrintable_p content, const std::string& prefix = " ");
+	Comment(pprint::PrettyPrinted_p content, const std::string& prefix = " ");
+	Comment(const std::string& text, const std::string& prefix = " ");
 
 	virtual const pprint::PrettyPrinted_p prettyPrint() const;
 };

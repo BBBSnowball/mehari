@@ -257,6 +257,14 @@ TEST(VHDLComment, pprint) {
 	EXPECT_PRETTY_PRINTED(comment, "-- abc\n-- \n-- def");
 }
 
+TEST(VHDLComment, prefix) {
+	Comment comment1("abc\n\ndef", "");
+	Comment comment2("abc\n\ndef", "---");
+
+	EXPECT_PRETTY_PRINTED(comment1, "--abc\n--\n--def");
+	EXPECT_PRETTY_PRINTED(comment2, "-----abc\n-----\n-----def");
+}
+
 
 Entity makeEntity() {
 	Entity entity("blub");
