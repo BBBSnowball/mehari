@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 
+# Set flags
+set(CMAKE_C_FLAGS "-Wall -Werror")
+
 # The target LLVM installation
 set(LLVM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../_install/llvm" CACHE PATH "Root of LLVM install.")
 

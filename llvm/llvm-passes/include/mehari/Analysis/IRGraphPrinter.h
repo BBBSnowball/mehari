@@ -1,3 +1,6 @@
+#ifndef IR_GRAPH_PRINTER_H
+#define IR_GRAPH_PRINTER_H
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 
@@ -14,7 +17,7 @@ public:
   virtual bool runOnFunction(Function &func);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-  void printDataflowGraph(std::string filename, Function &func);
-  void printControlflowGraph(std::string filename, Function &func);
-
+  void printDataflowGraph(std::string &filename, Function &func);
 };
+
+#endif /*IR_GRAPH_PRINTER_H*/

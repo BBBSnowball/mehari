@@ -1,3 +1,7 @@
+#ifndef INSTRUCTION_DEPENDENCY_ANALYSIS_H_
+#define INSTRUCTION_DEPENDENCY_ANALYSIS_H_
+
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 
@@ -30,3 +34,5 @@ public:
 private:
 	MemoryDependenceAnalysis *MDA;
 };
+
+#endif /*INSTRUCTION_DEPENDENCY_ANALYSIS_H_*/

@@ -1,3 +1,6 @@
+#ifndef SPEEDUP_ANALYSIS_H_
+#define SPEEDUP_ANALYSIS_H_
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 
@@ -19,17 +22,22 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 private:
+  std::vector<std::string> targetFunctions;
+  void parseTargetFunctions();
+  
 	unsigned int getInstructionCost(Instruction *instruction);
 	void buildDependencyGraph(InstructionDependencyList &dependencies);
-	void printGraphviz();
+	void printGraphviz(std::string &name);
 
 	typedef boost::property<boost::edge_weight_t, int> EdgeWeightProperty;
-  	typedef boost::adjacency_list<boost::listS, boost::vecS, boost::bidirectionalS, boost::no_property, EdgeWeightProperty > Graph;
-  	//NOTE graph is just a simple directed graph, but it is declared bidirectional because the function in_edges requires this
+	typedef boost::adjacency_list<boost::listS, boost::vecS, boost::bidirectionalS, boost::no_property, EdgeWeightProperty > Graph;
+	//NOTE graph is just a simple directed graph, but it is declared bidirectional because the function in_edges requires this
 
-  	// the graph representing the dependencies between the instructions
-  	Graph depGraph;
+	// the graph representing the dependencies between the instructions
+	Graph depGraph;
 
-  	// a list containing all instructions of the function
-  	std::vector<Instruction*> worklist;
+	// a list containing all instructions of the function
+	std::vector<Instruction*> worklist;
 };
+
+#endif /*SPEEDUP_ANALYSIS_H_*/

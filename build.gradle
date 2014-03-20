@@ -140,7 +140,7 @@ task prepareTest {
 task test {
 	dependsOn "single-pendulum-vhdl:test"
 	dependsOn "reconos:test"
-	dependsOn "llvm:runOptimizationPasses"
+	dependsOn "llvm:test"
 	if (havePrivateProject)
 		dependsOn "private:test"
 
