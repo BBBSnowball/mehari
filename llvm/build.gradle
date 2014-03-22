@@ -1,5 +1,12 @@
 ext {
+
+	BUILD_DIR = file("$projectDir/_build")
+	INSTALL_DIR = file("$projectDir/_install")
+
 	LLVM_PASSES = file("$projectDir/llvm-passes")
+	LLVM_PASSES_LIB = file("$INSTALL_DIR/llvm-passes/lib/MehariLLVMPasses.so")
+	LLVM_SOURCE = file("$projectDir/_llvm")
+	LLVM_BIN = file("$INSTALL_DIR/llvm/bin")
 	DEFAULT_LLVM_VERSION = "3.4"
 
 	IPANEMA = file("$projectDir/../private/ipanema")
@@ -8,11 +15,6 @@ ext {
 
 	EXAMPLE_FILE = file("$projectDir/examples/single_pendulum.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
-
-	LLVM_SOURCE = file("$projectDir/_llvm")
-
-	BUILD_DIR = file("$projectDir/_build")
-	INSTALL_DIR = file("$projectDir/_install")
 
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
@@ -118,6 +120,7 @@ task prepareBuildLLVMPasses(type: Exec) {
 	dependsOn installLLVM
 	
 	def build_dir = file("$BUILD_DIR/llvm-passes")
+	def install_dir = file("$INSTALL_DIR/llvm-passes")
 
 	inputs.files fileTree(LLVM_PASSES) {
 		include "**/*.cpp", "**/*.h", "CMakeLists.txt"
@@ -131,7 +134,7 @@ task prepareBuildLLVMPasses(type: Exec) {
 	}
 
 	workingDir build_dir
-	commandLine "bash", "-c", "cmake -DCMAKE_BUILD_TYPE=$build_mode $LLVM_PASSES"
+	commandLine "bash", "-c", "cmake -DCMAKE_BUILD_TYPE=$build_mode -DCMAKE_INSTALL_PREFIX=$install_dir $LLVM_PASSES"
 }
 
 task buildLLVMPasses(type: Exec) {
@@ -153,8 +156,25 @@ task buildLLVMPasses(type: Exec) {
 }
 
 
-task compile {
+task installLLVMPasses(type: Exec) {
 	dependsOn buildLLVMPasses
+
+	def build_dir = file("$BUILD_DIR/llvm-passes")
+	def install_dir = file("$INSTALL_DIR/llvm-passes")
+
+	inputs.dir build_dir
+	outputs.dir install_dir
+
+	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
+
+	workingDir build_dir
+	commandLine "bash", "-c", "gmake -j$parallel_processes install"
+
+}
+
+
+task compile {
+	dependsOn installLLVMPasses
 }
 
 
@@ -183,101 +203,80 @@ task createIR(type: Exec) {
 	inputs.file tmp_source_file
 	outputs.file irfile
 
-	def clang = file("$INSTALL_DIR/llvm/bin/clang")
-
-	commandLine "bash", "-c", "$clang $CFLAGS_FOR_EXAMPLE -S -emit-llvm -I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM $tmp_source_file -o $irfile"
+	commandLine "bash", "-c", "$LLVM_BIN/clang $CFLAGS_FOR_EXAMPLE -S -emit-llvm -I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM $tmp_source_file -o $irfile"
 }
 
 
 task prepareInlining(type: Exec) {
-	dependsOn buildLLVMPasses, createIR
-
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
-	def transform_lib = file("$BUILD_DIR/llvm-passes/lib/Transforms/MehariTransforms.so")
+	dependsOn installLLVMPasses, createIR
 
 	// TODO better solution for this
 	def sourcefile = file("$OUTPUT_DIR/example.ll")
 	def targetfile = file("$OUTPUT_DIR/example-prepare-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -add-attr-always-inline -inline-functions \"evalParameterCouplings\" -S $sourcefile > $targetfile"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -add-attr-always-inline -inline-functions \"evalParameterCouplings\" -S $sourcefile > $targetfile"
 }
 
 task applyInlining(type: Exec) {
 	dependsOn prepareInlining
 
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-
 	// TODO better solution for this
 	def sourcefile = file("$OUTPUT_DIR/example-prepare-inline.ll")
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -always-inline -S $sourcefile > $targetfile"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -always-inline -S $sourcefile > $targetfile"
 }
 
 
 task speedUpAnalysis(type: Exec) {
-	dependsOn buildLLVMPasses, createIR, applyInlining
+	dependsOn installLLVMPasses, createIR, applyInlining
 
 	doFirst {
 		OUTPUT_GRAPH_DIR.mkdirs()
 	}
 
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
-
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -speedup -dot -speedup-functions \"evalS evalND\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -speedup -dot -speedup-functions \"evalS evalND\" -S $targetfile > /dev/null"
 }
 
 
 task createIRGraphs(type: Exec) {
-	dependsOn buildLLVMPasses, createIR, applyInlining
+	dependsOn installLLVMPasses, createIR, applyInlining
 
 	doFirst {
 		OUTPUT_GRAPH_DIR.mkdirs()
 	}
 
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
-
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -dfg -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -dfg -S $targetfile > /dev/null"
 }
 
 
 task createCCodeFromIR(type: Exec) {
-	dependsOn buildLLVMPasses, createIR, applyInlining
-
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def codegen_lib = file("$BUILD_DIR/llvm-passes/lib/CodeGen/MehariCodeGen.so")
+	dependsOn installLLVMPasses, createIR, applyInlining
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $codegen_lib -ccode -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -ccode -S $targetfile > /dev/null"
 }
 
 
 task applyPartitioning(type: Exec) {
-	dependsOn buildLLVMPasses, createIR, applyInlining
+	dependsOn installLLVMPasses, createIR, applyInlining
 
 	doFirst {
 		OUTPUT_GRAPH_DIR.mkdirs()
 	}
 
-	def opt = file("$INSTALL_DIR/llvm/bin/opt")
-	def analysis_lib = file("$BUILD_DIR/llvm-passes/lib/Analysis/MehariAnalysis.so")
-	def transform_lib = file("$BUILD_DIR/llvm-passes/lib/Transforms/MehariTransforms.so")
-
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$opt -load $analysis_lib -load $transform_lib -partitioning -partitioning-functions \"evalS\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"evalS\" -S $targetfile > /dev/null"
 }
 
 
