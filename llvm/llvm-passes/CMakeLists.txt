@@ -39,6 +39,9 @@ link_directories(${LLVM_LIBRARY_DIRS})
 # CUSTOM LLVM PASSES LIBRARY
 # ----------------------------------------
 
+# set new target
+add_custom_target(MehariCustomLLVMPasses)
+
 # add include directory for custom LLVM passes
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
@@ -67,3 +70,49 @@ install(TARGETS SharedMehariLLVMPasses LibraryMehariLLVMPasses
   ARCHIVE DESTINATION lib
 )
 
+
+# CUSTOM LLVM PASSES UNITTESTS
+# ----------------------------------------
+
+# set new target
+add_custom_target(MehariUnitTests)
+
+# helper function for adding unit tests
+function(add_mehari_llvm_unittest test_name)
+  # call llvm add_unittest function
+  add_unittest(MehariUnitTests ${test_name} ${ARGN})
+endfunction()
+
+# add llvm passes lib directory to link_directories to use them in the unit tests
+link_directories(${CMAKE_BINARY_DIR})
+
+# enable building llvm tests
+set(LLVM_BUILD_TESTS ON)
+
+# Add include and lib directory for google unit tests
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../_llvm/utils/unittest/googletest/include")
+
+# set source files for all custom LLVM passes unittests
+set(MEHARI_ANALYSIS_TEST_SOURCES InstructionDependencyAnalysisTest.cpp)
+
+# put path and source file names together
+prepend_path("unittests/Analysis" MEHARI_ANALYSIS_TEST_SOURCES)
+
+# set dependencies for the unit test
+set(LLVM_LINK_COMPONENTS Analysis AsmParser)
+set(REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
+
+# build unittest
+add_mehari_llvm_unittest(MehariAnalysisTests
+  ${MEHARI_ANALYSIS_TEST_SOURCES}
+  unittests/test_main.cpp
+ )
+target_link_libraries(MehariAnalysisTests MehariLLVMPasses ${REQUIRED_LIBS})
+
+# add dependency between targets
+add_dependencies(MehariAnalysisTests LibraryMehariLLVMPasses)
+
+# install unittest
+install(TARGETS MehariAnalysisTests
+  RUNTIME DESTINATION unittests
+)

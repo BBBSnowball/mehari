@@ -6,7 +6,8 @@ ext {
 	BUILD_MODE = "DEBUG"
 
 	LLVM_PASSES = file("$projectDir/llvm-passes")
-	LLVM_PASSES_LIB = file("$INSTALL_DIR/llvm-passes/lib/MehariLLVMPasses.so")
+	LLVM_PASSES_INSTALL = file("$INSTALL_DIR/llvm-passes")
+	LLVM_PASSES_LIB = file("$LLVM_PASSES_INSTALL/lib/MehariLLVMPasses.so")
 	LLVM_SOURCE = file("$projectDir/_llvm")
 	LLVM_BIN = file("$INSTALL_DIR/llvm/bin")
 	DEFAULT_LLVM_VERSION = "3.4"
@@ -308,7 +309,15 @@ task createResults() {
 }
 
 
+task runOptimizationPassesUnittests(type: Exec) {
+	dependsOn installLLVMPasses
+
+	workingDir file("$LLVM_PASSES_INSTALL/unittests")
+	commandLine "./MehariAnalysisTests"
+}
+
+
 task test() {
 	dependsOn runOptimizationPasses
-	dependsOn createResults
+	dependsOn runOptimizationPassesUnittests
 }
