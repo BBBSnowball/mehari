@@ -22,6 +22,7 @@ static cl::opt<std::string> TargetFunctions("speedup-functions",
 
 
 SpeedupAnalysis::SpeedupAnalysis() : FunctionPass(ID) {
+  initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
   parseTargetFunctions();
 }
 

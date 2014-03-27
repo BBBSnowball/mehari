@@ -11,6 +11,10 @@
 
 using namespace llvm;
 
+namespace llvm {
+	void initializeInstructionDependencyAnalysisPass(PassRegistry&);
+}
+
 // new type to represent the dependencies between instructions
 // instruction #3 -> [instruction #1, instruction #2]: 
 // instruction #3 depends on instruction #1 and instruction #2

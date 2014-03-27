@@ -5,11 +5,16 @@
 
 #include <algorithm>
 
+using namespace llvm;
+
 
 static cl::opt<bool> Verbose ("v", cl::desc("Enable verbose output to get more information."));
 
 
-InstructionDependencyAnalysis::InstructionDependencyAnalysis() : FunctionPass(ID) {};
+InstructionDependencyAnalysis::InstructionDependencyAnalysis() : FunctionPass(ID) {
+    initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
+};
+
 InstructionDependencyAnalysis::~InstructionDependencyAnalysis() {};
 
 
@@ -66,6 +71,8 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(std::ve
 	    	}
 		  }
 		}
+		// sort current dependencies
+		std::sort(currentDependencies.begin(), currentDependencies.end());
 		dependencies.push_back(currentDependencies);
 	}
 	return dependencies;
@@ -73,5 +80,12 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(std::ve
 
 // register pass so we can call it using opt
 char InstructionDependencyAnalysis::ID = 0;
-static RegisterPass<InstructionDependencyAnalysis>
-Y("instrdep", "Analysis of the dependencies between the instructions inside a function.");
+
+INITIALIZE_PASS_BEGIN(InstructionDependencyAnalysis, "instrdep", 
+	"Analysis of the dependencies between the instructions inside a function", true, true)
+INITIALIZE_PASS_DEPENDENCY(MemoryDependenceAnalysis)
+INITIALIZE_PASS_END(InstructionDependencyAnalysis, "instrdep", 
+	"Analysis of the dependencies between the instructions inside a function", true, true)
+
+// static RegisterPass<InstructionDependencyAnalysis>
+// Y("instrdep", "Analysis of the dependencies between the instructions inside a function.");

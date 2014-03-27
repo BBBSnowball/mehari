@@ -23,6 +23,7 @@ static cl::opt<std::string> TargetFunctions("partitioning-functions",
 
 
 PartitioningPass::PartitioningPass() : FunctionPass(ID) {
+	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
   parseTargetFunctions();
 }
 

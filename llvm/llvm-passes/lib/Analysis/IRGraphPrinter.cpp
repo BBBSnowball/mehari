@@ -11,7 +11,10 @@
 #include <algorithm>
 
 
-IRGraphPrinter::IRGraphPrinter() : FunctionPass(ID) {}
+IRGraphPrinter::IRGraphPrinter() : FunctionPass(ID) {
+  initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
+}
+
 IRGraphPrinter::~IRGraphPrinter() {}
 
 
