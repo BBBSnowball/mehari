@@ -11,6 +11,12 @@ function( prepend_path DIR_PATH SOURCE_FILES )
   set( ${SOURCE_FILES} ${MODIFIED} PARENT_SCOPE )
 endfunction()
 
+# add gtest header and libs
+# we will not use the gtest comming with the llvm version to be independent from a certain llvm version 
+# and to have tab support (not included in llvm gtest)
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/_install/include/")
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/_install/lib/")
+
 
 # LLVM 
 # ----------------------------------------
@@ -88,9 +94,6 @@ link_directories(${CMAKE_BINARY_DIR})
 
 # enable building llvm tests
 set(LLVM_BUILD_TESTS ON)
-
-# Add include and lib directory for google unit tests
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../_llvm/utils/unittest/googletest/include")
 
 # set source files for all custom LLVM passes unittests
 set(MEHARI_ANALYSIS_TEST_SOURCES InstructionDependencyAnalysisTest.cpp)
