@@ -74,7 +74,7 @@ sudo apt-get install openjdk-6-jre-headless
 
 # Libraries needed by Xilinx tools
 # (You most likely have most of them, unless you run a headless system.)
-sudo apt-get install libsm6 libxi6 libxrender1 libxrandr2 libfontconfig1 libc6-i386
+sudo apt-get install libsm6 libxi6 libxrender1 libxrandr2 libfontconfig1 libc6-i386 libc6-dev-i386
 
 # Servers needed 
 sudo apt-get install nfs-kernel-server tftpd tftp xinetd
