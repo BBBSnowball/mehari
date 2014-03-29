@@ -215,6 +215,10 @@ int main(int argc, char ** argv)
         }
     }
 
+#   ifdef WITHOUT_RECONOS
+    without_reconos = 1;
+#   endif
+
     verbose_progress = (iterations < 10);
 
     if (only_print_help || argc - optind > 2)

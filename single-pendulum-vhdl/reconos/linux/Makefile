@@ -31,4 +31,4 @@ $(NAME)_host: $(patsubst %.o,%.host.o,$(APP_OBJS))
 	$(CC) $(patsubst %.o,%.host.o,$(APP_OBJS)) $(CFLAGS_HOST) -o $@ -static -lreconos_host -lpthread -lm -lrt
 
 %.host.o: %.c
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS_HOST) -o $@ $<
