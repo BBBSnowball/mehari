@@ -152,6 +152,13 @@ reconosHardwareTest("SinglePendulumSimpleHardware") {
 	}
 }
 
+task compileSinglePendulumSimpleLinux(type: CrossCompileMakeTask) {
+	target ""
+	workingDir rootPath("reconos", "linux")
+
+	dependsOn ":reconos:compileReconosLib"
+}
+
 task clean(type: Delete) {
 	dependsOn cleanTestSimpleSimulation
 	dependsOn cleanTestReconosSimulation

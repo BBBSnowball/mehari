@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <assert.h>
+#include <getopt.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -39,9 +40,9 @@ void print_data(real_t* data, size_t count)
     for (i=0; i<count; i++)
     {
         if (sizeof(real_t) == 8)
-            printf("(%04d) %16Lx     ", i, *(unsigned long long int*)(void*)&data[i]);
+            printf("(%04u) %16Lx     ", i, *(unsigned long long int*)(void*)&data[i]);
         else
-            printf("(%04d) %16x     ", i, *(unsigned int*)(void*)&data[i]);
+            printf("(%04u) %16x     ", i, *(unsigned int*)(void*)&data[i]);
 
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
@@ -53,7 +54,7 @@ void print_reals(real_t* data, size_t count)
     size_t i;
     for (i=0; i<count; i++)
     {
-        printf("(%04d) %6.3f     ", i, data[i]);
+        printf("(%04u) %6.3f     ", i, data[i]);
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
     printf("\n");
@@ -117,6 +118,10 @@ void print_help()
     "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads> [--without-reconos]\n");
 }
 
+static int only_print_help = 0;
+static int without_reconos = 0, without_memory = 0, iterations = 1;
+static int verbose_progress = 0;
+
 int main(int argc, char ** argv)
 {
     int i;
@@ -127,29 +132,84 @@ int main(int argc, char ** argv)
     int simulation_steps;
     single_pendulum_simple_state_t *data, *expected;
     int success;
-    int without_reconos;
 
     timing_t t_start, t_stop;
     ms_t t_generate;
-    ms_t t_sort;
+    ms_t t_calculate;
     ms_t t_check;
 
-    if (argc > 4 || (argc > 1 && argv[1][0] == '-'))
+    if (sizeof(void*) > sizeof(unsigned int))
     {
-      print_help();
-      exit(1);
+        fprintf(stderr, "This program uses %d-byte mboxes to transmit pointers, but your "
+            "platform has %d-byte pointers. This won't work.\n",
+            sizeof(unsigned int), sizeof(void*));
+        exit(-1);
     }
-    // we have exactly 2 arguments now...
-    hw_threads = argc > 1 ? atoi(argv[1]) : 1;
-    sw_threads = argc > 2 ? atoi(argv[2]) : 0;
 
-    without_reconos = argc > 3 && strcmp(argv[3], "--without-reconos") == 0;
+    // parse options
+    while (1)
+    {
+        int c;
+
+        static struct option long_options[] =
+        {
+            { "help",            no_argument, &only_print_help, 1 },
+            { "without-reconos", no_argument, &without_reconos, 1 },
+            { "without-memory",  no_argument, &without_memory,  1 },
+            { "iterations",      required_argument, 0, 'n' },
+            {0, 0, 0, 0}
+        };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "n:h?", long_options, &option_index);
+
+        if (c == -1)
+            // end of options
+            break;
+
+        switch (c) {
+        case 0:
+            // flags are handled by getopt - nothing else to do
+            break;
+        case 'n':
+            iterations = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            only_print_help = 1;
+            break;
+        }
+    }
+
+    verbose_progress = (iterations < 10);
+
+    if (only_print_help || argc - optind > 2)
+    {
+        print_help();
+        exit(-1);
+    }
+
+    hw_threads = optind < argc ? atoi(argv[optind++]) : 1;
+    sw_threads = optind < argc ? atoi(argv[optind++]) : 0;
+
+    if (iterations < 1)
+    {
+        fprintf(stderr, "The number of iterations must be at least 1.\n");
+        exit(-1);
+    }
 
     if (without_reconos && hw_threads > 0)
     {
         fprintf(stderr, "We cannot use hardware threads without reconOS!\n");
-        exit(1);
+        exit(-1);
     }
+
+    if (without_memory && sw_threads > 0)
+    {
+        fprintf(stderr, "'--without-memory' only works with hardware threads!\n");
+        exit(-1);
+    }
+
 
     running_threads = hw_threads + sw_threads;
 
@@ -196,84 +256,104 @@ int main(int argc, char ** argv)
     //print_mmu_stats();
 
     // create pages and generate data
-    t_start = gettime();
+    if (!without_memory) {
+        t_start = gettime();
 
-    printf("malloc of %d bytes...\n", BLOCK_SIZE * simulation_steps);
-    data     = malloc(BLOCK_SIZE * simulation_steps);
-    expected = malloc(BLOCK_SIZE * simulation_steps);
-    printf("generate data ...\n");
-    generate_data(data, expected, simulation_steps);
+        printf("malloc of %d bytes...\n", BLOCK_SIZE * simulation_steps);
+        data     = malloc(BLOCK_SIZE * simulation_steps);
+        expected = malloc(BLOCK_SIZE * simulation_steps);
+        printf("generate data ...\n");
+        generate_data(data, expected, simulation_steps);
 
-    t_stop = gettime();
-    t_generate = calc_timediff_ms(t_start, t_stop);
+        t_stop = gettime();
+        t_generate = calc_timediff_ms(t_start, t_stop);
 
-    printf("Printing of generated data skipped. \n");
-    //print_data(data, simulation_steps * sizeof(single_pendulum_simple_state_t) / sizeof(real_t));
+        printf("Printing of generated data skipped. \n");
+        //print_data(data, simulation_steps * sizeof(single_pendulum_simple_state_t) / sizeof(real_t));
+    }
 
 
     // Start sort threads
     t_start = gettime();
 
-    printf("Putting %i blocks into job queue: ", simulation_steps);
-    fflush(stdout);
-
-    if (!without_reconos)
-        reconos_cache_flush();
-
-    for (i=0; i<simulation_steps; i++)
-    {
-      printf(" %i",i); fflush(stdout);
-      mbox_put(&mb_start, (unsigned int)&data[i]);
+    if (!verbose_progress) {
+        printf("Calculating...");
+        fflush(stdout);
     }
-    printf("\n");
 
-    // Wait for results
-    printf("Waiting for %i acknowledgements: ", simulation_steps);
-    fflush(stdout);
-    for (i=0; i<simulation_steps; i++)
-    {
-      printf(" %i",i); fflush(stdout);
-      ret = mbox_get(&mb_stop);
-    }  
-    printf("\n");
+    for (i=0; i<iterations; i++) {
+        if (verbose_progress) {
+            printf("Putting %i blocks into job queue: ", simulation_steps);
+            fflush(stdout);
+        }
+
+        if (!without_reconos)
+            reconos_cache_flush();
+
+        for (i=0; i<simulation_steps; i++)
+        {
+          if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+          mbox_put(&mb_start, (without_memory ? (unsigned int)-2 : (unsigned int)&data[i]));
+        }
+        printf("\n");
+
+        // Wait for results
+        if (verbose_progress) {
+            printf("Waiting for %i acknowledgements: ", simulation_steps);
+            fflush(stdout);
+        }
+        for (i=0; i<simulation_steps; i++)
+        {
+          if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+          ret = mbox_get(&mb_stop);
+        }  
+        if (verbose_progress) printf("\n");
+    }
+
+    if (!verbose_progress) {
+        printf("done\n");
+        fflush(stdout);
+    }
 
     t_stop = gettime();
-    t_sort = calc_timediff_ms(t_start,t_stop);
+    t_calculate = calc_timediff_ms(t_start,t_stop);
 
     if (!without_reconos)
         reconos_cache_flush();
 
     // check data
     //data[0] = 6666; // manual fault
-    t_start = gettime();
+    if (!without_memory) {
+        t_start = gettime();
 
-    printf("Checking data: ... ");
-    fflush(stdout);
-    ret = check_data(data, expected, simulation_steps);
-    if (ret >= 0)
-    {
-        int job;
-        printf("failure at word index %i\n", ret);
-        printf("expected %5.3f    found %5.3f\n", ((real_t*)expected)[ret], ((real_t*)data)[ret]);
-        job = ret / BLOCK_SIZE;
-        printf("dumping job %d:\n", job);
-        printf("  expected:\t"); print_data (expected[job].all, REALS_PER_BLOCK);
-        printf("  actual:  \t"); print_data (data    [job].all, REALS_PER_BLOCK);
-        printf("  expected:\t"); print_reals(expected[job].all, REALS_PER_BLOCK);
-        printf("  actual:  \t"); print_reals(data    [job].all, REALS_PER_BLOCK);
+        printf("Checking data: ... ");
+        fflush(stdout);
+        ret = check_data(data, expected, simulation_steps);
+        if (ret >= 0)
+        {
+            int job;
+            printf("failure at word index %i\n", ret);
+            printf("expected %5.3f    found %5.3f\n", ((real_t*)expected)[ret], ((real_t*)data)[ret]);
+            job = ret / BLOCK_SIZE;
+            printf("dumping job %d:\n", job);
+            printf("  expected:\t"); print_data (expected[job].all, REALS_PER_BLOCK);
+            printf("  actual:  \t"); print_data (data    [job].all, REALS_PER_BLOCK);
+            printf("  expected:\t"); print_reals(expected[job].all, REALS_PER_BLOCK);
+            printf("  actual:  \t"); print_reals(data    [job].all, REALS_PER_BLOCK);
 
-        success = 0;
+            success = 0;
+        }
+        else
+        {
+            printf("success\n");
+            //print_data(data, TO_WORDS(buffer_size));
+
+            success = 1;
+        }
+
+        t_stop = gettime();
+        t_check = calc_timediff_ms(t_start,t_stop);
     }
-    else
-    {
-        printf("success\n");
-        //print_data(data, TO_WORDS(buffer_size));
-
-        success = 1;
-    }
-
-    t_stop = gettime();
-    t_check = calc_timediff_ms(t_start,t_stop);
 
     // terminate all threads
     printf("Sending terminate message to %i threads:", running_threads);
@@ -298,12 +378,19 @@ int main(int argc, char ** argv)
     printf("\n");
     if (!without_reconos)
         print_mmu_stats();
-    printf( "Running times (size: %d jobs, %d hw-threads, %d sw-threads):\n"
-        "\tGenerate data: %lu ms\n"
-        "\tSort data    : %lu ms\n"
-        "\tCheck data   : %lu ms\n",
-            simulation_steps, hw_threads, sw_threads,
-            t_generate, t_sort, t_check);
+    if (!without_memory) {
+        printf( "Running times (size: %d jobs, %d hw-threads, %d sw-threads):\n"
+            "\tGenerate data: %lu ms\n"
+            "\tCalculation  : %lu ms\n"
+            "\tCheck data   : %lu ms\n",
+                simulation_steps, hw_threads, sw_threads,
+                t_generate, t_calculate, t_check);
+    } else {
+        printf( "Running times (size: %d jobs, %d hw-threads, %d sw-threads):\n"
+            "\tCalculation  : %lu ms\n",
+                simulation_steps, hw_threads, sw_threads,
+                t_calculate);
+    }
 
     free(data);
     free(expected);

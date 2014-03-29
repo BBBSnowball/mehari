@@ -40,6 +40,7 @@ test_sim*
 
 *.o
 /reconos/linux/single_pendulum_simple
+/reconos/linux/single_pendulum_simple_host
 
 
 # copied from https://gist.github.com/mapedd/2045092
