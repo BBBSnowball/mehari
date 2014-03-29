@@ -92,7 +92,9 @@ class ReconosHardwareTest {
 		compileBitstreamTask.command "run bits"
 		compileBitstreamTask.projectName "system"
 		compileBitstreamTask.doLast {
-			if (!project.path("implementation", compileBitstreamTask.projectName + ".bit").exists())
+			def bitstream_file = project.path(compileBitstreamTask.projectDir,
+				"implementation", compileBitstreamTask.projectName + ".bit")
+			if (!bitstream_file.exists())
 				throw new GradleException("XPS didn't generate the bitstream file.")
 		}
 
