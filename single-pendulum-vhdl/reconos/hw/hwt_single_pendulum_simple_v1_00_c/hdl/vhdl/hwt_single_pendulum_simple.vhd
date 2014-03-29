@@ -245,6 +245,9 @@ begin
 					if done then
 						if (addr = X"FFFFFFFF") then
 							state <= STATE_THREAD_EXIT;
+						elsif (addr = X"FFFFFFFE") then
+							-- skip reading from memory - only for performance tests!
+							state <= STATE_READ;
 						else
 							len               <= conv_std_logic_vector(8 * C_INPUT_SIZE,24);
 							addr              <= addr(31 downto 2) & "00";
@@ -280,9 +283,14 @@ begin
 					
 				-- copy data from local memory to main memory
 				when STATE_WRITE =>
-					memif_write(i_ram,o_ram,i_memif,o_memif,X"00000000",addr_outputs,len,done);
-					if done then
+					if (addr = X"FFFFFFFE") then
+						-- skip writing to memory - only for performance tests!
 						state <= STATE_ACK;
+					else
+						memif_write(i_ram,o_ram,i_memif,o_memif,X"00000000",addr_outputs,len,done);
+						if done then
+							state <= STATE_ACK;
+						end if;
 					end if;
 				
 				-- send mbox that signals that the sorting is finished
