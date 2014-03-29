@@ -248,6 +248,15 @@ int main(int argc, char ** argv)
         exit(-1);
     }
 
+    if (sizeof(void*) > sizeof(uint32_t) && sw_threads + hw_threads > 1)
+    {
+        fprintf(stderr, "mboxes work with 4-byte values, so we have some trouble passing a "
+            "pointer through them. We have to pass it in parts, but with more than one thread, "
+            "the threads might get parts from different pointers. Therefore, you cannot use "
+            "more than one thread on this platform.\n");
+        exit(-1);
+    }
+
 
     running_threads = hw_threads + sw_threads;
 
