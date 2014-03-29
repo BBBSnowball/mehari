@@ -1,6 +1,7 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.Exec
+import org.gradle.api.GradleException
 
 class ReconosHardwareTest {
 	private Project project
@@ -90,6 +91,10 @@ class ReconosHardwareTest {
 		
 		compileBitstreamTask.command "run bits"
 		compileBitstreamTask.projectName "system"
+		compileBitstreamTask.doLast {
+			if (!project.path("implementation", compileBitstreamTask.projectName + ".bit").exists())
+				throw new GradleException("XPS didn't generate the bitstream file.")
+		}
 
 
 		downloadBitstreamTask.mustRunAfter reconosTaskPath("checkHostIp"), reconosTaskPath("updateNfsRoot")

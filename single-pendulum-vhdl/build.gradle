@@ -46,7 +46,10 @@ task createSinglePendulumSimpleMetaFiles(type: Exec) {
 	outputs.files fileTree(hwtDir) {
 		include "data/hwt_single_pendulum_simple_v2_1_0.bbd"
 		include "data/hwt_single_pendulum_simple_v2_1_0.pao"
+		include "netlist/**/*.ngc"
 	}
+
+	dependsOn "coregen"
 }
 
 task testReconosSimulation(type: Exec) {

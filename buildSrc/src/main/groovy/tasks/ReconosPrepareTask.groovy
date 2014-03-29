@@ -92,6 +92,8 @@ public class ReconosPrepareTask extends Exec {
 		inputs.files { project.fileTree(fileInHwDir()) { used_hw_threads.value.each { hwt -> include hwt } } }
 		outputs.dir {
 			project.fileTree(getOutputDirectory().toString()) {
+				include "data", "etc", "pcores", "device_tree.dts", "ps7_init.tcl", "system.mhs", "system.xmp"
+
 				// created by other tasks
 				exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
 				exclude "system.mhs.orig", "ps_clock_registers.log", "system.log"
