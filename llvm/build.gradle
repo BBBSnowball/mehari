@@ -120,6 +120,7 @@ task installLLVM(type: Exec) {
 
 task prepareBuildLLVMPasses(type: Exec) {
 	dependsOn installLLVM
+	dependsOn ":tools:install"
 	
 	def build_dir = file("$BUILD_DIR/llvm-passes")
 	def install_dir = file("$INSTALL_DIR/llvm-passes")
