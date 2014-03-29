@@ -8,6 +8,9 @@
 *.pyc
 .tmp-*
 
+# files that differ for each user
+*.sublime-workspace
+
 # build results
 _install
 _build
