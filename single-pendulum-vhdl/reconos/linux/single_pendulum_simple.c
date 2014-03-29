@@ -173,6 +173,7 @@ int main(int argc, char ** argv)
     int simulation_steps;
     single_pendulum_simple_state_t *data, *expected;
     int success;
+    int iteration;
 
     timing_t t_start, t_stop;
     ms_t t_generate;
@@ -310,11 +311,11 @@ int main(int argc, char ** argv)
     t_start = gettime();
 
     if (!verbose_progress) {
-        printf("Calculating...");
+        printf("Calculating... ");
         fflush(stdout);
     }
 
-    for (i=0; i<iterations; i++) {
+    for (iteration=0; iteration<iterations; iteration++) {
         if (verbose_progress) {
             printf("Putting %i blocks into job queue: ", simulation_steps);
             fflush(stdout);
@@ -328,7 +329,7 @@ int main(int argc, char ** argv)
             if (verbose_progress) { printf(" %i",i); fflush(stdout); }
             mbox_put_pointer(&mb_start, (without_memory ? WITHOUT_MEMORY : &data[i]));
         }
-        printf("\n");
+        if (verbose_progress) printf("\n");
 
         // Wait for results
         if (verbose_progress) {
