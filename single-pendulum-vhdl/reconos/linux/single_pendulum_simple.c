@@ -133,7 +133,7 @@ void *software_thread(void* data)
             single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
         }
         
-        mbox_put(mb_stop, dummy);
+        mbox_put_pointer(mb_stop, dummy);
     }
 
     return (void*)0;
