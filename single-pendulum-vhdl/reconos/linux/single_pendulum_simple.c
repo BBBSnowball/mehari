@@ -21,6 +21,9 @@
 
 #define TO_WORDS(x) ((x)/4)
 
+#define THREAD_EXIT    ((void*)-1)
+#define WITHOUT_MEMORY ((void*)-2)
+
 // software threads
 pthread_t swt[MAX_THREADS];
 pthread_attr_t swt_attr[MAX_THREADS];
@@ -40,9 +43,9 @@ void print_data(real_t* data, size_t count)
     for (i=0; i<count; i++)
     {
         if (sizeof(real_t) == 8)
-            printf("(%04u) %16Lx     ", i, *(unsigned long long int*)(void*)&data[i]);
+            printf("(%04zu) %16Lx     ", i, *(unsigned long long int*)(void*)&data[i]);
         else
-            printf("(%04u) %16x     ", i, *(unsigned int*)(void*)&data[i]);
+            printf("(%04zu) %16x     ", i, *(unsigned int*)(void*)&data[i]);
 
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
@@ -54,10 +57,48 @@ void print_reals(real_t* data, size_t count)
     size_t i;
     for (i=0; i<count; i++)
     {
-        printf("(%04u) %6.3f     ", i, data[i]);
+        printf("(%04zu) %6.3f     ", i, data[i]);
         if ((i+1)%4 == 0) printf("\n\t\t");
     }
     printf("\n");
+}
+
+void mbox_put_data(struct mbox *mb, const void* p, size_t size)
+{
+    int i;
+    const uint32_t* parts = (const uint32_t*)p;
+
+    assert((size%sizeof(uint32_t)) == 0);
+
+    for (i=0; i<size/sizeof(uint32_t); i++)
+    {
+        mbox_put(mb, parts[i]);
+    }
+}
+
+void mbox_get_data(struct mbox *mb, void* p, size_t size)
+{
+    int i;
+    uint32_t* parts = (uint32_t*)p;
+
+    assert((size%sizeof(uint32_t)) == 0);
+
+    for (i=0; i<size/sizeof(uint32_t); i++)
+    {
+        parts[i] = mbox_get(mb);
+    }
+}
+
+void mbox_put_pointer(struct mbox *mb, void* p)
+{
+    mbox_put_data(mb, &p, sizeof(void*));
+}
+
+void* mbox_get_pointer(struct mbox *mb)
+{
+    void *p;
+    mbox_get_data(mb, &p, sizeof(void*));
+    return p;
 }
 
 void single_pendulum_simple(single_pendulum_simple_state_t* state) {
@@ -72,7 +113,7 @@ void single_pendulum_simple(single_pendulum_simple_state_t* state) {
 // - if exit command: issue thread exit os call
 void *software_thread(void* data)
 {
-    unsigned int ret;
+    void* ret;
     unsigned int dummy = 23;
     struct reconos_resource *res  = (struct reconos_resource*) data;
     struct mbox *mb_start = res[0].ptr;
@@ -80,16 +121,16 @@ void *software_thread(void* data)
     //pthread_t self = pthread_self();
     //printf("SW Thread %lu: Started with mailbox addresses %p and %p ...\n", self,  mb_start, mb_stop);
     while ( 1 ) {
-        ret = mbox_get(mb_start);
+        ret = mbox_get_pointer(mb_start);
         //printf("SW Thread %lu: Got address %p from mailbox %p.\n", self, (void*)ret, mb_start);
-        if (ret == UINT_MAX)
+        if (ret == THREAD_EXIT)
         {
-          //  printf("SW Thread %lu: Got exit command from mailbox %p.\n", self, mb_start);
-          pthread_exit((void*)0);
+            //  printf("SW Thread %lu: Got exit command from mailbox %p.\n", self, mb_start);
+            pthread_exit((void*)0);
         }
         else
         {
-          single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
+            single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
         }
         
         mbox_put(mb_stop, dummy);
@@ -100,22 +141,22 @@ void *software_thread(void* data)
 
 void print_mmu_stats()
 {
-        int hits,misses,pgfaults;
+    int hits,misses,pgfaults;
 
-        reconos_mmu_stats(&hits,&misses,&pgfaults);
+    reconos_mmu_stats(&hits,&misses,&pgfaults);
 
-        printf("MMU stats: TLB hits: %d    TLB misses: %d    page faults: %d\n",hits,misses,pgfaults);
+    printf("MMU stats: TLB hits: %d    TLB misses: %d    page faults: %d\n",hits,misses,pgfaults);
 }
 
 
 void print_help()
 {
-  printf(
-    "ReconOS v3 single_pendulum_simple test application.\n"
-    "\n"
-    "Usage:\n"
-    "\tsingle_pendulum_simple <-h|--help>\n"
-    "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads> [--without-reconos]\n");
+    printf(
+        "ReconOS v3 single_pendulum_simple test application.\n"
+        "\n"
+        "Usage:\n"
+        "\tsingle_pendulum_simple <-h|--help>\n"
+        "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads> [--without-reconos]\n");
 }
 
 static int only_print_help = 0;
@@ -137,14 +178,6 @@ int main(int argc, char ** argv)
     ms_t t_generate;
     ms_t t_calculate;
     ms_t t_check;
-
-    if (sizeof(void*) > sizeof(unsigned int))
-    {
-        fprintf(stderr, "This program uses %d-byte mboxes to transmit pointers, but your "
-            "platform has %d-byte pointers. This won't work.\n",
-            sizeof(unsigned int), sizeof(void*));
-        exit(-1);
-    }
 
     // parse options
     while (1)
@@ -259,7 +292,7 @@ int main(int argc, char ** argv)
     if (!without_memory) {
         t_start = gettime();
 
-        printf("malloc of %d bytes...\n", BLOCK_SIZE * simulation_steps);
+        printf("malloc of %zu bytes...\n", BLOCK_SIZE * simulation_steps);
         data     = malloc(BLOCK_SIZE * simulation_steps);
         expected = malloc(BLOCK_SIZE * simulation_steps);
         printf("generate data ...\n");
@@ -292,8 +325,8 @@ int main(int argc, char ** argv)
 
         for (i=0; i<simulation_steps; i++)
         {
-          if (verbose_progress) { printf(" %i",i); fflush(stdout); }
-          mbox_put(&mb_start, (without_memory ? (unsigned int)-2 : (unsigned int)&data[i]));
+            if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+            mbox_put_pointer(&mb_start, (without_memory ? WITHOUT_MEMORY : &data[i]));
         }
         printf("\n");
 
@@ -304,8 +337,8 @@ int main(int argc, char ** argv)
         }
         for (i=0; i<simulation_steps; i++)
         {
-          if (verbose_progress) { printf(" %i",i); fflush(stdout); }
-          ret = mbox_get(&mb_stop);
+            if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+            (void)mbox_get_pointer(&mb_stop);
         }  
         if (verbose_progress) printf("\n");
     }
@@ -361,7 +394,7 @@ int main(int argc, char ** argv)
     for (i=0; i<running_threads; i++)
     {
       printf(" %i",i);fflush(stdout);
-      mbox_put(&mb_start,UINT_MAX);
+      mbox_put_pointer(&mb_start, THREAD_EXIT);
     }
     printf("\n");
 
