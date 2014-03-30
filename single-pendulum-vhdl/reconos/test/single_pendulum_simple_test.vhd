@@ -190,9 +190,10 @@ begin
 	end process;
 
 	stimulus_process : process is
-		variable addr     : natural;
-		variable addr_slv : osif_word;
-		variable result   : osif_word;
+		variable addr_read  : natural;
+		variable addr_write : natural;
+		variable addr_slv   : osif_word;
+		variable result     : osif_word;
 	begin
 		report "Generating test data...";
 		generate_data(test_data, input_data, expected_output_data);
@@ -206,19 +207,39 @@ begin
 
 		rst <= '0';
 
-		addr := 44;
-		addr_slv := CONV_STD_LOGIC_VECTOR(addr, C_OSIF_WIDTH);
+		addr_read := 44;
+		-- slave only writes outputs
+		addr_write := addr_read + 8 * C_INPUT_SIZE;
+		addr_slv := CONV_STD_LOGIC_VECTOR(addr_read, C_OSIF_WIDTH);
 
 		report "Sending address to slave...";
 		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, addr_slv);
 
 		report "Sending data to slave...";
-		expect_memif_read(clk, i_memif_test, o_memif_test, addr, 8 * C_INPUT_SIZE, input_data);
+		expect_memif_read(clk, i_memif_test, o_memif_test, addr_read, 8 * C_INPUT_SIZE, input_data);
+
+		report "Reading data from slave...";
+		expect_memif_write(clk, i_memif_test, o_memif_test, addr_write, 8 * C_OUTPUT_SIZE, output_data, 0, 1000ms);
+		for i in 0 to expected_output_data'length/2-1 loop
+			assertAlmostEqual(
+				to_real(output_data         (output_data'low + 2*i+0) & output_data         (output_data'low + 2*i+1)),
+				to_real(expected_output_data(output_data'low + 2*i+0) & expected_output_data(output_data'low + 2*i+1)));
+		end loop;
+
+		report "Reading 'done' message from slave...";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, addr_slv);
+
+		report "Calculation complete.";
+
+		report "Sending address to slave...";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, addr_slv);
+
+		report "Sending data to slave...";
+		expect_memif_read(clk, i_memif_test, o_memif_test, addr_read, 8 * C_INPUT_SIZE, input_data);
 
 		report "Reading data from slave...";
 		-- slave only writes outputs
-		addr := addr + 8 * C_INPUT_SIZE;
-		expect_memif_write(clk, i_memif_test, o_memif_test, addr, 8 * C_OUTPUT_SIZE, output_data, 0, 1000ms);
+		expect_memif_write(clk, i_memif_test, o_memif_test, addr_write, 8 * C_OUTPUT_SIZE, output_data, 0, 1000ms);
 		for i in 0 to expected_output_data'length/2-1 loop
 			assertAlmostEqual(
 				to_real(output_data         (output_data'low + 2*i+0) & output_data         (output_data'low + 2*i+1)),

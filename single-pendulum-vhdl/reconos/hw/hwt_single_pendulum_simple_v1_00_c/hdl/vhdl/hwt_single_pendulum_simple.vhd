@@ -52,7 +52,7 @@ architecture implementation of hwt_single_pendulum_simple is
 	signal rst   : std_logic;
 
 	type STATE_TYPE is (
-					STATE_GET_ADDR,STATE_READ,STATE_EVAL,
+					STATE_GET_ADDR,STATE_READ,STATE_STARTING,STATE_EVAL,
 					STATE_WRITE,STATE_ACK,STATE_THREAD_EXIT);
 
 	component single_pendulum is
@@ -259,18 +259,28 @@ begin
 				
 				-- copy data from main memory to local memory
 				when STATE_READ =>
+					-- Throw away any results that are still in memory.
+					out_tready <= '1';
+
 					-- We assume that in_tready won't go low, after it 
 					if in_tready = '1' then
 						memif_read(i_ram,o_ram,i_memif,o_memif,addr,X"00000000",len,done);
 						if done then
 							sort_start <= '1';
-							state <= STATE_EVAL;
+							state <= STATE_STARTING;
 						end if;
+					end if;
+
+				when STATE_STARTING =>
+					in_tvalid <= '1';
+
+					if in_tready = '1' then
+						state <= STATE_EVAL;
 					end if;
 
 				-- calculate state derivatives
 				when STATE_EVAL =>
-					in_tvalid <= '1';
+					in_tvalid <= '0';
 
 					if out_tvalid = '1' then
 						--TODO copy output data to temporary storage?
