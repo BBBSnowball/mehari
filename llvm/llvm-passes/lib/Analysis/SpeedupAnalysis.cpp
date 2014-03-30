@@ -1,4 +1,5 @@
 #include "mehari/Analysis/SpeedupAnalysis.h"
+#include "mehari/HardwareInformation.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
@@ -156,21 +157,14 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
 
 // TODO there should be a better way to determine the instruction cost
 unsigned int SpeedupAnalysis::getInstructionCost(Instruction *instruction) {
-  switch(int(instruction->getType()->getTypeID())) {
-    case 0:  // store instruction
-      return 2;
-      break;
-    case 3:  // arithmetic operation
-      return 4;
-      break;
-    case 14: // load instruction
-      return 3;
-      break;
-    default:
-      errs() << "ERROR: unhandled instruction: " << *instruction << "\n"; 
-      return 1;
-      break;
+  HardwareInformation hwInfo;
+  DeviceInformation *devInfo = hwInfo.getDeviceInfo("Cortex-A9");
+  InstructionInformation *instrInfo = devInfo->getInstructionInfo(instruction->getOpcodeName());
+  if (instrInfo == NULL) {
+    errs() << "WARNING: unhandled instruction (" << instruction->getOpcode() << " / " << instruction->getOpcodeName() << ")\n";
+    return 1;
   }
+  return instrInfo->getCycleCount();
 }
 
 
