@@ -247,7 +247,7 @@ begin
 							state <= STATE_THREAD_EXIT;
 						elsif (addr = X"FFFFFFFE") then
 							-- skip reading from memory - only for performance tests!
-							state <= STATE_READ;
+							state <= STATE_STARTING;
 						else
 							len               <= conv_std_logic_vector(8 * C_INPUT_SIZE,24);
 							addr              <= addr(31 downto 2) & "00";
