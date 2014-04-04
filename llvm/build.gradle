@@ -153,7 +153,7 @@ task buildLLVMPasses(type: Exec) {
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	workingDir build_dir
-	commandLine "bash", "-c", "make -j$parallel_processes"
+	commandLine "bash", "-c", "gmake -j$parallel_processes"
 }
 
 
