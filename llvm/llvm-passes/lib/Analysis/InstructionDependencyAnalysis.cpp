@@ -12,21 +12,21 @@ static cl::opt<bool> Verbose ("v", cl::desc("Enable verbose output to get more i
 
 
 InstructionDependencyAnalysis::InstructionDependencyAnalysis() : FunctionPass(ID) {
-    initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
+	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 };
 
 InstructionDependencyAnalysis::~InstructionDependencyAnalysis() {};
 
 
 void InstructionDependencyAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-	AU.addRequiredTransitive<MemoryDependenceAnalysis>();
+	AU.addRequiredTransitive<DependenceAnalysis>();
 	AU.setPreservesAll();
 }
 
 
 bool InstructionDependencyAnalysis::runOnFunction(Function &) {
-  MDA = &getAnalysis<MemoryDependenceAnalysis>();
-  return false;
+	DA = &getAnalysis<DependenceAnalysis>();
+	return false;
 }
 
 
@@ -36,16 +36,18 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(std::ve
 
 	// dependencies between instructions:
 	//  - use-def chain: all instructions that are used by the current instruction -> data dependences on SSA registers
-	//  - MemoryDependenceAnalysis: memory dependencies between instructions -> data dependences on memory locations
+	//  - DependenceAnalysis: memory dependencies between instructions -> data dependences on memory locations
 
 	// loop over all instructions and determine dependencies
-	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
-  	Instruction *instr = dyn_cast<Instruction>(*instrIt);
-  	
-  	if (Verbose)
-  		errs() << *instr << "\n";
+	int instrCount = instructions.size();
+	for (int i=0; i<instrCount; i++) {
 
-  	InstructionDependencies currentDependencies;
+		Instruction *instr = instructions[i];
+	
+		if (Verbose)
+			errs() << *instr << "\n";
+
+		InstructionDependencies currentDependencies;
 
 		// evaluate use-def chain to get all instructions the current instruction depends on
 		for (User::op_iterator opIt = instr->op_begin(); opIt != instr->op_end(); ++opIt) {
@@ -55,22 +57,33 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(std::ve
 				// add depedency
 				currentDependencies.push_back(itPos-instructions.begin());
 				if (Verbose)
-					errs() << "\t   --> use-def - depends on " << itPos-instructions.begin() << ": " << *opInst << "\n";
-		  	}
+					errs() << "USE-DEF: \t" << *instr << " depends on " << *opInst << "\n";
+			}
 		}
-		// if the current instruction is a load instruction, find the associated store instruction
-		if (instr->mayReadFromMemory()) {
-			MemDepResult mdr = MDA->getDependency(instr);
-			if (mdr.isClobber()) {
-		    std::vector<Instruction*>::iterator itPos = std::find(instructions.begin(), instructions.end(), &*mdr.getInst());
-	    	if (itPos != instructions.end()) {
-				// add depedency
-				currentDependencies.push_back(itPos-instructions.begin());
-				if (Verbose)
-		   			errs() << "\t   --> mem-dep - depends on " << itPos-instructions.begin() << ": " << *(mdr.getInst()) << "\n";         
-	    	}
-		  }
+		
+		// run the DependenceAnalysis on all instructions that access memory
+		// to determine dependencies store->load
+		if (instr->mayReadFromMemory() || instr->mayWriteToMemory()) {
+			for (int j=0; j<i; j++) {
+				Instruction *currentInstr = instructions[j];
+				if (currentInstr->mayReadFromMemory() || currentInstr->mayWriteToMemory()) {
+					Dependence *dep = DA->depends(currentInstr, instr, true);
+					if (dep != NULL) {
+						std::string srcOpcode = dep->getSrc()->getOpcodeName();
+						std::string dstOpcode = dep->getDst()->getOpcodeName();						
+						if (srcOpcode == "store" && dstOpcode == "load") 
+							// compare operands for store->load operations
+							if (dep->getSrc()->getOperand(1) == dep->getDst()->getOperand(0)) {
+								// add depedency
+								currentDependencies.push_back(j);
+								if (Verbose)
+									errs() << "MEM-DEP: " << *(dep->getDst()) << "  depends on  " << *(dep->getSrc()) << "\n";
+							}
+					}
+				}
+			}
 		}
+
 		// sort current dependencies
 		std::sort(currentDependencies.begin(), currentDependencies.end());
 		dependencies.push_back(currentDependencies);
@@ -83,7 +96,7 @@ char InstructionDependencyAnalysis::ID = 0;
 
 INITIALIZE_PASS_BEGIN(InstructionDependencyAnalysis, "instrdep", 
 	"Analysis of the dependencies between the instructions inside a function", true, true)
-INITIALIZE_PASS_DEPENDENCY(MemoryDependenceAnalysis)
+INITIALIZE_PASS_DEPENDENCY(DependenceAnalysis)
 INITIALIZE_PASS_END(InstructionDependencyAnalysis, "instrdep", 
 	"Analysis of the dependencies between the instructions inside a function", true, true)
 

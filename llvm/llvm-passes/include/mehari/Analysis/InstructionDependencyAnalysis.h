@@ -5,7 +5,7 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 
-#include "llvm/Analysis/MemoryDependenceAnalysis.h"
+#include "llvm/Analysis/DependenceAnalysis.h"
 
 #include <vector>
 
@@ -36,7 +36,7 @@ public:
 	InstructionDependencyList getDependencies(std::vector<Instruction*> &instructions);
 
 private:
-	MemoryDependenceAnalysis *MDA;
+	DependenceAnalysis *DA;
 };
 
 #endif /*INSTRUCTION_DEPENDENCY_ANALYSIS_H_*/
