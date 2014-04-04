@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 
 using namespace llvm;
@@ -99,7 +100,7 @@ protected:
 
         // run instruction dependency analysis
         InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-        InstructionDependencyList AnalysisResults = IDA->getDependencies(worklist);
+        InstructionDependencyList AnalysisResult = IDA->getDependencies(worklist);
 
         // DEBUG: print expected and analysis results
         if (false) {
@@ -115,8 +116,8 @@ protected:
           }
           std::cout << "ANALYSIS RESULTS:\n";
           index = 0;
-          for (InstructionDependencyList::iterator instrDepIt = AnalysisResults.begin(); 
-                instrDepIt != AnalysisResults.end(); ++instrDepIt, index++) {
+          for (InstructionDependencyList::iterator instrDepIt = AnalysisResult.begin(); 
+                instrDepIt != AnalysisResult.end(); ++instrDepIt, index++) {
             std::cout << index << ":";
             for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
               std::cout << " " << int(*depNumIt);
@@ -126,11 +127,11 @@ protected:
         }
 
         // compare the analysis results with the expected result
-        EXPECT_EQ(ExpectedResult.size(), AnalysisResults.size());
-        for (int i=0; i<AnalysisResults.size(); i++) {
-          EXPECT_EQ(ExpectedResult[i].size(), AnalysisResults[i].size());
-          for (int j=0; j<AnalysisResults[i].size(); j++) {
-            EXPECT_EQ(ExpectedResult[i][j], AnalysisResults[i][j]);
+        EXPECT_EQ(ExpectedResult.size(), AnalysisResult.size());
+        for (int i=0; i<std::min(AnalysisResult.size(), ExpectedResult.size()); i++) {
+          EXPECT_EQ(ExpectedResult[i].size(), AnalysisResult[i].size());
+          for (int j=0; j<std::min(AnalysisResult[i].size(), ExpectedResult[i].size()); j++) {
+            EXPECT_EQ(ExpectedResult[i][j], AnalysisResult[i][j]);
           }
         }
 
@@ -158,50 +159,142 @@ private:
 } // end anonymous namespace
 
 
-// int a, b;
-// a = 1;
-// b = a;
-TEST_F(InstructionDependencyAnalysisTest, AssignmentTest) {
+TEST_F(InstructionDependencyAnalysisTest, AllocaStoreTest) {
   ParseAssembly(
-    "define void @test() #0 {\n"
+    "define void @test() {\n"
+    "entry:\n"
     "  %a = alloca i32, align 4\n"
-    "  %b = alloca i32, align 4\n"
     "  store i32 1, i32* %a, align 4\n"
-    "  %1 = load i32* %a, align 4\n"
-    "  store i32 %1, i32* %b, align 4\n"
     "  ret void\n"
     "}\n");
   std::string result = 
     /*0:*/ "-\n"
-    /*1:*/ "-\n"
-    /*2:*/ "0\n"
-    /*3:*/ "0 2\n"
-    /*4:*/ "1 3\n"
-    /*5:*/ "-\n";
+    /*1:*/ "0\n"
+    /*2:*/ "-\n";
   CheckResult(ParseResults(result));
 }
 
-// int a, b;
-// a = 1;
-// b = 2-1+a;
+
+TEST_F(InstructionDependencyAnalysisTest, AllocaStoreLoadTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "0 1\n"
+    /*3:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ArrayAccessTest) {
+  ParseAssembly(
+    "define void @test(double* %param) {\n"
+    "entry:\n"
+    "  %a = alloca [3 x i32], align 4\n"
+    "  %arrayidx = getelementptr inbounds [3 x i32]* %a, i32 0, i64 0\n"
+    "  store i32 42, i32* %arrayidx, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "1\n"
+    /*3:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, GlobalArrayAccessTest) {
+  ParseAssembly(
+    "@b = common global [3 x i32] zeroinitializer, align 4\n"
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %0 = load i32* getelementptr inbounds ([3 x i32]* @b, i32 0, i64 0), align 4\n"
+    "  store i32 %0, i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "0 1\n"
+    /*3:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ArrayParamTest) {
+  ParseAssembly(
+    "define void @test(double* %param) {\n"
+    "entry:\n"
+    "%param.addr = alloca double*, align 8\n"
+    "store double* %param, double** %param.addr, align 8"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
 TEST_F(InstructionDependencyAnalysisTest, CalculationTest) {
   ParseAssembly(
-    "define void @test() #0 {\n"
+    "define void @test() {\n"
+    "entry:\n"
     "  %a = alloca i32, align 4\n"
     "  %b = alloca i32, align 4\n"
     "  store i32 1, i32* %a, align 4\n"
-    "  %1 = load i32* %a, align 4\n"
-    "  %add = add nsw i32 1, %1\n"
-    "  store i32 %add, i32* %b, align 4\n"
+    "  store i32 2, i32* %b, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %1 = load i32* %b, align 4\n"
+    "  %add = add nsw i32 %0, %1\n"
+    "  store i32 %add, i32* %a, align 4\n"
     "  ret void\n"
     "}\n");
   std::string result = 
     /*0:*/ "-\n"
     /*1:*/ "-\n"
     /*2:*/ "0\n"
-    /*3:*/ "0 2\n"
-    /*4:*/ "3\n"
-    /*5:*/ "1 4\n"
-    /*6:*/ "-\n";
+    /*3:*/ "1\n"
+    /*4:*/ "0 2\n"
+    /*5:*/ "1 3\n"
+    /*6:*/ "4 5\n"
+    /*7:*/ "0 6\n"
+    /*8:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, DoubleComparisonTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca double, align 8\n"
+    "  store double 1.0, double* %a, align 8\n"
+    "  %b = alloca double, align 8\n"
+    "  store double 2.0, double* %b, align 8\n"
+    "  %0 = load double* %a, align 8\n"
+    "  %1 = load double* %b, align 8\n"
+    "  %cmp = fcmp ogt double %0, %1\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "-\n"
+    /*3:*/ "2\n"
+    /*4:*/ "0 1\n"
+    /*5:*/ "2 3\n"
+    /*6:*/ "4 5\n"
+    /*7:*/ "-\n";
   CheckResult(ParseResults(result));
 }
