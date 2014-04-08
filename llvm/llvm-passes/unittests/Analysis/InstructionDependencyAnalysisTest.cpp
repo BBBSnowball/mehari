@@ -93,14 +93,9 @@ protected:
         if (!F.hasName() || F.getName() != "test")
           return false;
 
-        // create worklist containing all instructions of the function
-        std::vector<Instruction*> worklist;
-        for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) 
-          worklist.push_back(&*I);
-
         // run instruction dependency analysis
         InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-        InstructionDependencyList AnalysisResult = IDA->getDependencies(worklist);
+        InstructionDependencyList AnalysisResult = IDA->getDependencies(F);
 
         // DEBUG: print expected and analysis results
         if (false) {

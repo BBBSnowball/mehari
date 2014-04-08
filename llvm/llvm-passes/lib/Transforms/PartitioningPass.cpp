@@ -47,7 +47,7 @@ bool PartitioningPass::runOnFunction(Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(worklist);
+  InstructionDependencyList dependencies = IDA->getDependencies(func);
 
   // create partitioning graph
 	PartitioningGraph pGraph;

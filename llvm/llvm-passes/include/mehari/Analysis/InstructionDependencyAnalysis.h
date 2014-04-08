@@ -33,10 +33,12 @@ public:
 	virtual bool runOnFunction(Function &func);
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-	InstructionDependencyList getDependencies(std::vector<Instruction*> &instructions);
+	InstructionDependencyList getDependencies(Function &func);
 
 private:
 	DependenceAnalysis *DA;
+
+	int getInstructionNumber(std::vector<Instruction*> &instructionList, Instruction* instruction);
 };
 
 #endif /*INSTRUCTION_DEPENDENCY_ANALYSIS_H_*/

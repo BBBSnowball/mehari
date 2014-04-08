@@ -34,7 +34,7 @@ void IRGraphPrinter::printDataflowGraph(std::string &filename, Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(worklist);
+  InstructionDependencyList dependencies = IDA->getDependencies(func);
 
   // create new graph  
   typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS > Graph;
