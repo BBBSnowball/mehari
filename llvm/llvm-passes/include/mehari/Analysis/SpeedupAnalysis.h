@@ -30,7 +30,7 @@ private:
 	void printGraphviz(std::string &name);
 
 	typedef boost::property<boost::edge_weight_t, int> EdgeWeightProperty;
-	typedef boost::adjacency_list<boost::listS, boost::vecS, boost::bidirectionalS, boost::no_property, EdgeWeightProperty > Graph;
+	typedef boost::adjacency_list<boost::setS, boost::vecS, boost::bidirectionalS, boost::no_property, EdgeWeightProperty > Graph;
 	//NOTE graph is just a simple directed graph, but it is declared bidirectional because the function in_edges requires this
 
 	// the graph representing the dependencies between the instructions
