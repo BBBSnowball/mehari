@@ -154,6 +154,18 @@ private:
 } // end anonymous namespace
 
 
+TEST_F(InstructionDependencyAnalysisTest, EmptyFunctionTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
 TEST_F(InstructionDependencyAnalysisTest, AllocaStoreTest) {
   ParseAssembly(
     "define void @test() {\n"
@@ -165,7 +177,7 @@ TEST_F(InstructionDependencyAnalysisTest, AllocaStoreTest) {
   std::string result = 
     /*0:*/ "-\n"
     /*1:*/ "0\n"
-    /*2:*/ "-\n";
+    /*2:*/ "1\n";
   CheckResult(ParseResults(result));
 }
 
@@ -183,7 +195,27 @@ TEST_F(InstructionDependencyAnalysisTest, AllocaStoreLoadTest) {
     /*0:*/ "-\n"
     /*1:*/ "0\n"
     /*2:*/ "0 1\n"
-    /*3:*/ "-\n";
+    /*3:*/ "2\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, MultipleStoreLoadTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  store i32 2, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "0\n"
+    /*3:*/ "0 1 2\n"
+    /*4:*/ "3\n";
   CheckResult(ParseResults(result));
 }
 
@@ -201,7 +233,7 @@ TEST_F(InstructionDependencyAnalysisTest, ArrayAccessTest) {
     /*0:*/ "-\n"
     /*1:*/ "0\n"
     /*2:*/ "1\n"
-    /*3:*/ "-\n";
+    /*3:*/ "2\n";
   CheckResult(ParseResults(result));
 }
 
@@ -220,7 +252,7 @@ TEST_F(InstructionDependencyAnalysisTest, GlobalArrayAccessTest) {
     /*0:*/ "-\n"
     /*1:*/ "-\n"
     /*2:*/ "0 1\n"
-    /*3:*/ "-\n";
+    /*3:*/ "2\n";
   CheckResult(ParseResults(result));
 }
 
@@ -236,7 +268,7 @@ TEST_F(InstructionDependencyAnalysisTest, ArrayParamTest) {
   std::string result = 
     /*0:*/ "-\n"
     /*1:*/ "0\n"
-    /*2:*/ "-\n";
+    /*2:*/ "1\n";
   CheckResult(ParseResults(result));
 }
 
@@ -264,7 +296,7 @@ TEST_F(InstructionDependencyAnalysisTest, CalculationTest) {
     /*5:*/ "1 3\n"
     /*6:*/ "4 5\n"
     /*7:*/ "0 6\n"
-    /*8:*/ "-\n";
+    /*8:*/ "7\n";
   CheckResult(ParseResults(result));
 }
 
@@ -290,6 +322,105 @@ TEST_F(InstructionDependencyAnalysisTest, DoubleComparisonTest) {
     /*4:*/ "0 1\n"
     /*5:*/ "2 3\n"
     /*6:*/ "4 5\n"
-    /*7:*/ "-\n";
+    /*7:*/ "6\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ExtendOperandTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %b = alloca i32, align 4\n"
+    "  %c = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  store i32 2, i32* %b, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %1 = load i32* %b, align 4\n"
+    "  %cmp = icmp sgt i32 %0, %1\n"
+    "  %conv = zext i1 %cmp to i32\n"
+    "  store i32 %conv, i32* %c, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "-\n"
+    /*3:*/ "0\n"
+    /*4:*/ "1\n"
+    /*5:*/ "0 3\n"
+    /*6:*/ "1 4\n"
+    /*7:*/ "5 6\n"
+    /*8:*/ "7\n"
+    /*9:*/ "2 8\n"
+    /*10:*/ "9\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, IfElseTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %b = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %tobool = icmp ne i32 %0, 0\n"
+    "  br i1 %tobool, label %if.then, label %if.end\n"
+    "  if.then:                                          ; preds = %entry\n"
+    "    store i32 2, i32* %b, align 4\n"
+    "    br label %if.end\n"
+    "  if.end:                                           ; preds = %if.then, %entry\n"
+    "    ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "0\n"
+    /*3:*/ "0 2\n"
+    /*4:*/ "3\n"
+    /*5:*/ "4\n"
+    /*6:*/ "1 5\n"
+    /*7:*/ "6\n"
+    /*8:*/ "5 7\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, PhyNodeTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %b = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %tobool = icmp ne i32 %0, 0\n"
+    "  br i1 %tobool, label %cond.true, label %cond.false\n"
+    "cond.true:                                        ; preds = %entry\n"
+    "  %1 = load i32* %a, align 4\n"
+    "  br label %cond.end\n"
+    "cond.false:                                       ; preds = %entry\n"
+    "  br label %cond.end\n"
+    "cond.end:                                         ; preds = %cond.false, %cond.true\n"
+    "  %cond = phi i32 [ %1, %cond.true ], [ 2, %cond.false ]\n"
+    "  store i32 %cond, i32* %b, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "0\n"
+    /*3:*/ "0 2\n"
+    /*4:*/ "3\n"
+    /*5:*/ "4\n"
+    /*6:*/ "0 2 5\n"
+    /*7:*/ "6\n"
+    /*8:*/ "5\n"
+    /*9:*/ "6 7 8\n"
+    /*10:*/ "1 9\n"
+    /*11:*/ "10\n";
   CheckResult(ParseResults(result));
 }
