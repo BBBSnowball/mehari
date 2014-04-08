@@ -20,6 +20,9 @@ static cl::opt<bool> Graphviz ("dot", cl::desc("Enable writing the dependency gr
 static cl::opt<std::string> TargetFunctions("speedup-functions", 
             cl::desc("Specify the functions the speedup analysis will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
+static cl::opt<std::string> OutputDir("speedup-output-dir", 
+            cl::desc("Set the output directory for speedup results"), 
+            cl::value_desc("speedup-output-dir"));
 
 
 SpeedupAnalysis::SpeedupAnalysis() : FunctionPass(ID) {
@@ -145,7 +148,7 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
 
   boost::property_map<Graph, boost::edge_weight_t>::type trans_delay = get(boost::edge_weight, depGraph);
 
-  std::string fileName = "_output/graph/speedup-analysis-graph-" + name + ".dot";
+  std::string fileName = OutputDir + "/speedup-analysis-graph-" + name + ".dot";
   std::ofstream dotfile(fileName.c_str());
   boost::write_graphviz(dotfile, depGraph,
                           boost::make_label_writer(vertex_names),

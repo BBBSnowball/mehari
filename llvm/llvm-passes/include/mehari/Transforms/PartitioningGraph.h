@@ -51,7 +51,7 @@ public:
 	void addEdges(InstructionDependencyList &dependencies);
 
 	void printGraph(std::string &name);
-	void printGraphviz(std::string &name);
+	void printGraphviz(std::string &name, std::string &outputDir);
 
 private:
 

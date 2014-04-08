@@ -135,18 +135,18 @@ void PartitioningGraph::printGraph(std::string &name) {
 }
 
 
-void PartitioningGraph::printGraphviz(std::string &name) {
+void PartitioningGraph::printGraphviz(std::string &name, std::string &outputDir) {
 	// set some node colors to visualize the different partitions
 	const char *nodeColors[] = { "greenyellow", "gold", "cornflowerblue", "darkorange", "aquamarine1" };
 
-	std::string filename = "_output/graph/partitioning-graph-" + name + ".dot";
-  std::ofstream dotfile(filename.c_str());
+	std::string filename = outputDir + "/partitioning-graph-" + name + ".dot";
+	std::ofstream dotfile(filename.c_str());
 
-  dotfile << "digraph G {\n"
-    << "  edge[style=\"bold\"];\n" 
-    << "  node[shape=\"rectangle\"];\n";
+	dotfile << "digraph G {\n"
+		<< "  edge[style=\"bold\"];\n" 
+		<< "  node[shape=\"rectangle\"];\n";
 
-  Graph::vertex_iterator vertexIt, vertexEnd;
+	Graph::vertex_iterator vertexIt, vertexEnd;
 	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt) {
 		dotfile << "  " << pGraph[*vertexIt].name << "[style=filled, fillcolor=" << nodeColors[pGraph[*vertexIt].partition] << ", label=\"" << pGraph[*vertexIt].name << ":\\n\\n\"\n";
 		std::vector<Instruction*> instructions = pGraph[*vertexIt].instructions;
