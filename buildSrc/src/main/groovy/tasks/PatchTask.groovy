@@ -48,9 +48,9 @@ public class PatchTask extends DefaultTask {
 			def patchFirstLine = null
 			project.file(patchFile).eachLine { line, lineNumber ->
 				if (line.startsWith("--- ")) {
-					patchFirstLine = line[4..-1]
+					patchFirstLine = line[4..-1].replaceFirst(/\t.*$/, "")
 				} else if (line.startsWith("+++ ") && patchFirstLine) {
-					def patchSecondLine = line[4..-1]
+					def patchSecondLine = line[4..-1].replaceFirst(/\t.*$/, "")
 
 					def path1 = patchFirstLine.split("/")[skipPathSegments..-1]
 					def path2 = patchSecondLine.split("/")[skipPathSegments..-1]
