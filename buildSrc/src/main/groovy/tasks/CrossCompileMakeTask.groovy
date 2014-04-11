@@ -10,7 +10,7 @@ public class CrossCompileMakeTask extends Exec {
 	private ArrayList<Object> targets = []
 
 	public CrossCompileMakeTask() {
-		dependsOn "reconosConfig"
+		dependsOn project.reconosConfigTaskPath
 	}
 
 	public void target(...targets) {
@@ -35,7 +35,7 @@ public class CrossCompileMakeTask extends Exec {
 		def targets = project.escapeForShell(getTargets())
 
 		def parallel_processes = getParallelCompilationProcesses()
-		def reconosConfig = project.tasks["reconosConfig"]
+		def reconosConfig = project.getReconosConfigTask()
 
 		commandLine "bash", "-c", ". ${reconosConfig.reconosConfigScriptEscaped} && make -j$parallel_processes $targets"
 	}

@@ -171,6 +171,10 @@ class ReconosPluginConvention {
 		return reconosTaskPath("reconosConfig")
 	}
 
+	public Task getReconosConfigTask() {
+		return project.tasks.getByPath(getReconosConfigTaskPath())
+	}
+
 	public void checkAfterReconosConfig() {
 		if (!reconosConfigHasRun)
 			throw new GradleException("You cannot do this before the reconosConfig task has been executed. "
