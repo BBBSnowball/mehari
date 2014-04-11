@@ -67,7 +67,7 @@ I hope your are using a Linux distribution that uses deb packages. If you do, si
 sudo apt-get install curl git build-essential python-yaml python-unipath bc python2.7-dev libctemplate-dev gawk \
 	build-essential cmake libboost-graph1.48-dev graphviz qemu-user-static
 # Optional tools
-sudo apt-get install sispmctl gdb-multiarch
+sudo apt-get install sispmctl gdb-multiarch libncurses5-dev
 
 # We need Java. You may want to use a different version.
 sudo apt-get install openjdk-6-jre-headless
