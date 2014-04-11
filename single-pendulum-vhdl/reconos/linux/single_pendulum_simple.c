@@ -107,6 +107,8 @@ void single_pendulum_simple(single_pendulum_simple_state_t* state) {
     state->Vdx[1] = (-(state->Vp[2])*state->Vp[1]*sin(state->Vx[0])-state->Vx[1]*state->Vp[3]+state->Vu[0])/state->Vp[4];
 }
 
+volatile static int software_thread_iterations = 1;
+
 // sort thread shall behave the same as hw thread:
 // - get pointer to data buffer
 // - if valid address: sort data and post answer
@@ -114,7 +116,6 @@ void single_pendulum_simple(single_pendulum_simple_state_t* state) {
 void *software_thread(void* data)
 {
     void* ret;
-    unsigned int dummy = 23;
     struct reconos_resource *res  = (struct reconos_resource*) data;
     struct mbox *mb_start = res[0].ptr;
     struct mbox *mb_stop  = res[1].ptr;
@@ -130,10 +131,13 @@ void *software_thread(void* data)
         }
         else
         {
-            single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
+            int iterations = software_thread_iterations;
+            int i;
+            for (i=0; i<iterations; ++i)
+                single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
         }
         
-        mbox_put_pointer(mb_stop, dummy);
+        mbox_put_pointer(mb_stop, ret);
     }
 
     return (void*)0;
@@ -156,7 +160,12 @@ void print_help()
         "\n"
         "Usage:\n"
         "\tsingle_pendulum_simple <-h|--help>\n"
-        "\tsingle_pendulum_simple <num_hw_threads> <num_sw_threads> [--without-reconos]\n");
+        "\tsingle_pendulum_simple [options] <num_hw_threads> <num_sw_threads>\n"
+    "Options:\n"
+    "--without-reconos\tDon't use ReconOS\n"
+    "--without-memory\tThe hardware thread doesn't access the memory. It will calculate with dummy values.\n"
+    "--iterations <NUM>\tDo the calculation <NUM> times (short: -n <NUM>)\n"
+    "--software-thread-iterations <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n");
 }
 
 static int only_print_help = 0;
@@ -191,11 +200,12 @@ int main(int argc, char ** argv)
             { "without-reconos", no_argument, &without_reconos, 1 },
             { "without-memory",  no_argument, &without_memory,  1 },
             { "iterations",      required_argument, 0, 'n' },
+            { "software-thread-iterations", required_argument, 0, 'm' },
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:h?", long_options, &option_index);
+        c = getopt_long (argc, argv, "n:m:h?", long_options, &option_index);
 
         if (c == -1)
             // end of options
@@ -207,6 +217,9 @@ int main(int argc, char ** argv)
             break;
         case 'n':
             iterations = atoi(optarg);
+            break;
+        case 'm':
+            software_thread_iterations = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -450,4 +463,3 @@ int main(int argc, char ** argv)
     else
         return 1;
 }
-
