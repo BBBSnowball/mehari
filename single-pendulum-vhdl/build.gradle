@@ -150,13 +150,44 @@ reconosHardwareTest("SinglePendulumSimpleHardware") {
 	prepare {
 		dependsOn coregen, createSinglePendulumSimpleMetaFiles
 	}
+
+	downloadBitstream {
+		mustRunAfter ":reconos:runDemo"
+	}
 }
 
+//TODO also compile for host
 task compileSinglePendulumSimpleLinux(type: CrossCompileMakeTask) {
-	target ""
+	target "single_pendulum_simple"
 	workingDir rootPath("reconos", "linux")
 
 	dependsOn ":reconos:compileReconosLib"
+
+	ext.binaryForTarget = rootPath(workingDir, "single_pendulum_simple")
+}
+
+task measureSinglePendulumSimple(type: MySshTask) {
+	dependsOn ":reconos:prepareSsh", //DEBUG: downloadSinglePendulumSimpleHardwareBitstream,
+		compileSinglePendulumSimpleLinux
+
+	def binaryForTarget       = compileSinglePendulumSimpleLinux.binaryForTarget
+	def binaryOnTarget        = "/tmp/single_pendulum_simple"
+	def measureScript         = rootPath("reconos", "measure.sh")
+	def measureScriptOnTarget = "/tmp/measure.sh"
+
+	session(remotes.board) {
+		put(binaryForTarget.toString(), binaryOnTarget.toString())
+		put(measureScript.toString(), measureScriptOnTarget.toString())
+
+		execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
+		execute("sh $measureScriptOnTarget")
+
+		get("/tmp/single_pendulum_simple_results.tar", file("single_pendulum_simple_results.tar").toString())
+
+		exec {
+			commandLine "tar", "-xf", "single_pendulum_simple_results.tar"
+		}
+	}
 }
 
 task clean(type: Delete) {
@@ -174,5 +205,5 @@ task compile {
 }
 
 task test {
-	dependsOn testSimpleSimulation, testReconosSimulation
+	dependsOn testSimpleSimulation, testReconosSimulation, measureSinglePendulumSimple
 }

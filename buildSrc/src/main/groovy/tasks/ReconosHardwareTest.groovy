@@ -62,6 +62,17 @@ class ReconosHardwareTest {
 		return compileBitstreamTask
 	}
 
+	public def downloadBitstream(closure=null) {
+		if (closure)
+			downloadBitstreamTask.configure(closure)
+
+		return downloadBitstreamTask
+	}
+
+	public def getDownloadBitstream() {
+		return downloadBitstreamTask
+	}
+
 	public void hardwareDir(dir) {
 		prepareTask.hardwareDir(dir)
 		compileBitstreamTask.projectDir(prepareTask.outputDir)

@@ -1,5 +1,7 @@
 #!/bin/sh
 
+cd "$(dirname "$0")"
+
 measure() {
 	output="$1"
 	count="$2"
@@ -40,8 +42,11 @@ avg() {
 }
 
 PREFIX="single_pendulum_simple_"
+ITERATIONS=10000
 
-measure "${PREFIX}hw_10k.txt"           10  ./single_pendulum_simple 1 0 -n 10000
-measure "${PREFIX}sw_10k.txt"           10  ./single_pendulum_simple 0 1 -n 10000
-measure "${PREFIX}hw_10k_wo_memory.txt" 10  ./single_pendulum_simple 1 0 -n 10000 --without-memory
-measure "${PREFIX}sw_10k_wo_mbox.txt"   10  ./single_pendulum_simple 0 1 --software-thread-iterations 10000
+measure "${PREFIX}hw_10k.perf.txt"           10  ./single_pendulum_simple 1 0 -n $ITERATIONS
+measure "${PREFIX}sw_10k.perf.txt"           10  ./single_pendulum_simple 0 1 -n $ITERATIONS
+measure "${PREFIX}hw_10k_wo_memory.perf.txt" 10  ./single_pendulum_simple 1 0 -n $ITERATIONS --without-memory
+measure "${PREFIX}sw_10k_wo_mbox.perf.txt"   10  ./single_pendulum_simple 0 1 --software-thread-iterations $ITERATIONS
+
+tar -cf single_pendulum_simple_results.tar ${PREFIX}*.perf.txt
