@@ -52,6 +52,6 @@ rm ${PREFIX}*.perf.txt
 measure "${PREFIX}hw_10k.perf.txt"           10  ./single_pendulum_simple 1 0 -n $ITERATIONS
 measure "${PREFIX}sw_10k.perf.txt"           10  ./single_pendulum_simple 0 1 -n $ITERATIONS
 measure "${PREFIX}hw_10k_wo_memory.perf.txt" 10  ./single_pendulum_simple 1 0 -n $ITERATIONS --without-memory
-measure "${PREFIX}sw_10k_wo_mbox.perf.txt"   10  ./single_pendulum_simple 0 1 --software-thread-iterations $ITERATIONS
+measure "${PREFIX}sw_100k_wo_mbox.perf.txt"   10  ./single_pendulum_simple 0 1 --software-thread-iterations $((10*ITERATIONS))
 
 tar -cf single_pendulum_simple_results.tar ${PREFIX}*.perf.txt
