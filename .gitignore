@@ -40,4 +40,5 @@ _build
 /reconos/_termcap/
 
 # performance test reports
-*.perf.txt
+*.perf.*
+*.data

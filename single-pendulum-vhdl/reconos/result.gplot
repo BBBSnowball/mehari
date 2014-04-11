@@ -1,0 +1,11 @@
+#set autoscale
+
+set terminal pngcairo size 1024,768 noenhanced font 'Verdana,10'
+set output 'results.perf.png'
+
+set ylabel "Time in ms"
+set xtics rotate by -45
+
+#TODO probably use candlesticks or whiskerbars
+plot "avg.dat"  using 1:2:3:xticlabels(6) with yerrorbars title "avg and stdev", \
+     "data.dat" using 1:2                 with points     title "values"
