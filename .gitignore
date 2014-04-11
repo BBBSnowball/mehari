@@ -38,3 +38,6 @@ _build
 /reconos/_expat/
 /reconos/_gdb/
 /reconos/_termcap/
+
+# performance test reports
+*.perf.txt

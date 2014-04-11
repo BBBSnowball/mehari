@@ -185,7 +185,14 @@ task measureSinglePendulumSimple(type: MySshTask) {
 		get("/tmp/single_pendulum_simple_results.tar", file("single_pendulum_simple_results.tar").toString())
 
 		exec {
-			commandLine "tar", "-xf", "single_pendulum_simple_results.tar"
+			commandLine "tar", "-C", file("reconos"), "-xf", "single_pendulum_simple_results.tar"
+		}
+	}
+
+	doLast {
+		exec {
+			commandLine "./evaluate-measurement.py"
+			workingDir file("reconos")
 		}
 	}
 }

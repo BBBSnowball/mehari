@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 cd "$(dirname "$0")"
 
@@ -6,6 +6,9 @@ measure() {
 	output="$1"
 	count="$2"
 	shift ; shift
+
+	echo "Command: $*" >"$output"
+	echo >> "$output"
 
 	echo -n "$*: "
 
@@ -43,6 +46,8 @@ avg() {
 
 PREFIX="single_pendulum_simple_"
 ITERATIONS=10000
+
+rm ${PREFIX}*.perf.txt
 
 measure "${PREFIX}hw_10k.perf.txt"           10  ./single_pendulum_simple 1 0 -n $ITERATIONS
 measure "${PREFIX}sw_10k.perf.txt"           10  ./single_pendulum_simple 0 1 -n $ITERATIONS
