@@ -1,0 +1,137 @@
+task prepareCMake(type: Exec) {
+	ext.buildDir = file("_build")
+
+	commandLine "cmake", ".."
+	workingDir buildDir
+
+	inputs.file file("CMakeLists.txt")
+	outputs.file rootPath(buildDir, "Makefile")
+
+	doFirst {
+		// circumvent bug in SWIG module for CMake
+		rootPath("_build", "src", "swig").mkdirs()
+	}
+}
+
+task compilePPrint(type: Exec) {
+	commandLine "make", "pprint"
+	workingDir prepareCMake.buildDir
+
+	dependsOn prepareCMake
+
+	inputs.files prepareCMake.outputs
+	inputs.dir file("include")
+	inputs.dir file("src/pprint")
+	outputs.file rootPath(prepareCMake.buildDir, "libpprint.so")
+}
+
+task compileVhdlgen(type: Exec) {
+	commandLine "make", "vhdlgen"
+	workingDir prepareCMake.buildDir
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.dir file("include")
+	inputs.dir file("src/vhdlgen")
+	inputs.files compilePPrint.outputs
+	outputs.file rootPath(prepareCMake.buildDir, "libvhdlgen.so")
+}
+
+task compileTest(type: Exec) {
+	commandLine "make", "test"
+	workingDir prepareCMake.buildDir
+
+	ext.sourceFiles = fileTree(".").include("**/*.cpp").files
+
+	inputs.files prepareCMake.outputs
+	inputs.dir file("include")
+	inputs.dir file("tests")
+	inputs.files compilePPrint.outputs
+	inputs.files compileVhdlgen.outputs
+	outputs.file rootPath(prepareCMake.buildDir, "test")
+
+	dependsOn prepareCMake, ":tools:installGTest", ":tools:installGMock"
+}
+
+task testPPrintAndVdhlgen(type: Exec) {
+	commandLine "./test"
+	workingDir prepareCMake.buildDir
+
+	dependsOn compileTest
+}
+
+task compilePPrintPython(type: Exec) {
+	commandLine "make", "_pprint"
+	workingDir prepareCMake.buildDir
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.files compilePPrint.outputs
+	inputs.dir file("include")
+	inputs.file rootPath("src", "swig", "pprint.i")
+	outputs.file rootPath(prepareCMake.buildDir, "pprint.py")
+	outputs.file rootPath(prepareCMake.buildDir, "_pprint.so")
+}
+
+task compileVhdlgenPython(type: Exec) {
+	commandLine "make", "_vhdlgen"
+	workingDir prepareCMake.buildDir
+
+	dependsOn prepareCMake, compilePPrint
+
+	inputs.files prepareCMake.outputs
+	inputs.files compilePPrint.outputs
+	inputs.files compileVhdlgen.outputs
+	inputs.dir file("include")
+	inputs.file rootPath("src", "swig", "pprint.i")
+	inputs.file rootPath("src", "swig", "vhdlgen.i")
+	outputs.file rootPath(prepareCMake.buildDir, "vhdlgen.py")
+	outputs.file rootPath(prepareCMake.buildDir, "_vhdlgen.so")
+}
+
+task compile {
+	dependsOn compilePPrint, compileVhdlgen, compilePPrintPython, compileVhdlgenPython, compileTest
+}
+
+task testPythonModules(type: Exec) {
+	commandLine "python", file("tests/swig/test.py")
+	workingDir prepareCMake.buildDir
+	environment "PYTHONPATH", pythonInstallPath + File.pathSeparator + file(prepareCMake.buildDir)
+
+	dependsOn compilePPrintPython, compileVhdlgenPython, ":tools:installPythonHelpers"
+}
+
+task test {
+	dependsOn testPPrintAndVdhlgen, testPythonModules
+}
+
+task install(type: Copy) {
+	from("include") {
+		include "*.h"
+		exclude "test*"
+		rename ".*", 'include/$0'
+	}
+	from(prepareCMake.buildDir) {
+		include "lib*.so"
+		rename ".*", 'lib/$0'
+	}
+	from(prepareCMake.buildDir) {
+		include "pprint.py", "vhdlgen.py", "_*.so"
+	}
+	into "_install"
+
+	dependsOn compile
+}
+
+task clean(type: Delete) {
+	delete "_build"
+	delete(fileTree(install.destinationDir) {
+		["pprint", "vhdlgen"].each { lib ->
+			include "_${lib}.so", "${lib}.py"
+			include "lib/lib${lib}.so"
+			include "include/${lib}*.h"
+		}
+	})
+}

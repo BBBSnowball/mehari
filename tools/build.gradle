@@ -49,6 +49,17 @@ task extractGTestSource(type: FetchAndExtractSourceTask) {
 	into "_gtest"
 
 	mustRunAfter cleanGTest
+
+	inputs.property "taskVersion", "1.1"
+
+	doLast {
+		// add -fPIC flag
+		def cmake_file = rootPath(targetDir, "CMakeLists.txt")
+		chmod(cmake_file, 0644)
+		exec {
+			commandLine "sed", "-i", 's/^\\(cxx_library(\\w\\+ "\\\${cxx_strict}\\)[^"]*"/\\1 -fPIC"/', cmake_file
+		}
+	}
 }
 
 task prepareGTest(type: Exec) {
@@ -108,6 +119,19 @@ task extractGMockSource(type: FetchAndExtractSourceTask) {
 	into "_gmock"
 
 	mustRunAfter cleanGMock
+
+	inputs.property "taskVersion", "1.1"
+
+	doLast {
+		// add gmock-only target and add -fPIC flag
+		def cmake_file = rootPath(targetDir, "CMakeLists.txt")
+		chmod(cmake_file, 0644)
+		cmake_file.withWriterAppend { w ->
+			w.writeLine("")
+			w.writeLine('cxx_library(gmock-only "${cxx_strict} -fPIC" src/gmock-all.cc)')
+			w.writeLine("")
+		}
+	}
 }
 
 task prepareGMock(type: Exec) {
@@ -119,24 +143,13 @@ task prepareGMock(type: Exec) {
 	inputs.files  fileTree(extractGMockSource.targetDir).include("cmake/internal_utils.cmake")
 	outputs.files fileTree(extractGMockSource.targetDir).include("cmake_install.cmake", "CMakeCache.txt", "Makefile",
 		"CMakeFiles/**/*.cmake", "CMakeFiles/**/*.make", "CMakeFiles/**/Makefile*", "CMakeLists.txt")
-
-	doFirst {
-		//TODO undo after compiling...
-		cmake_file = rootPath(extractGMockSource.targetDir, "CMakeLists.txt")
-		chmod(cmake_file, 0644)
-		cmake_file.withWriterAppend { w ->
-			w.writeLine("")
-			w.writeLine('cxx_library(gmock-only "${cxx_strict}" src/gmock-all.cc)')
-			w.writeLine("")
-		}
-	}
 }
 
 task compileGMock(type: Exec) {
 	commandLine "make", "gmock-only"
 	workingDir extractGMockSource.targetDir
 
-	dependsOn prepareGMock
+	dependsOn prepareGMock, installGTest
 
 	inputs.files  fileTree(extractGMockSource.targetDir).include("Makefile", "src", "include")
 	outputs.files fileTree(extractGMockSource.targetDir).include("libgmock*.a")
@@ -165,11 +178,17 @@ task installGMockLibs(type: Copy) {
 }
 
 task installGMock {
-	dependsOn installGMockHeaders, installGMockLibs
+	dependsOn installGMockHeaders, installGMockLibs, installGTest
 }
+
+def subproject_names = ["vhdlgen"]
 
 ["compile", "install", "test"].each { name ->
 	task(name) {
 		dependsOn tasks.findAll { task -> task.name.startsWith(name) && task.name != name }
+
+		subproject_names.each { subproject ->
+			dependsOn "$subproject:$name"
+		}
 	}
 }
