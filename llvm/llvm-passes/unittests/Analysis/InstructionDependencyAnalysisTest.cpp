@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 
 using namespace llvm;
@@ -92,14 +93,9 @@ protected:
         if (!F.hasName() || F.getName() != "test")
           return false;
 
-        // create worklist containing all instructions of the function
-        std::vector<Instruction*> worklist;
-        for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) 
-          worklist.push_back(&*I);
-
         // run instruction dependency analysis
         InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-        InstructionDependencyList AnalysisResults = IDA->getDependencies(worklist);
+        InstructionDependencyList AnalysisResult = IDA->getDependencies(F);
 
         // DEBUG: print expected and analysis results
         if (false) {
@@ -115,8 +111,8 @@ protected:
           }
           std::cout << "ANALYSIS RESULTS:\n";
           index = 0;
-          for (InstructionDependencyList::iterator instrDepIt = AnalysisResults.begin(); 
-                instrDepIt != AnalysisResults.end(); ++instrDepIt, index++) {
+          for (InstructionDependencyList::iterator instrDepIt = AnalysisResult.begin(); 
+                instrDepIt != AnalysisResult.end(); ++instrDepIt, index++) {
             std::cout << index << ":";
             for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
               std::cout << " " << int(*depNumIt);
@@ -126,11 +122,11 @@ protected:
         }
 
         // compare the analysis results with the expected result
-        EXPECT_EQ(ExpectedResult.size(), AnalysisResults.size());
-        for (int i=0; i<AnalysisResults.size(); i++) {
-          EXPECT_EQ(ExpectedResult[i].size(), AnalysisResults[i].size());
-          for (int j=0; j<AnalysisResults[i].size(); j++) {
-            EXPECT_EQ(ExpectedResult[i][j], AnalysisResults[i][j]);
+        EXPECT_EQ(ExpectedResult.size(), AnalysisResult.size());
+        for (int i=0; i<std::min(AnalysisResult.size(), ExpectedResult.size()); i++) {
+          EXPECT_EQ(ExpectedResult[i].size(), AnalysisResult[i].size());
+          for (int j=0; j<std::min(AnalysisResult[i].size(), ExpectedResult[i].size()); j++) {
+            EXPECT_EQ(ExpectedResult[i][j], AnalysisResult[i][j]);
           }
         }
 
@@ -158,41 +154,259 @@ private:
 } // end anonymous namespace
 
 
-// int a, b;
-// a = 1;
-// b = a;
-TEST_F(InstructionDependencyAnalysisTest, AssignmentTest) {
+TEST_F(InstructionDependencyAnalysisTest, EmptyFunctionTest) {
   ParseAssembly(
-    "define void @test() #0 {\n"
+    "define void @test() {\n"
+    "entry:\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, AllocaStoreTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "1\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, AllocaStoreLoadTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "0 1\n"
+    /*3:*/ "2\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, MultipleStoreLoadTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  store i32 2, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "0\n"
+    /*3:*/ "0 1 2\n"
+    /*4:*/ "3\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ArrayAccessTest) {
+  ParseAssembly(
+    "define void @test(double* %param) {\n"
+    "entry:\n"
+    "  %a = alloca [3 x i32], align 4\n"
+    "  %arrayidx = getelementptr inbounds [3 x i32]* %a, i32 0, i64 0\n"
+    "  store i32 42, i32* %arrayidx, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "1\n"
+    /*3:*/ "2\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, GlobalArrayAccessTest) {
+  ParseAssembly(
+    "@b = common global [3 x i32] zeroinitializer, align 4\n"
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %0 = load i32* getelementptr inbounds ([3 x i32]* @b, i32 0, i64 0), align 4\n"
+    "  store i32 %0, i32* %a, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "0 1\n"
+    /*3:*/ "2\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ArrayParamTest) {
+  ParseAssembly(
+    "define void @test(double* %param) {\n"
+    "entry:\n"
+    "%param.addr = alloca double*, align 8\n"
+    "store double* %param, double** %param.addr, align 8"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "1\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, CalculationTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
     "  %a = alloca i32, align 4\n"
     "  %b = alloca i32, align 4\n"
     "  store i32 1, i32* %a, align 4\n"
-    "  %1 = load i32* %a, align 4\n"
-    "  store i32 %1, i32* %b, align 4\n"
+    "  store i32 2, i32* %b, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %1 = load i32* %b, align 4\n"
+    "  %add = add nsw i32 %0, %1\n"
+    "  store i32 %add, i32* %a, align 4\n"
     "  ret void\n"
     "}\n");
   std::string result = 
     /*0:*/ "-\n"
     /*1:*/ "-\n"
     /*2:*/ "0\n"
-    /*3:*/ "0 2\n"
-    /*4:*/ "1 3\n"
-    /*5:*/ "-\n";
+    /*3:*/ "1\n"
+    /*4:*/ "0 2\n"
+    /*5:*/ "1 3\n"
+    /*6:*/ "4 5\n"
+    /*7:*/ "0 6\n"
+    /*8:*/ "7\n";
   CheckResult(ParseResults(result));
 }
 
-// int a, b;
-// a = 1;
-// b = 2-1+a;
-TEST_F(InstructionDependencyAnalysisTest, CalculationTest) {
+
+TEST_F(InstructionDependencyAnalysisTest, DoubleComparisonTest) {
   ParseAssembly(
-    "define void @test() #0 {\n"
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca double, align 8\n"
+    "  store double 1.0, double* %a, align 8\n"
+    "  %b = alloca double, align 8\n"
+    "  store double 2.0, double* %b, align 8\n"
+    "  %0 = load double* %a, align 8\n"
+    "  %1 = load double* %b, align 8\n"
+    "  %cmp = fcmp ogt double %0, %1\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "0\n"
+    /*2:*/ "-\n"
+    /*3:*/ "2\n"
+    /*4:*/ "0 1\n"
+    /*5:*/ "2 3\n"
+    /*6:*/ "4 5\n"
+    /*7:*/ "6\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, ExtendOperandTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %b = alloca i32, align 4\n"
+    "  %c = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  store i32 2, i32* %b, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %1 = load i32* %b, align 4\n"
+    "  %cmp = icmp sgt i32 %0, %1\n"
+    "  %conv = zext i1 %cmp to i32\n"
+    "  store i32 %conv, i32* %c, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "-\n"
+    /*3:*/ "0\n"
+    /*4:*/ "1\n"
+    /*5:*/ "0 3\n"
+    /*6:*/ "1 4\n"
+    /*7:*/ "5 6\n"
+    /*8:*/ "7\n"
+    /*9:*/ "2 8\n"
+    /*10:*/ "9\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, IfElseTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
     "  %a = alloca i32, align 4\n"
     "  %b = alloca i32, align 4\n"
     "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %tobool = icmp ne i32 %0, 0\n"
+    "  br i1 %tobool, label %if.then, label %if.end\n"
+    "  if.then:                                          ; preds = %entry\n"
+    "    store i32 2, i32* %b, align 4\n"
+    "    br label %if.end\n"
+    "  if.end:                                           ; preds = %if.then, %entry\n"
+    "    ret void\n"
+    "}\n");
+  std::string result = 
+    /*0:*/ "-\n"
+    /*1:*/ "-\n"
+    /*2:*/ "0\n"
+    /*3:*/ "0 2\n"
+    /*4:*/ "3\n"
+    /*5:*/ "4\n"
+    /*6:*/ "1 5\n"
+    /*7:*/ "6\n"
+    /*8:*/ "5 7\n";
+  CheckResult(ParseResults(result));
+}
+
+
+TEST_F(InstructionDependencyAnalysisTest, PhyNodeTest) {
+  ParseAssembly(
+    "define void @test() {\n"
+    "entry:\n"
+    "  %a = alloca i32, align 4\n"
+    "  %b = alloca i32, align 4\n"
+    "  store i32 1, i32* %a, align 4\n"
+    "  %0 = load i32* %a, align 4\n"
+    "  %tobool = icmp ne i32 %0, 0\n"
+    "  br i1 %tobool, label %cond.true, label %cond.false\n"
+    "cond.true:                                        ; preds = %entry\n"
     "  %1 = load i32* %a, align 4\n"
-    "  %add = add nsw i32 1, %1\n"
-    "  store i32 %add, i32* %b, align 4\n"
+    "  br label %cond.end\n"
+    "cond.false:                                       ; preds = %entry\n"
+    "  br label %cond.end\n"
+    "cond.end:                                         ; preds = %cond.false, %cond.true\n"
+    "  %cond = phi i32 [ %1, %cond.true ], [ 2, %cond.false ]\n"
+    "  store i32 %cond, i32* %b, align 4\n"
     "  ret void\n"
     "}\n");
   std::string result = 
@@ -201,7 +415,12 @@ TEST_F(InstructionDependencyAnalysisTest, CalculationTest) {
     /*2:*/ "0\n"
     /*3:*/ "0 2\n"
     /*4:*/ "3\n"
-    /*5:*/ "1 4\n"
-    /*6:*/ "-\n";
+    /*5:*/ "4\n"
+    /*6:*/ "0 2 5\n"
+    /*7:*/ "6\n"
+    /*8:*/ "5\n"
+    /*9:*/ "6 7 8\n"
+    /*10:*/ "1 9\n"
+    /*11:*/ "10\n";
   CheckResult(ParseResults(result));
 }

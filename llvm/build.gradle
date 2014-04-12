@@ -153,7 +153,7 @@ task buildLLVMPasses(type: Exec) {
 	def parallel_processes = hasProperty("parallel_compilation_processes") ? parallel_compilation_processes : 4
 
 	workingDir build_dir
-	commandLine "bash", "-c", "make -j$parallel_processes"
+	commandLine "bash", "-c", "gmake -j$parallel_processes"
 }
 
 
@@ -239,7 +239,7 @@ task speedUpAnalysis(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -speedup -dot -speedup-functions \"evalS evalND\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -speedup -dot -speedup-functions \"evalS evalND\" -speedup-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
 }
 
 
@@ -253,7 +253,7 @@ task createIRGraphs(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -dfg -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -dfg -irgraph-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
 }
 
 
@@ -277,7 +277,7 @@ task applyPartitioning(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"evalS\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"evalS\" -partitioning-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
 }
 
 

@@ -20,6 +20,9 @@ unsigned int PartitioningPass::partitionCount = 2;
 static cl::opt<std::string> TargetFunctions("partitioning-functions", 
             cl::desc("Specify the functions the partitioning will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
+static cl::opt<std::string> OutputDir("partitioning-output-dir", 
+            cl::desc("Set the output directory for graph results"), 
+            cl::value_desc("partitioning-output-dir"));
 
 
 PartitioningPass::PartitioningPass() : FunctionPass(ID) {
@@ -47,7 +50,7 @@ bool PartitioningPass::runOnFunction(Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(worklist);
+  InstructionDependencyList dependencies = IDA->getDependencies(func);
 
   // create partitioning graph
 	PartitioningGraph pGraph;
@@ -58,8 +61,8 @@ bool PartitioningPass::runOnFunction(Function &func) {
 	applyRandomPartitioning(pGraph, 42);
 
 	// print results
-	pGraph.printGraph(functionName);
-	pGraph.printGraphviz(functionName);
+	// pGraph.printGraph(functionName);
+	pGraph.printGraphviz(functionName, OutputDir);
 
 	return false;
 }

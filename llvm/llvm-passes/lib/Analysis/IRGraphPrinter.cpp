@@ -3,12 +3,18 @@
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 
 #include <boost/graph/adjacency_list.hpp> 
 #include <boost/graph/graphviz.hpp>
 
 #include <vector>
 #include <algorithm>
+
+
+static cl::opt<std::string> OutputDir("irgraph-output-dir", 
+            cl::desc("Set the output directory for graph results"), 
+            cl::value_desc("irgraph-output-dir"));
 
 
 IRGraphPrinter::IRGraphPrinter() : FunctionPass(ID) {
@@ -20,7 +26,7 @@ IRGraphPrinter::~IRGraphPrinter() {}
 
 bool IRGraphPrinter::runOnFunction(Function &func) {
   std::string functionName = func.getName().str();
-  std::string fileName = "_output/graph/dataflow-graph-" + functionName + ".dot";
+  std::string fileName = OutputDir + "/dataflow-graph-" + functionName + ".dot";
   printDataflowGraph(fileName, func);
   return false;
 }
@@ -34,10 +40,10 @@ void IRGraphPrinter::printDataflowGraph(std::string &filename, Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(worklist);
+  InstructionDependencyList dependencies = IDA->getDependencies(func);
 
   // create new graph  
-  typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS > Graph;
+  typedef boost::adjacency_list<boost::setS, boost::vecS, boost::directedS > Graph;
   Graph g;
 
   int index = 0;

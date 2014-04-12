@@ -1,4 +1,5 @@
 #include "mehari/Analysis/SpeedupAnalysis.h"
+#include "mehari/HardwareInformation.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
@@ -19,6 +20,9 @@ static cl::opt<bool> Graphviz ("dot", cl::desc("Enable writing the dependency gr
 static cl::opt<std::string> TargetFunctions("speedup-functions", 
             cl::desc("Specify the functions the speedup analysis will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
+static cl::opt<std::string> OutputDir("speedup-output-dir", 
+            cl::desc("Set the output directory for speedup results"), 
+            cl::value_desc("speedup-output-dir"));
 
 
 SpeedupAnalysis::SpeedupAnalysis() : FunctionPass(ID) {
@@ -40,28 +44,18 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
   errs() << "\n\nspeedup analysis: " << func.getName() << "\n";
 
   // create worklist containing all instructions of the function
+  worklist.clear();
   for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I)
     worklist.push_back(&*I);
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(worklist);
+  InstructionDependencyList dependencies = IDA->getDependencies(func);
 
   // convert InstructionDependencyList to a graph
   buildDependencyGraph(dependencies);
 
 
-  // add a root node for each vertex of the graph that has no predecessor
-  Graph::vertex_iterator vertexIt, vertexEnd;
-  Graph::in_edge_iterator inedgeIt, inedgeEnd;
-  Graph::vertex_descriptor root = boost::add_vertex(depGraph);
-
-  for (boost::tie(vertexIt, vertexEnd) = boost::vertices(depGraph); vertexIt != vertexEnd; ++vertexIt) {
-    tie(inedgeIt, inedgeEnd) = in_edges(*vertexIt, depGraph);
-    if (inedgeIt == inedgeEnd && *vertexIt != root)
-      boost::add_edge(root, *vertexIt, 0, depGraph);
-  }
-  
   // determine critical path (which is the shortest path because of the negative edge weights)
 
   // init distances and predecessors
@@ -69,8 +63,8 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
   for (int i = 0; i < boost::num_vertices(depGraph); ++i)
     predecessors[i] = i;
 
+  // init distances vector
   std::vector<int> distances(boost::num_vertices(depGraph));
-  distances[root] = 0;
 
   // gets the weight property
   boost::property_map<Graph, boost::edge_weight_t>::type weight_pmap = get(boost::edge_weight, depGraph);  
@@ -83,6 +77,12 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
       distance_map(&distances[0]).
         predecessor_map(&predecessors[0])
     );
+
+
+  // create graph plot
+  if (Graphviz)
+    printGraphviz(functionName);
+
 
   if (!bellmanFordSucceeded) {
     errs() << "ERROR: Could not apply the Bellman Ford algorithm on the instruction dependency graph.\n\n";
@@ -99,10 +99,6 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
   errs() << "runtime for computing all instructions sequentially: " << T_s << "\n"; 
   errs() << "runtime for computing instructions in parallel: " << T_p << "\n"; 
   errs() << "\n" << "speedup: " << format("%4.4f", float(T_s)/float(T_p)) << "\n";
-
-
-  if (Graphviz)
-    printGraphviz(functionName);
 
   return false;
 }
@@ -127,6 +123,14 @@ void SpeedupAnalysis::buildDependencyGraph(InstructionDependencyList &dependenci
       boost::add_edge(int(*depNumIt), int(index), (-1)*(getInstructionCost(worklist[*depNumIt])), depGraph);
     }
   }
+  // add an edge from the first vertex to each vertex of the graph that has no predecessor
+  Graph::vertex_iterator vertexIt, vertexEnd;
+  Graph::in_edge_iterator inedgeIt, inedgeEnd;
+  for (boost::tie(vertexIt, vertexEnd) = boost::vertices(depGraph); vertexIt != vertexEnd; ++vertexIt) {
+    tie(inedgeIt, inedgeEnd) = in_edges(*vertexIt, depGraph);
+    if (inedgeIt == inedgeEnd)
+      boost::add_edge(0, *vertexIt, 0, depGraph);
+  }
 }
 
 
@@ -141,11 +145,10 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
     llvm::raw_string_ostream rso(vertex_names[instr_number]);
     instr->print(rso);
   }
-  vertex_names[worklist.size()-1] = "ROOT";
 
   boost::property_map<Graph, boost::edge_weight_t>::type trans_delay = get(boost::edge_weight, depGraph);
 
-  std::string fileName = "_output/graph/speedup-analysis-graph-" + name + ".dot";
+  std::string fileName = OutputDir + "/speedup-analysis-graph-" + name + ".dot";
   std::ofstream dotfile(fileName.c_str());
   boost::write_graphviz(dotfile, depGraph,
                           boost::make_label_writer(vertex_names),
@@ -154,23 +157,15 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
 }
 
 
-// TODO there should be a better way to determine the instruction cost
 unsigned int SpeedupAnalysis::getInstructionCost(Instruction *instruction) {
-  switch(int(instruction->getType()->getTypeID())) {
-    case 0:  // store instruction
-      return 2;
-      break;
-    case 3:  // arithmetic operation
-      return 4;
-      break;
-    case 14: // load instruction
-      return 3;
-      break;
-    default:
-      errs() << "ERROR: unhandled instruction: " << *instruction << "\n"; 
-      return 1;
-      break;
+  HardwareInformation hwInfo;
+  DeviceInformation *devInfo = hwInfo.getDeviceInfo("Cortex-A9");
+  InstructionInformation *instrInfo = devInfo->getInstructionInfo(instruction->getOpcodeName());
+  if (instrInfo == NULL) {
+    errs() << "WARNING: unhandled instruction (" << instruction->getOpcode() << " / " << instruction->getOpcodeName() << ")\n";
+    return 1;
   }
+  return instrInfo->getCycleCount();
 }
 
 
