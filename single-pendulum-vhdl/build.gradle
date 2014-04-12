@@ -167,7 +167,8 @@ task compileSinglePendulumSimpleLinux(type: CrossCompileMakeTask) {
 }
 
 task measureSinglePendulumSimple(type: MySshTask) {
-	dependsOn ":reconos:prepareSsh", downloadSinglePendulumSimpleHardwareBitstream
+	dependsOn ":reconos:prepareSsh", downloadSinglePendulumSimpleHardwareBitstream,
+		compileSinglePendulumSimpleLinux
 
 	def binaryForTarget       = compileSinglePendulumSimpleLinux.binaryForTarget
 	def binaryOnTarget        = "/tmp/single_pendulum_simple"
