@@ -257,7 +257,7 @@ begin
 		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"FFFFFFFE");
 
 		report "Reading 'done' message from slave...";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, addr_slv);
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"FFFFFFFE");
 
 		report "Calculation complete.";
 
