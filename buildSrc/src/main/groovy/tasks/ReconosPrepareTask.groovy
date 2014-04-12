@@ -46,6 +46,10 @@ public class ReconosPrepareTask extends Exec {
 				project.logger.warn("The output directory '${edk_dir.value}' already exists. The task will likely fail. "
 					+ "Please run clean before running this task.")
 		}
+
+		doLast {
+			project.sh(project.escapeForShell(["touch", project.rootPath(edk_dir, "prepare.done")]))
+		}
 	}
 
 	public excludeOutput(...patterns) {
@@ -86,13 +90,13 @@ public class ReconosPrepareTask extends Exec {
 		inputs.property("RECONOS_ARCH") { RECONOS_ARCH.value }
 		inputs.property("RECONOS_OS"  ) { RECONOS_OS.value   }
 		inputs.property("base_design" ) { base_design.value  }
-		inputs.dir { project.path(RECONOS.value, "tools") }
-		inputs.dir { project.path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
-		inputs.dir { project.path(RECONOS.value, "pcores") }
-		inputs.files { project.fileTree(fileInHwDir()) { used_hw_threads.value.each { hwt -> include hwt } } }
+		//inputs.dir { project.path(RECONOS.value, "tools") }
+		//inputs.dir { project.path(RECONOS.value, "designs", "${RECONOS_ARCH.value}_${RECONOS_OS.value}_${base_design.value}") }
+		//inputs.dir { project.path(RECONOS.value, "pcores") }
+		//inputs.files { project.fileTree(fileInHwDir()) { used_hw_threads.value.each { hwt -> include hwt } } }
 		outputs.dir {
 			project.fileTree(getOutputDirectory().toString()) {
-				include "data", "etc", "pcores", "device_tree.dts", "ps7_init.tcl", "system.mhs", "system.xmp"
+				/*include "data", "etc", "pcores", "device_tree.dts", "ps7_init.tcl", "system.mhs", "system.xmp"
 
 				// created by other tasks
 				exclude "hdl", "implementation", "platgen.*", "revup", "synthesis", "__xps"
@@ -103,7 +107,9 @@ public class ReconosPrepareTask extends Exec {
 				}
 
 				// created by this task, but changed later
-				exclude "system_incl.make", "system.make", "system.xmp"
+				exclude "system_incl.make", "system.make", "system.xmp"*/
+
+				include "prepare.done"
 			}
 		}
 	}
