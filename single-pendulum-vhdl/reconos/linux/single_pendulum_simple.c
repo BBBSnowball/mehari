@@ -166,11 +166,12 @@ void print_help()
     "--without-reconos\tDon't use ReconOS\n"
     "--without-memory\tThe hardware thread doesn't access the memory. It will calculate with dummy values.\n"
     "--iterations <NUM>\tDo the calculation <NUM> times (short: -n <NUM>)\n"
-    "--iterations-in-thread <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n");
+    "--iterations-in-thread <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n"
+    "--dont-flush\tDo not flush caches between iterations.\n");
 }
 
 static int only_print_help = 0;
-static int without_reconos = 0, without_memory = 0, iterations = 1;
+static int without_reconos = 0, without_memory = 0, iterations = 1, dont_flush = 0;
 static int verbose_progress = 0;
 
 int main(int argc, char ** argv)
@@ -200,6 +201,7 @@ int main(int argc, char ** argv)
             { "help",            no_argument, &only_print_help, 1 },
             { "without-reconos", no_argument, &without_reconos, 1 },
             { "without-memory",  no_argument, &without_memory,  1 },
+            { "dont-flush",      no_argument, &dont_flush,      1 },
             { "iterations",      required_argument, 0, 'n' },
             { "iterations-in-thread", required_argument, 0, 'm' },
             {0, 0, 0, 0}
@@ -357,7 +359,7 @@ int main(int argc, char ** argv)
             fflush(stdout);
         }
 
-        if (!without_reconos)
+        if (!without_reconos && !dont_flush)
             reconos_cache_flush();
 
         for (i=0; i<simulation_steps; i++)
