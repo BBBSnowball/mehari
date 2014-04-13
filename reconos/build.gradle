@@ -716,7 +716,7 @@ task compileReconosDriver(type: CrossCompileMakeTask) {
 	workingDir rootPath("reconos", "linux", "driver")
 }
 task compileReconosLib(type: CrossCompileMakeTask) {
-	target "all", "libreconos.a"
+	target "all", "libreconos.a", "libreconos_host.a"
 	workingDir rootPath("reconos", "linux", "lib")
 }
 task compileReconosDemoLinux(type: CrossCompileMakeTask) {
