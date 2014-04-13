@@ -23,6 +23,7 @@
 
 #define THREAD_EXIT    ((void*)-1)
 #define WITHOUT_MEMORY ((void*)-2)
+#define SET_ITERATIONS ((uint32_t)-3)
 
 // software threads
 pthread_t swt[MAX_THREADS];
@@ -107,7 +108,7 @@ void single_pendulum_simple(single_pendulum_simple_state_t* state) {
     state->Vdx[1] = (-(state->Vp[2])*state->Vp[1]*sin(state->Vx[0])-state->Vx[1]*state->Vp[3]+state->Vu[0])/state->Vp[4];
 }
 
-volatile static int software_thread_iterations = 1;
+volatile static int iterations_in_thread = 1;
 
 // sort thread shall behave the same as hw thread:
 // - get pointer to data buffer
@@ -131,7 +132,7 @@ void *software_thread(void* data)
         }
         else
         {
-            int iterations = software_thread_iterations;
+            int iterations = iterations_in_thread;
             int i;
             for (i=0; i<iterations; ++i)
                 single_pendulum_simple( (single_pendulum_simple_state_t*) ret );
@@ -165,7 +166,7 @@ void print_help()
     "--without-reconos\tDon't use ReconOS\n"
     "--without-memory\tThe hardware thread doesn't access the memory. It will calculate with dummy values.\n"
     "--iterations <NUM>\tDo the calculation <NUM> times (short: -n <NUM>)\n"
-    "--software-thread-iterations <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n");
+    "--iterations-in-thread <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n");
 }
 
 static int only_print_help = 0;
@@ -200,7 +201,7 @@ int main(int argc, char ** argv)
             { "without-reconos", no_argument, &without_reconos, 1 },
             { "without-memory",  no_argument, &without_memory,  1 },
             { "iterations",      required_argument, 0, 'n' },
-            { "software-thread-iterations", required_argument, 0, 'm' },
+            { "iterations-in-thread", required_argument, 0, 'm' },
             {0, 0, 0, 0}
         };
 
@@ -219,7 +220,7 @@ int main(int argc, char ** argv)
             iterations = atoi(optarg);
             break;
         case 'm':
-            software_thread_iterations = atoi(optarg);
+            iterations_in_thread = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -268,6 +269,15 @@ int main(int argc, char ** argv)
             "the threads might get parts from different pointers. Therefore, you cannot use "
             "more than one thread on this platform.\n");
         exit(-1);
+    }
+
+    if (iterations_in_thread > 1) {
+        if (hw_threads > 0 && hw_threads + sw_threads > 1)
+        {
+            fprintf(stderr, "'--iterations-in-thread' can only be used with software threads "
+                "or one hardware thread.\n");
+            exit(-1);
+        }
     }
 
 
@@ -353,6 +363,13 @@ int main(int argc, char ** argv)
         for (i=0; i<simulation_steps; i++)
         {
             if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+
+            if (iterations_in_thread > 1 && hw_threads > 0) {
+                // set iterations_in_thread for hw thread
+                mbox_put(&mb_start, SET_ITERATIONS);
+                mbox_put(&mb_start, iterations_in_thread);
+            }
+
             mbox_put_pointer(&mb_start, (without_memory ? WITHOUT_MEMORY : &data[i]));
         }
         if (verbose_progress) printf("\n");

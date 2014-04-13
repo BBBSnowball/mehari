@@ -53,7 +53,7 @@ architecture implementation of hwt_single_pendulum_simple is
 
 	type STATE_TYPE is (
 					STATE_GET_ADDR,STATE_READ,STATE_STARTING,STATE_EVAL,
-					STATE_WRITE,STATE_ACK,STATE_THREAD_EXIT);
+					STATE_WRITE,STATE_ACK,STATE_THREAD_EXIT,STATE_READ_ITERATIONS);
 
 	component single_pendulum is
 	Port ( x0, x1, u0, t  : in  STD_LOGIC_VECTOR(63 downto 0);
@@ -105,6 +105,8 @@ architecture implementation of hwt_single_pendulum_simple is
 	signal in_tready      : STD_LOGIC;
 	signal out_tvalid     : STD_LOGIC;
 	signal out_tready     : STD_LOGIC;
+
+	signal iterations     : STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
 begin
 
 	DEBUG_DATA(5) <= '1' when state = STATE_GET_ADDR else '0';
@@ -224,6 +226,13 @@ begin
 	-- os and memory synchronisation state machine
 	reconos_fsm: process (clk,rst,o_osif,o_memif,o_ram) is
 		variable done  : boolean;
+
+		procedure goto_read(dummy:integer) is
+		begin
+			len   <= conv_std_logic_vector(8 * C_INPUT_SIZE,24);
+			addr  <= addr(31 downto 2) & "00";
+			state <= STATE_READ;
+		end;
 	begin
 		if rst = '1' then
 			osif_reset(o_osif);
@@ -246,12 +255,11 @@ begin
 						if (addr = X"FFFFFFFF") then
 							state <= STATE_THREAD_EXIT;
 						elsif (addr = X"FFFFFFFE") then
-							-- skip reading from memory - only for performance tests!
-							state <= STATE_STARTING;
+							state <= STATE_READ;
+						elsif (addr = X"FFFFFFFD") then
+							state <= STATE_READ_ITERATIONS;
 						else
-							len               <= conv_std_logic_vector(8 * C_INPUT_SIZE,24);
-							addr              <= addr(31 downto 2) & "00";
-							state             <= STATE_READ;
+							goto_read(0);
 						end if;
 					end if;
 					in_tvalid <= '0';
@@ -262,12 +270,17 @@ begin
 					-- Throw away any results that are still in memory.
 					out_tready <= '1';
 
-					-- We assume that in_tready won't go low, after it 
-					if in_tready = '1' then
-						memif_read(i_ram,o_ram,i_memif,o_memif,addr,X"00000000",len,done);
-						if done then
-							sort_start <= '1';
-							state <= STATE_STARTING;
+					if (addr = X"FFFFFFFE") then
+						-- skip reading from memory - only for performance tests!
+						state <= STATE_STARTING;
+					else
+						-- We assume that in_tready won't go low, after it
+						if in_tready = '1' then
+							memif_read(i_ram,o_ram,i_memif,o_memif,addr,X"00000000",len,done);
+							if done then
+								sort_start <= '1';
+								state <= STATE_STARTING;
+							end if;
 						end if;
 					end if;
 
@@ -299,7 +312,12 @@ begin
 					else
 						memif_write(i_ram,o_ram,i_memif,o_memif,X"00000000",addr_outputs,len,done);
 						if done then
-							state <= STATE_ACK;
+							if iterations = X"00000000" then
+								state <= STATE_ACK;
+							else
+								iterations <= iterations - X"00000001";
+								goto_read(0);
+							end if;
 						end if;
 					end if;
 				
@@ -311,6 +329,20 @@ begin
 				-- thread exit
 				when STATE_THREAD_EXIT =>
 					osif_thread_exit(i_osif,o_osif);
+
+				when STATE_READ_ITERATIONS =>
+					osif_mbox_get(i_osif, o_osif, MBOX_RECV, iterations, done);
+					if done then
+						state <= STATE_GET_ADDR;
+
+						-- we have to subtract 1 because our code is like this:
+						-- while (true) { calc(); if (iterations == 0) break; --iterations; }
+						-- Rational: In the normal case, iterations will always be 0. We
+						--           don't have to think about it. Else, we would have to
+						--           set it to 1 whenever the user sends an address unless
+						--           she has send a different value for iterations.
+						iterations <= iterations - X"00000001";
+					end if;
 			
 			end case;
 		end if;

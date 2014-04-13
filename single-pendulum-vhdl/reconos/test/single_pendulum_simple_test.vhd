@@ -262,6 +262,34 @@ begin
 		report "Calculation complete.";
 
 
+		report "Sending 'set iterations' address to slave...";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"FFFFFFFD");
+
+		report "Sending 'iterations=10' to slave...";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"0000000A");
+
+		report "Sending address to slave...";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, addr_slv);
+
+		for i in 1 to 10 loop
+			report integer'image(i) & ": Sending data to slave...";
+			expect_memif_read(clk, i_memif_test, o_memif_test, addr_read, 8 * C_INPUT_SIZE, input_data);
+
+			report integer'image(i) & ": Reading data from slave...";
+			expect_memif_write(clk, i_memif_test, o_memif_test, addr_write, 8 * C_OUTPUT_SIZE, output_data, 0, 1000ms);
+			for i in 0 to expected_output_data'length/2-1 loop
+				assertAlmostEqual(
+					to_real(output_data         (output_data'low + 2*i+0) & output_data         (output_data'low + 2*i+1)),
+					to_real(expected_output_data(output_data'low + 2*i+0) & expected_output_data(output_data'low + 2*i+1)));
+			end loop;
+		end loop;
+
+		report "Reading 'done' message from slave...";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, addr_slv);
+
+		report "Calculation complete.";
+
+
 		report "Terminating slave thread...";
 		-- X"FFFFFFFF" means 'please exit'
 		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"FFFFFFFF");
