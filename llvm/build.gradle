@@ -16,7 +16,7 @@ ext {
 	IPANEMA_INCLUDES_SYSLAYER = file("$IPANEMA/include/syslayer/linux")
 	IPANEMA_INCLUDES_SIM = file("$IPANEMA/include/sim")
 
-	EXAMPLE_FILE = file("$projectDir/examples/single_pendulum.c")
+	EXAMPLE_FILE = file("$projectDir/examples/dc_motor.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 
 	OUTPUT_DIR = file("$projectDir/_output")
