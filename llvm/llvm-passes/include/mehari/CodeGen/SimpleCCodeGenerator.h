@@ -17,12 +17,19 @@ public:
   virtual bool runOnFunction(Function &func);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-private:
-	std::string createInstruction(std::vector<std::string> instructionVector);
-	std::string parseOperation(std::string opcode);
+  std::string createCCode(std::vector<Instruction*> &instructions);
 
-	std::map<Value*, std::string> variables;
-	std::map<std::string, std::string> opcodeStrings;
+private:
+  std::map<Value*, std::string> variables;
+  std::map<Value*, std::string> phiNodeOperands;
+  std::map<Value*, std::vector<std::string> > branchLabels;
+  
+  std::map<std::string, std::string> binaryOperatorStrings;
+  std::map<unsigned int, std::string> comparePredicateStrings;  
+
+  std::string parseBinaryOperator(std::string opcode);
+  std::string parseComparePredicate(unsigned int predicateNumber);
+  std::string getOperandString(Value* addr);
 };
 
 #endif /*SIMPLE_CCODE_GENERATOR_H*/
