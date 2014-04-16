@@ -17,9 +17,13 @@ using namespace llvm;
 SimpleCCodeGenerator::SimpleCCodeGenerator() {
   // TODO: complete and check operator and compare predicate mappings
   binaryOperatorStrings["fadd"] = "+";
+  binaryOperatorStrings["add"]  = "+";
   binaryOperatorStrings["fsub"] = "-";
+  binaryOperatorStrings["sub"]  = "-";
   binaryOperatorStrings["fmul"] = "*";
+  binaryOperatorStrings["mul"]  = "*";
   binaryOperatorStrings["fdiv"] = "/";
+  binaryOperatorStrings["div"]  = "/";
   binaryOperatorStrings["or"] = "|";
 
   comparePredicateStrings[1]  = "==";
@@ -157,8 +161,14 @@ std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instruc
               ccode += printStore(instr->getOperand(1), instr->getOperand(0));
             }
             else if (isa<BinaryOperator>(instr)) {
-              std::string tmpVar = createTemporaryVariable(instr, "double");
-              ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), instr->getOpcodeName());
+              std::string opcode = instr->getOpcodeName();
+              // determine resulting datatype
+              std::string datatype = "int";
+              if (opcode=="fadd" || opcode=="fsub" || opcode=="fmul" || opcode=="fdiv")
+                datatype = "double";
+              // create new temporary variable and print C code
+              std::string tmpVar = createTemporaryVariable(instr, datatype);
+              ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
             }
             else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
               std::string tmpVar = createTemporaryVariable(instr, "double");
@@ -166,7 +176,7 @@ std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instruc
               ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
             }
             else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
-              std::string tmpVar = createTemporaryVariable(instr, "double");
+              std::string tmpVar = createTemporaryVariable(instr, "int");
               ccode += printComparison(tmpVar, cmpInstr->getOperand(0), cmpInstr->getOperand(1), cmpInstr->getPredicate());
             }
             else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
@@ -221,7 +231,7 @@ std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instruc
 
 
   // add declarations for temporary variables at the beginning of the code
-  ccode = printVariableDeclarations() + "\n" + ccode;
+  ccode = printVariableDeclarations() + ccode;
 
   return ccode;
 }
