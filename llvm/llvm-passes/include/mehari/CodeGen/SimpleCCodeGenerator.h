@@ -1,21 +1,19 @@
 #ifndef SIMPLE_CCODE_GENERATOR_H
 #define SIMPLE_CCODE_GENERATOR_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
+#include "llvm/IR/Value.h"
+
+#include <string>
+#include <vector>
+#include <map>
 
 using namespace llvm;
 
-class SimpleCCodeGenerator : public FunctionPass {
+class SimpleCCodeGenerator {
 
 public:
-  static char ID;
-
   SimpleCCodeGenerator();
   ~SimpleCCodeGenerator();
-
-  virtual bool runOnFunction(Function &func);
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
   std::string createCCode(std::vector<Instruction*> &instructions);
 

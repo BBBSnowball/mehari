@@ -1,25 +1,20 @@
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Support/raw_ostream.h"
-
-#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/ADT/APInt.h"
-
 #include "llvm/IR/Operator.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <vector>
-#include <string>
 #include <sstream>
 #include <fstream>
 
 using namespace llvm;
 
 
-SimpleCCodeGenerator::SimpleCCodeGenerator() : FunctionPass(ID) {
+SimpleCCodeGenerator::SimpleCCodeGenerator() {
   // TODO: complete and check operator and compare predicate mappings
   binaryOperatorStrings["fadd"] = "+";
   binaryOperatorStrings["fsub"] = "-";
@@ -36,26 +31,6 @@ SimpleCCodeGenerator::SimpleCCodeGenerator() : FunctionPass(ID) {
 }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
-
-
-bool SimpleCCodeGenerator::runOnFunction(Function &func) {
-
-  if (func.getName() != "evalS")
-    return false;
-
-  errs() << "\ngenerate C code for: " << func.getName() << "\n";
-
-  std::vector<Instruction*> worklist;
-  for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I)
-    worklist.push_back(&*I);
-
-  std::string fileName = "_output/code-generation-" + func.getName().str() + ".c";
-  
-  std::ofstream outputFile(fileName.c_str());
-  outputFile << createCCode(worklist);
-
-  return false;
-}
 
 
 std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instructions) {
@@ -424,14 +399,3 @@ std::string SimpleCCodeGenerator::printVariableDeclarations() {
   }
   return decl;
 }
-
-
-void SimpleCCodeGenerator::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-}
-
-
-// register pass so we can call it using opt
-char SimpleCCodeGenerator::ID = 0;
-static RegisterPass<SimpleCCodeGenerator>
-Y("ccode", "Generate simple C code from LLVM IR. This will only work for especially preparted sources.");
