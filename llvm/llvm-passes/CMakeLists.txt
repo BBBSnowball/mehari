@@ -108,9 +108,11 @@ set(LLVM_BUILD_TESTS ON)
 
 # set source files for all custom LLVM passes unittests
 set(MEHARI_ANALYSIS_TEST_SOURCES InstructionDependencyAnalysisTest.cpp)
+set(MEHARI_CODEGEN_TEST_SOURCES SimpleCCodeGeneratorTest.cpp)
 
 # put path and source file names together
 prepend_path("unittests/Analysis" MEHARI_ANALYSIS_TEST_SOURCES)
+prepend_path("unittests/CodeGen" MEHARI_CODEGEN_TEST_SOURCES)
 
 # set dependencies for the unit test
 set(LLVM_LINK_COMPONENTS Analysis AsmParser)
@@ -119,6 +121,7 @@ set(REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
 # build unittest
 add_mehari_llvm_unittest(MehariAnalysisTests
   ${MEHARI_ANALYSIS_TEST_SOURCES}
+  ${MEHARI_CODEGEN_TEST_SOURCES}
   unittests/test_main.cpp
  )
 target_link_libraries(MehariAnalysisTests MehariLLVMPasses ${REQUIRED_LIBS})
