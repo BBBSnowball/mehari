@@ -15,7 +15,7 @@ public:
   SimpleCCodeGenerator();
   ~SimpleCCodeGenerator();
 
-  std::string createCCode(std::vector<Instruction*> &instructions);
+  std::string createCCode(Function &func, std::vector<Instruction*> &instructions);
 
 private:
   std::map<Value*, std::string> variables;
@@ -28,6 +28,8 @@ private:
   std::map<unsigned int, std::string> comparePredicateStrings;  
 
   void resetVariables();
+
+  void extractFunctionParameters(Function &func);
 
   void addVariable(Value *addr, std::string name);
   void addVariable(Value *addr, std::string name, std::string index);

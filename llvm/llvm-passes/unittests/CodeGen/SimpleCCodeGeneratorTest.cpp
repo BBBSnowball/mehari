@@ -3,6 +3,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
@@ -50,9 +51,16 @@ protected:
     for (inst_iterator I = inst_begin(*F), E = inst_end(*F); I != E; ++I)
       worklist.push_back(&*I);
 
+    // remove parameter initialization from the instruction vector
+    unsigned int paramCount = 0;
+    for (std::vector<Instruction*>::iterator instrIt = worklist.begin(); instrIt != worklist.end(); ++instrIt)
+      if (isa<AllocaInst>(*instrIt))
+        paramCount++;
+    worklist.erase(worklist.begin(), worklist.begin()+2*paramCount);
+
     // run C code generator
     SimpleCCodeGenerator codeGen;
-    std::string CodeGenResult = codeGen.createCCode(worklist);
+    std::string CodeGenResult = codeGen.createCCode(*F, worklist);
 
     // DEBUG output
     if (false) {

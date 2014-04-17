@@ -6,6 +6,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <sstream>
@@ -37,19 +38,27 @@ SimpleCCodeGenerator::SimpleCCodeGenerator() {
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
 
 
-std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instructions) {
+std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instruction*> &instructions) {
   
-  enum ParsingState {ALLOCA, STORE, CALC};
-  ParsingState pstate = ALLOCA;
-
   enum CalcState {LOAD_VAR, GET_INDEX, LOAD_INDEX, APPLY};
-  CalcState cstate = LOAD_VAR;
+  CalcState cstate;
+
+  std::string ccode;
 
   // reset all variables before starting the code generation
   resetVariables();
 
-  std::string ccode;
+  // extract the parameter information from the given function
+  extractFunctionParameters(func);
 
+  // determine the CalcState to start with
+  Instruction *firstInstr = instructions.front();
+  if (isa<LoadInst>(firstInstr)) 
+    cstate = LOAD_VAR;
+  else
+    cstate = APPLY;
+
+  // generate C code for the given instruction vector
   for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 
     Instruction *instr = dyn_cast<Instruction>(*instrIt);
@@ -59,174 +68,150 @@ std::string SimpleCCodeGenerator::createCCode(std::vector<Instruction*> &instruc
     if (instrIt+1 != instructions.end())
       nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 
-    switch (pstate) {
+    // insert a label for branch targets if the current instruction is one
+    if (branchLabels.find(instr) != branchLabels.end()) {
+      std::vector<std::string> labels = branchLabels[instr];
+      for (std::vector<std::string>::iterator it = labels.begin(); it != labels.end(); ++it)
+        ccode += *it + ":\n";
+    }
 
-      case ALLOCA:
-        if (isa<StoreInst>(nextInstr))
-          pstate = STORE;
-      break;
+    switch (cstate) {
 
-      case STORE:
+      case LOAD_VAR:
       {
-        // read parameter values and save them in variable mapping
-        std::string paramName = instr->getOperand(0)->getName();
-        // TODO: very quick and dirty -> find a better solution for this!
-        if (paramName == "status")
-          paramName = "*status";
-        addVariable(instr->getOperand(1), paramName);
-        if (!isa<StoreInst>(nextInstr)) {
-          pstate = CALC;
+        if (!isa<LoadInst>(instr))
+          errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
+
+        // handle load of global variable
+        if (GEPOperator *op = dyn_cast<GEPOperator>(dyn_cast<LoadInst>(instr)->getOperand(0))) {
+          std::string name = op->getPointerOperand()->getName();
+          std::string index;
+          if (op->hasIndices())
+            // NOTE: the last index is the one we want to know
+            for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
+              index = dyn_cast<ConstantInt>(*it)->getValue().toString(10, true);
+          addVariable(instr, name, index);
         }
+        // handle load of local variable
+        else {
+          // copy name of loaded value to new variable (with current instruction address)
+          copyVariable(instr->getOperand(0), instr);
+        }
+
+        if (isa<GetElementPtrInst>(nextInstr))
+          cstate = GET_INDEX;
+        else if (isa<LoadInst>(nextInstr))
+          cstate = LOAD_VAR;
+        else
+          cstate = APPLY;
       }
       break;
 
-      case CALC:   
+
+      case GET_INDEX:
       {
-        // insert a label for branch targets if the current instruction is one
-        if (branchLabels.find(instr) != branchLabels.end()) {
-          std::vector<std::string> labels = branchLabels[instr];
-          for (std::vector<std::string>::iterator it = labels.begin(); it != labels.end(); ++it)
-            ccode += *it + ":\n";
-        }
+        if (!isa<GetElementPtrInst>(instr))
+          errs() << "ERROR: Expected getelementptr instruction but there an instruction of a different type!\n";
 
-        switch (cstate) {
-
-          case LOAD_VAR:
-          {
-            if (!isa<LoadInst>(instr))
-              errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
-
-            // handle load of global variable
-            if (GEPOperator *op = dyn_cast<GEPOperator>(dyn_cast<LoadInst>(instr)->getOperand(0))) {
-              std::string name = op->getPointerOperand()->getName();
-              std::string index;
-              if (op->hasIndices())
-                // NOTE: the last index is the one we want to know
-                for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
-                  index = dyn_cast<ConstantInt>(*it)->getValue().toString(10, true);
-              addVariable(instr, name, index);
-            }
-            // handle load of local variable
-            else {
-              // copy name of loaded value to new variable (with current instruction address)
-              copyVariable(instr->getOperand(0), instr);
-            }
-
-            if (isa<GetElementPtrInst>(nextInstr))
-              cstate = GET_INDEX;
-            else if (isa<LoadInst>(nextInstr))
-              cstate = LOAD_VAR;
-            else
-              cstate = APPLY;
-          }
-          break;
-
-
-          case GET_INDEX:
-          {
-            if (!isa<GetElementPtrInst>(instr))
-              errs() << "ERROR: Expected getelementptr instruction but there an instruction of a different type!\n";
-
-            std::string index = dyn_cast<llvm::ConstantInt>(instr->getOperand(1))->getValue().toString(10, true);
-            addIndexToVariable(instr->getOperand(0), instr, index);
-            
-            if (isa<LoadInst>(nextInstr))
-              cstate = LOAD_INDEX;
-            else
-              cstate = APPLY;
-          }
-          break;
-
-
-          case LOAD_INDEX:
-          {
-            if (!isa<LoadInst>(instr))
-              errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
-
-            // copy name of loaded value to new variable (with current instruction address)
-            copyVariable(instr->getOperand(0), instr);
-
-            if (isa<LoadInst>(nextInstr))
-              cstate = LOAD_VAR;
-            else
-              cstate = APPLY;
-          }
-          break;
-
-
-          case APPLY:
-          {
-
-            if (isa<StoreInst>(instr)) {
-              ccode += printStore(instr->getOperand(1), instr->getOperand(0));
-            }
-            else if (isa<BinaryOperator>(instr)) {
-              std::string opcode = instr->getOpcodeName();
-              // determine resulting datatype
-              std::string datatype = "int";
-              if (opcode=="fadd" || opcode=="fsub" || opcode=="fmul" || opcode=="fdiv")
-                datatype = "double";
-              // create new temporary variable and print C code
-              std::string tmpVar = createTemporaryVariable(instr, datatype);
-              ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
-            }
-            else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
-              std::string tmpVar = createTemporaryVariable(instr, "double");
-              Function *func = sInstr->getCalledFunction();
-              ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
-            }
-            else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
-              std::string tmpVar = createTemporaryVariable(instr, "int");
-              ccode += printComparison(tmpVar, cmpInstr->getOperand(0), cmpInstr->getOperand(1), cmpInstr->getPredicate());
-            }
-            else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
-              std::string tmpVar = createTemporaryVariable(instr, "int");
-              ccode +=  printIntegerExtension(tmpVar, extInstr->getOperand(0));
-            }
-            else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
-              if (brInstr->isUnconditional()) {
-                // handle phi nodes branch targets
-                if (PHINode *phiInstr = dyn_cast<PHINode>(&brInstr->getSuccessor(0)->front())) {
-                  // create temporary variable for phi node assignment before the branch instruction
-                  std::string tmpVar = getTemporaryVariable(phiInstr);
-                  if (tmpVar.empty())
-                    // this is the first time handling this phi node --> create new variable 
-                    tmpVar = createTemporaryVariable(phiInstr, "double");
-                  // print assignment for the phi node variable
-                  ccode += printPhiNodeAssignment(tmpVar, prevInstr);
-                }
-                // add unconditional branch
-                std::string label = createBranchLabel(&brInstr->getSuccessor(0)->front());
-                ccode += printUnconditionalBranch(label);                
-              }
-              else {
-                // create conditional branch
-                std::string label1 = createBranchLabel(&brInstr->getSuccessor(0)->front());
-                std::string label2 = createBranchLabel(&brInstr->getSuccessor(1)->front());
-                ccode += printConditionalBranch(brInstr->getCondition(), label1, label2);
-              }
-            }
-            else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
-              // here we do not have to print anything, because
-              // the variable that is used was already set at the brancht instructions before
-            }
-            else if (ReturnInst *retInstr = dyn_cast<ReturnInst>(instr)) {
-              if (retInstr->getReturnValue() != NULL)
-                ccode += printReturn(retInstr->getReturnValue());
-            }
-            else
-              errs() << "ERROR: unhandled instruction type: " << *instr << "\n";
-            
-            
-            if (isa<LoadInst>(nextInstr))
-              cstate = LOAD_VAR;
-
-          }
-          break; // case APPLY
-        } // switch cstate
+        std::string index = dyn_cast<llvm::ConstantInt>(instr->getOperand(1))->getValue().toString(10, true);
+        addIndexToVariable(instr->getOperand(0), instr, index);
+        
+        if (isa<LoadInst>(nextInstr))
+          cstate = LOAD_INDEX;
+        else
+          cstate = APPLY;
       }
-      break; // case CALC
-    } // switch pstate     
+      break;
+
+
+      case LOAD_INDEX:
+      {
+        if (!isa<LoadInst>(instr))
+          errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
+
+        // copy name of loaded value to new variable (with current instruction address)
+        copyVariable(instr->getOperand(0), instr);
+
+        if (isa<LoadInst>(nextInstr))
+          cstate = LOAD_VAR;
+        else
+          cstate = APPLY;
+      }
+      break;
+
+
+      case APPLY:
+      {
+
+        if (isa<StoreInst>(instr)) {
+          ccode += printStore(instr->getOperand(1), instr->getOperand(0));
+        }
+        else if (isa<BinaryOperator>(instr)) {
+          std::string opcode = instr->getOpcodeName();
+          // determine resulting datatype
+          std::string datatype = "int";
+          if (opcode=="fadd" || opcode=="fsub" || opcode=="fmul" || opcode=="fdiv")
+            datatype = "double";
+          // create new temporary variable and print C code
+          std::string tmpVar = createTemporaryVariable(instr, datatype);
+          ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
+        }
+        else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
+          std::string tmpVar = createTemporaryVariable(instr, "double");
+          Function *func = sInstr->getCalledFunction();
+          ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
+        }
+        else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
+          std::string tmpVar = createTemporaryVariable(instr, "int");
+          ccode += printComparison(tmpVar, cmpInstr->getOperand(0), cmpInstr->getOperand(1), cmpInstr->getPredicate());
+        }
+        else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
+          std::string tmpVar = createTemporaryVariable(instr, "int");
+          ccode +=  printIntegerExtension(tmpVar, extInstr->getOperand(0));
+        }
+        else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
+          if (brInstr->isUnconditional()) {
+            // handle phi nodes branch targets
+            if (PHINode *phiInstr = dyn_cast<PHINode>(&brInstr->getSuccessor(0)->front())) {
+              // create temporary variable for phi node assignment before the branch instruction
+              std::string tmpVar = getTemporaryVariable(phiInstr);
+              if (tmpVar.empty())
+                // this is the first time handling this phi node --> create new variable 
+                tmpVar = createTemporaryVariable(phiInstr, "double");
+              // print assignment for the phi node variable
+              ccode += printPhiNodeAssignment(tmpVar, prevInstr);
+            }
+            // add unconditional branch
+            std::string label = createBranchLabel(&brInstr->getSuccessor(0)->front());
+            ccode += printUnconditionalBranch(label);                
+          }
+          else {
+            // create conditional branch
+            std::string label1 = createBranchLabel(&brInstr->getSuccessor(0)->front());
+            std::string label2 = createBranchLabel(&brInstr->getSuccessor(1)->front());
+            ccode += printConditionalBranch(brInstr->getCondition(), label1, label2);
+          }
+        }
+        else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
+          // here we do not have to print anything, because
+          // the variable that is used was already set at the brancht instructions before
+        }
+        else if (ReturnInst *retInstr = dyn_cast<ReturnInst>(instr)) {
+          if (retInstr->getReturnValue() != NULL)
+            ccode += printReturn(retInstr->getReturnValue());
+        }
+        else
+          errs() << "ERROR: unhandled instruction type: " << *instr << "\n";
+        
+        
+        if (isa<LoadInst>(nextInstr))
+          cstate = LOAD_VAR;
+
+      }
+      break; // case APPLY
+
+    } // switch cstate
+
   } // for instructions
 
 
@@ -243,6 +228,51 @@ void SimpleCCodeGenerator::resetVariables() {
   tmpVariables.clear();
   tmpVarNumber = 0;
   tmpLabelNumber = 0;
+}
+
+
+// TODO: this is not very pretty.. find a better solution to get the parameter information
+void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
+
+  enum ParsingState {ALLOCA, STORE};
+  ParsingState pstate = ALLOCA;
+  unsigned int paramCount = 0;
+
+  std::vector<Instruction*> worklist;
+  for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I) 
+    worklist.push_back(&*I);
+
+  for (std::vector<Instruction*>::iterator instrIt = worklist.begin(); instrIt != worklist.end(); ++instrIt) {
+
+    Instruction *instr, *nextInstr;
+    instr = dyn_cast<Instruction>(*instrIt);
+    if (instrIt+1 != worklist.end())
+      nextInstr = dyn_cast<Instruction>(*(instrIt+1));
+
+    switch (pstate) {
+      case ALLOCA:
+      {
+        paramCount++;
+        if (isa<StoreInst>(nextInstr))
+          pstate = STORE;
+      }
+      break;
+
+      case STORE:
+      {
+        // read parameter values and save them in variable mapping
+        std::string paramName = instr->getOperand(0)->getName();
+        // TODO: very quick and dirty -> find a better solution for this!
+        if (paramName == "status")
+          paramName = "*status";
+        addVariable(instr->getOperand(1), paramName);
+        if (variables.size() == paramCount) {
+          return;
+        }
+      }
+      break;
+    }
+  }
 }
 
 
