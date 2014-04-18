@@ -25,14 +25,24 @@ SimpleCCodeGenerator::SimpleCCodeGenerator() {
   binaryOperatorStrings["mul"]  = "*";
   binaryOperatorStrings["fdiv"] = "/";
   binaryOperatorStrings["div"]  = "/";
-  binaryOperatorStrings["or"] = "|";
+  binaryOperatorStrings["or"]   = "|";
+  binaryOperatorStrings["and"]  = "&";
 
   comparePredicateStrings[1]  = "==";
   comparePredicateStrings[2]  = ">";
   comparePredicateStrings[3]  = ">=";
   comparePredicateStrings[4]  = "<";
   comparePredicateStrings[5]  = "<=";
+  comparePredicateStrings[32] = "==";
   comparePredicateStrings[33] = "!=";
+  comparePredicateStrings[34] = ">";
+  comparePredicateStrings[35] = ">=";
+  comparePredicateStrings[36] = "<";
+  comparePredicateStrings[37] = "<=";
+  comparePredicateStrings[38] = ">";
+  comparePredicateStrings[39] = ">=";
+  comparePredicateStrings[40] = "<";
+  comparePredicateStrings[41] = "<=";
 }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
@@ -57,6 +67,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
     cstate = LOAD_VAR;
   else
     cstate = APPLY;
+
 
   // generate C code for the given instruction vector
   for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
@@ -233,6 +244,10 @@ void SimpleCCodeGenerator::resetVariables() {
 
 // TODO: this is not very pretty.. find a better solution to get the parameter information
 void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
+
+  // quit if there are no function parameters
+  if (func.arg_begin() == func.arg_end())
+    return;
 
   enum ParsingState {ALLOCA, STORE};
   ParsingState pstate = ALLOCA;
