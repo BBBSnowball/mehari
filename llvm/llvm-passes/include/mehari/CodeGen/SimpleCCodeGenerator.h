@@ -36,6 +36,8 @@ private:
   void copyVariable(Value *source, Value *target);
   void addIndexToVariable(Value *source, Value *target, std::string index);
 
+  std::string getDatatype(Value *addr);
+
   std::string parseBinaryOperator(std::string opcode);
   std::string parseComparePredicate(unsigned int predicateNumber);
 

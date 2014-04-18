@@ -174,6 +174,26 @@ TEST_F(SimpleCCodeGeneratorTest, GlobalArrayCalculationTest) {
 }
 
 
+TEST_F(SimpleCCodeGeneratorTest, FunctionCallTest) {
+  ParseAssembly(
+    "declare i32 @func(i32) #1\n"
+    "define void @test(i32 %a) #0 {\n"
+    "entry:\n"
+    "  %a.addr = alloca i32, align 4\n"
+    "  store i32 %a, i32* %a.addr, align 4\n"
+    "  %0 = load i32* %a.addr, align 4\n"
+    "  %call = call i32 @func(i32 %0)\n"
+    "  store i32 %call, i32* %a.addr, align 4\n"
+    "  ret void\n"
+    "}\n");
+  std::string ExpectedResult = 
+    "\tint t0;\n"
+    "\tt0 = func(a);\n"
+    "\ta = t0;\n";
+  CheckResult(ExpectedResult);
+}
+
+
 TEST_F(SimpleCCodeGeneratorTest, SingleIfTest) {
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
@@ -231,8 +251,7 @@ TEST_F(SimpleCCodeGeneratorTest, TernaryOperatorTest) {
     "  ret void\n"
     "}\n");
   std::string ExpectedResult =
-    "\tdouble t1;\n"
-    "\tint t0;\n"
+    "\tint t0, t1;\n"
     "\ta = 42;\n"
     "\tb = 1;\n"
     "\tt0 = (a > 0);\n"

@@ -159,25 +159,21 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
         }
         else if (isa<BinaryOperator>(instr)) {
           std::string opcode = instr->getOpcodeName();
-          // determine resulting datatype
-          std::string datatype = "int";
-          if (opcode=="fadd" || opcode=="fsub" || opcode=="fmul" || opcode=="fdiv")
-            datatype = "double";
           // create new temporary variable and print C code
-          std::string tmpVar = createTemporaryVariable(instr, datatype);
+          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
         }
         else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, "double");
+          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           Function *func = sInstr->getCalledFunction();
           ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, "int");
+          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           ccode += printComparison(tmpVar, cmpInstr->getOperand(0), cmpInstr->getOperand(1), cmpInstr->getPredicate());
         }
         else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, "int");
+          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           ccode +=  printIntegerExtension(tmpVar, extInstr->getOperand(0));
         }
         else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
@@ -188,7 +184,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
               std::string tmpVar = getTemporaryVariable(phiInstr);
               if (tmpVar.empty())
                 // this is the first time handling this phi node --> create new variable 
-                tmpVar = createTemporaryVariable(phiInstr, "double");
+                tmpVar = createTemporaryVariable(phiInstr, getDatatype(phiInstr));
               // print assignment for the phi node variable
               ccode += printPhiNodeAssignment(tmpVar, prevInstr);
             }
@@ -305,6 +301,19 @@ void SimpleCCodeGenerator::copyVariable(Value *source, Value *target) {
 
 void SimpleCCodeGenerator::addIndexToVariable(Value *source, Value *target, std::string index) {
   variables[target] = variables[source] + "[" + index + "]";
+}
+
+
+std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
+  Type *type = addr->getType();
+  if (type->isIntegerTy())
+    return "int";
+  else if (type->isFloatingPointTy())
+    return "double";
+  else if (type->isVoidTy())
+    return "void";
+  else
+    return "<unsupported datatype>";
 }
 
 
