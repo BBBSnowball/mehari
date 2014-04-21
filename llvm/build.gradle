@@ -19,6 +19,10 @@ ext {
 	EXAMPLE_FILE = file("$projectDir/examples/dc_motor.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 
+	CODEGEN_PREPARATION_SCRIPT = file("$projectDir/../private/python/scripts/prepare_example_for_code_generation.py")
+
+	PARTITIONING_TARGET_FUNCTIONS = "evalS"
+
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
 }
@@ -267,7 +271,16 @@ task applyPartitioning(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"evalS\" -partitioning-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" -partitioning-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
+}
+
+
+task prepareCodeGenerationResult(type: Exec) {
+	dependsOn applyPartitioning
+
+	def targetfile = file("$OUTPUT_DIR/example-final.c")
+
+	commandLine "python", CODEGEN_PREPARATION_SCRIPT, EXAMPLE_FILE, targetfile, PARTITIONING_TARGET_FUNCTIONS
 }
 
 
