@@ -51,11 +51,14 @@ add_custom_target(MehariCustomLLVMPasses)
 # add include directory for custom LLVM passes
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+# set external dependencies for custom LLVM passes
+set(PASSES_REQUIRED_LIBS ctemplate)
+
 # set source files for all custom LLVM passes
 set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
 set(MEHARI_ANALYSIS_SOURCES IRGraphPrinter.cpp InstructionDependencyAnalysis.cpp SpeedupAnalysis.cpp)
-set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp)
 set(MEHARI_TRANSFORMS_SOURCES PartitioningPass.cpp PartitioningGraph.cpp AddAlwaysInlineAttributePass.cpp)
+set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp TemplateWriter.cpp)
 
 # put path and source file names together
 prepend_path("lib" MEHARI_COMMON_SOURCES)
@@ -70,7 +73,8 @@ add_llvm_loadable_module(SharedMehariLLVMPasses
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES}
   )
-set_target_properties(SharedMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses") 
+target_link_libraries(SharedMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
+set_target_properties(SharedMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
 
 # create a static library
 add_llvm_library(LibraryMehariLLVMPasses 
@@ -78,7 +82,8 @@ add_llvm_library(LibraryMehariLLVMPasses
   ${MEHARI_ANALYSIS_SOURCES} 
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES})
-set_target_properties(LibraryMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses") 
+target_link_libraries(LibraryMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
+set_target_properties(LibraryMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
 
 # install both libraries
 install(TARGETS SharedMehariLLVMPasses LibraryMehariLLVMPasses
@@ -116,7 +121,7 @@ prepend_path("unittests/CodeGen" MEHARI_CODEGEN_TEST_SOURCES)
 
 # set dependencies for the unit test
 set(LLVM_LINK_COMPONENTS Analysis AsmParser)
-set(REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
+set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
 
 # build unittest
 add_mehari_llvm_unittest(MehariAnalysisTests
@@ -124,7 +129,7 @@ add_mehari_llvm_unittest(MehariAnalysisTests
   ${MEHARI_CODEGEN_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariAnalysisTests MehariLLVMPasses ${REQUIRED_LIBS})
+target_link_libraries(MehariAnalysisTests MehariLLVMPasses ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
 add_dependencies(MehariAnalysisTests LibraryMehariLLVMPasses)
