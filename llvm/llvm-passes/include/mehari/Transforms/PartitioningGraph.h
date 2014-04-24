@@ -46,6 +46,9 @@ public:
 	VertexIterator getEndIterator(); 
 
 	void setPartition(VertexDescriptor vd, unsigned int partition);
+	unsigned int getPartition(VertexDescriptor vd);
+
+	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);	
 
 	void createVertices(std::vector<Instruction*> &instructions);
 	void addEdges(InstructionDependencyList &dependencies);

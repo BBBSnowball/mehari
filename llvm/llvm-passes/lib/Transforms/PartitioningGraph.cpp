@@ -1,5 +1,6 @@
 #include "mehari/Transforms/PartitioningGraph.h"
 
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <sstream>
@@ -13,39 +14,27 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 	// create vertices from instructions by cutting 
 	// the instruction list at store instructions
 
-	std::string allocaOpcode = "alloca";
-	std::string storeOpcode = "store";
+	// remove parameter initialization from the instruction vector
+    unsigned int paramCount = 0;
+    for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt)
+      if (isa<AllocaInst>(*instrIt))
+        paramCount++;
+    instructions.erase(instructions.begin(), instructions.begin()+2*paramCount);
 
 	int vertexNumber = 0;
-	bool init = true;
 	std::vector<Instruction*> currentInstrutions;
-	Graph::vertex_descriptor initVertex = boost::add_vertex(pGraph);
-	pGraph[initVertex].name = "init";
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
 		currentInstrutions.push_back(instr);
-		if (init) {
-			std::string opcode = dyn_cast<Instruction>(*(instrIt+1))->getOpcodeName();
-			if (opcode.compare(allocaOpcode) != 0 && opcode.compare(storeOpcode) != 0) {
-				pGraph[initVertex].instructions = currentInstrutions;
-				// save the instruction list the graph is based on
-				addInstructionsToList(currentInstrutions);
-				currentInstrutions.clear();
-				init = false;
-			}
-		}
-		else {
-			std::string opcode = dyn_cast<Instruction>(*instrIt)->getOpcodeName();
-			if (opcode.compare(storeOpcode) == 0) {
-				Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
-				std::stringstream ss;
-				ss << vertexNumber++;
-				pGraph[newVertex].name = ss.str();
-				pGraph[newVertex].instructions = currentInstrutions;
-				// save the instruction list the graph is based on
-				addInstructionsToList(currentInstrutions);
-				currentInstrutions.clear();
-			} 
+		if (isa<StoreInst>(instr)) {
+			Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
+			std::stringstream ss;
+			ss << vertexNumber++;
+			pGraph[newVertex].name = ss.str();
+			pGraph[newVertex].instructions = currentInstrutions;
+			// save the instruction list the graph is based on
+			addInstructionsToList(currentInstrutions);
+			currentInstrutions.clear();
 		}
 	}
 }
@@ -109,6 +98,16 @@ PartitioningGraph::VertexIterator PartitioningGraph::getEndIterator() {
 
 void PartitioningGraph::setPartition(PartitioningGraph::VertexDescriptor vd, unsigned int partition) {
 	pGraph[vd].partition = partition;	
+}
+
+
+unsigned int PartitioningGraph::getPartition(VertexDescriptor vd) {
+	return pGraph[vd].partition;
+}
+
+
+std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor vd) {
+	return pGraph[vd].instructions;
 }
 
 
