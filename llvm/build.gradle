@@ -22,6 +22,9 @@ ext {
 	CODEGEN_PREPARATION_SCRIPT = file("$projectDir/../private/python/scripts/prepare_example_for_code_generation.py")
 
 	PARTITIONING_TARGET_FUNCTIONS = "evalS"
+	PARTITIONING_COUNT = 2
+
+	TEMPLATE_DIR = file("$projectDir/examples/templates")
 
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
@@ -81,7 +84,13 @@ task prepareBuildLLVM(type: Exec) {
 	}
 
 	workingDir build_dir
-	commandLine "bash", "-c", "cmake -j$parallel_processes $additional_flags -DCMAKE_BUILD_TYPE=$BUILD_MODE -DLLVM_TARGETS_TO_BUILD=$build_targets -DCMAKE_INSTALL_PREFIX=$install_dir $source_dir"
+	commandLine "bash", "-c", "cmake " +
+		"-j$parallel_processes " + 
+		"$additional_flags " +
+		"-DCMAKE_BUILD_TYPE=$BUILD_MODE " +
+		"-DLLVM_TARGETS_TO_BUILD=$build_targets " +
+		"-DCMAKE_INSTALL_PREFIX=$install_dir " +
+		"$source_dir"
 }
 
 
@@ -208,7 +217,12 @@ task createIR(type: Exec) {
 	inputs.file tmp_source_file
 	outputs.file irfile
 
-	commandLine "bash", "-c", "$LLVM_BIN/clang $CFLAGS_FOR_EXAMPLE -S -emit-llvm -I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM $tmp_source_file -o $irfile"
+	commandLine "bash", "-c", "$LLVM_BIN/clang " +
+	"$CFLAGS_FOR_EXAMPLE " +
+	"-S -emit-llvm " +
+	"-I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM " + 
+	"$tmp_source_file " +
+	"-o $irfile"
 }
 
 
@@ -219,7 +233,11 @@ task prepareInlining(type: Exec) {
 	def sourcefile = file("$OUTPUT_DIR/example.ll")
 	def targetfile = file("$OUTPUT_DIR/example-prepare-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -add-attr-always-inline -inline-functions \"evalParameterCouplings\" -S $sourcefile > $targetfile"
+	commandLine "bash", "-c", "$LLVM_BIN/opt " +
+	"-load $LLVM_PASSES_LIB " + 
+	"-add-attr-always-inline " +
+	"-inline-functions \"evalParameterCouplings\" " +
+	"-S $sourcefile > $targetfile"
 }
 
 task applyInlining(type: Exec) {
@@ -243,7 +261,13 @@ task speedUpAnalysis(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -speedup -dot -speedup-functions \"evalS evalND\" -speedup-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt " +
+	"-load $LLVM_PASSES_LIB " +
+	"-speedup " +
+	"-dot " +
+	"-speedup-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
+	"-speedup-output-dir \"$OUTPUT_GRAPH_DIR\" " +
+	"-S $targetfile > /dev/null"
 }
 
 
@@ -257,7 +281,11 @@ task createIRGraphs(type: Exec) {
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -dfg -irgraph-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt " +
+	"-load $LLVM_PASSES_LIB " +
+	"-dfg " +
+	"-irgraph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
+	"-S $targetfile > /dev/null"
 }
 
 
@@ -265,13 +293,20 @@ task applyPartitioning(type: Exec) {
 	dependsOn installLLVMPasses, createIR, applyInlining
 
 	doFirst {
-		OUTPUT_GRAPH_DIR.mkdirs()
+		OUTPUT_DIR.mkdirs()
 	}
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
 
-	commandLine "bash", "-c", "$LLVM_BIN/opt -load $LLVM_PASSES_LIB -partitioning -partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" -partitioning-output-dir \"$OUTPUT_GRAPH_DIR\" -S $targetfile > /dev/null"
+	commandLine "bash", "-c", "$LLVM_BIN/opt " +
+	"-load $LLVM_PASSES_LIB " +
+	"-partitioning " +
+	"-template-dir \"$TEMPLATE_DIR\" " +
+	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
+	"-partitioning-count $PARTITIONING_COUNT " +
+	"-partitioning-output-dir \"$OUTPUT_DIR\" " +
+	"-S $targetfile > /dev/null"
 }
 
 
