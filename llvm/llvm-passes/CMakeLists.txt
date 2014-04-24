@@ -57,8 +57,8 @@ set(PASSES_REQUIRED_LIBS ctemplate)
 # set source files for all custom LLVM passes
 set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
 set(MEHARI_ANALYSIS_SOURCES IRGraphPrinter.cpp InstructionDependencyAnalysis.cpp SpeedupAnalysis.cpp)
-set(MEHARI_TRANSFORMS_SOURCES PartitioningPass.cpp PartitioningGraph.cpp AddAlwaysInlineAttributePass.cpp)
 set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp TemplateWriter.cpp)
+set(MEHARI_TRANSFORMS_SOURCES Partitioning.cpp PartitioningGraph.cpp AddAlwaysInlineAttributePass.cpp)
 
 # put path and source file names together
 prepend_path("lib" MEHARI_COMMON_SOURCES)

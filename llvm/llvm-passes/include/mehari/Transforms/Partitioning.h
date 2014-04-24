@@ -2,31 +2,34 @@
 #define PARTITIONING_PASS_H
 
 #include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 
 #include "mehari/Transforms/PartitioningGraph.h"
 
 using namespace llvm;
 
-class PartitioningPass : public FunctionPass {
+class Partitioning : public ModulePass {
 
 public:
   static char ID;
 
-  PartitioningPass();
-  ~PartitioningPass();
+  Partitioning();
+  ~Partitioning();
 
-  virtual bool runOnFunction(Function &func);
+  virtual bool runOnModule(Module &M);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-	enum Partitions {CPU, FPGA};
-	static unsigned int partitionCount;
+	enum Architectures {CPU, FPGA};
 
 private:
   std::vector<std::string> targetFunctions;
+  unsigned int partitionCount;
+
   void parseTargetFunctions();
   
 	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
+
+  void writePartitioning();
 };
 
 #endif /*PARTITIONING_PASS_H*/
