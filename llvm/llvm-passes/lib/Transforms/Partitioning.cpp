@@ -4,6 +4,8 @@
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 #include "mehari/CodeGen/TemplateWriter.h"
 
+#include "llvm/IR/GlobalVariable.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
@@ -38,8 +40,28 @@ Partitioning::Partitioning() : ModulePass(ID) {
 
 Partitioning::~Partitioning() {}
 
-
 bool Partitioning::runOnModule(Module &M) {
+
+	// read global variables
+	for (Module::global_iterator globIt = M.global_begin(); globIt != M.global_end(); ++globIt) {
+		GlobalVariable *gv = dyn_cast<GlobalVariable>(globIt);
+		SimpleCCodeGenerator::GlobalArrayVariable globVar;
+		if (!gv->isConstant() && gv->getType()->isPointerTy()) {
+			Type *pointerType = gv->getType()->getPointerElementType();
+			if (pointerType->isArrayTy()) {
+				Type *arrayElemType = pointerType->getArrayElementType();
+				if (arrayElemType->isIntegerTy() || arrayElemType->isFloatingPointTy()) {
+					globVar.name = gv->getName().str();
+					globVar.numElem = pointerType->getArrayNumElements();
+					if (arrayElemType->isIntegerTy())
+						globVar.type = "int";
+					else if (arrayElemType->isFloatingPointTy())
+						globVar.type = "double";
+					globalVariables.push_back(globVar);
+				}
+			}
+		}
+	}
 
 	// create partitioning for each target function
 	for (std::vector<std::string>::iterator funcIt = targetFunctions.begin(); funcIt != targetFunctions.end(); ++funcIt) {
@@ -99,9 +121,21 @@ void Partitioning::applyRandomPartitioning(PartitioningGraph &pGraph, unsigned i
 
 
 void Partitioning::writePartitioning() {
+	// set template and output file
 	std::string mehariTemplate = TemplateDir + "/mehari.tpl";
 	std::string outputFile = OutputDir + "/mehari.c";
+
+	// use the template write to fill template
 	TemplateWriter tWriter;
+
+	// use simple C code generator
+	SimpleCCodeGenerator codeGen;
+
+	// write extern global variables
+	std::string globVarOutput;
+	for (std::vector<SimpleCCodeGenerator::GlobalArrayVariable>::iterator gvIt = globalVariables.begin(); gvIt != globalVariables.end(); ++gvIt)
+		globVarOutput += codeGen.createExternArray(*gvIt);
+	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput);
 
 	// TODO: set values depending on the partitioning results
 	tWriter.setValue("SEMAPHORE_COUNT", "5");

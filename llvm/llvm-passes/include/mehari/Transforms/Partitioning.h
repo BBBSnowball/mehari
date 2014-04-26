@@ -5,6 +5,9 @@
 #include "llvm/IR/Module.h"
 
 #include "mehari/Transforms/PartitioningGraph.h"
+#include "mehari/CodeGen/SimpleCCodeGenerator.h"
+
+#include <string>
 
 using namespace llvm;
 
@@ -24,6 +27,8 @@ public:
 private:
   std::vector<std::string> targetFunctions;
   unsigned int partitionCount;
+
+  std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;
 
   void parseTargetFunctions();
   

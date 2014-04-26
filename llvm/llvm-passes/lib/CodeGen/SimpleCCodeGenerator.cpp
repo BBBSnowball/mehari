@@ -229,6 +229,13 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 }
 
 
+std::string SimpleCCodeGenerator::createExternArray(GlobalArrayVariable &globVar) {
+  std::string output = "extern " + globVar.type + " " + globVar.name 
+      + "[" + static_cast<std::ostringstream*>( &(std::ostringstream() << (globVar.numElem)) )->str() + "];\n";
+  return output;
+}
+
+
 void SimpleCCodeGenerator::resetVariables() {
   variables.clear();
   branchLabels.clear();

@@ -15,7 +15,14 @@ public:
   SimpleCCodeGenerator();
   ~SimpleCCodeGenerator();
 
+  typedef struct {
+    std::string name;
+    std::string type;
+    unsigned int numElem;
+  } GlobalArrayVariable;
+
   std::string createCCode(Function &func, std::vector<Instruction*> &instructions);
+  std::string createExternArray(GlobalArrayVariable &globVar);
 
 private:
   std::map<Value*, std::string> variables;
