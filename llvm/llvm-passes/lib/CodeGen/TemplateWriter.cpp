@@ -24,16 +24,23 @@ void TemplateWriter::setValueInSection(std::string secName, std::string variable
 }
 
 
-void TemplateWriter::setValueInSubTemplate(std::string tplFile, std::string tplName, std::string variable, std::string value) {
+void TemplateWriter::enableSection(std::string secName) {
+	dict->ShowSection(secName);
+}
+
+
+void TemplateWriter::setValueInSubTemplate(std::string tplFile, std::string tplName, std::string number, std::string variable, std::string value) {
 	ctemplate::TemplateDictionary *sub_dict;
-	if (subDictionaries.find(tplName) != subDictionaries.end()) {
+	std::string entryName = tplName + number;
+	if (subDictionaries.find(entryName) != subDictionaries.end()) {
 		// this sub-template already exists -> get it
-		sub_dict = subDictionaries[tplName];
+		sub_dict = subDictionaries[entryName];
 	}
 	else {
 		// the sub-template does not exists -> create it
 		sub_dict = dict->AddIncludeDictionary(tplName);
 		sub_dict->SetFilename(tplFile);
+		subDictionaries[entryName] = sub_dict;
 	}
 	sub_dict->SetValue(variable, value);
 }
