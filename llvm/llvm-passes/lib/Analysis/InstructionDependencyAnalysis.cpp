@@ -150,6 +150,30 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 }
 
 
+InstructionDependencyValueList InstructionDependencyAnalysis::getDependencyValues(Function &func) {
+	// create list containing all instructions of the current function
+	std::vector<Instruction*> instructions;
+	for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I)
+		instructions.push_back(&*I);
+
+	// create normal dependency list containing the instruction numbers
+	InstructionDependencyList dependencies = getDependencies(func);
+	
+	// convert the InstructionDependencyList list to an InstructionDependencyValueList
+	InstructionDependencyValueList depValueList;
+	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
+		InstructionDependencyValueListEntry depValueEntry;
+		depValueEntry.instruction = instructions[int(listIt-dependencies.begin())];
+		InstructionDependencyValues *tmpInstrDep = new InstructionDependencyValues();
+		for (InstructionDependencies::iterator depIt = listIt->begin(); depIt != listIt->end(); ++depIt)
+			tmpInstrDep->push_back(instructions[*depIt]);
+		depValueEntry.dependencies = tmpInstrDep;
+		depValueList.push_back(depValueEntry);
+	}
+	return depValueList;
+}
+
+
 int InstructionDependencyAnalysis::getInstructionNumber(std::vector<Instruction*> &instructionList, Instruction *instruction) {
 	std::vector<Instruction*>::iterator itPos = std::find(instructionList.begin(), instructionList.end(), &*instruction);
 	if (itPos != instructionList.end())
