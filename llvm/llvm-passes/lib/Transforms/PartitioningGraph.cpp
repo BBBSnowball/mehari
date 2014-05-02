@@ -3,6 +3,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "mehari/CodeGen/SimpleCCodeGenerator.h"
+
 #include <sstream>
 
 
@@ -10,32 +12,58 @@ PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}
 
 
+void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies) {
+	createVertices(instructions);
+	addEdges(dependencies);
+
+	// remove init vertex because it only handles parameter initialization that is not 
+	// useful for the partitioning and C code generation
+	boost::remove_vertex(initVertex, pGraph);
+}
+
+
 void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) {
 	// create vertices from instructions by cutting 
 	// the instruction list at store instructions
 
-	// remove parameter initialization from the instruction vector
+	// detemine number of parameters
     unsigned int paramCount = 0;
     for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt)
       if (isa<AllocaInst>(*instrIt))
         paramCount++;
-    instructions.erase(instructions.begin(), instructions.begin()+2*paramCount);
 
 	int vertexNumber = 0;
+	int instrNumber = 0;
+	initVertex = boost::add_vertex(pGraph);
+	pGraph[initVertex].name = "init";
 	std::vector<Instruction*> currentInstrutions;
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
+		Instruction *nextInstr;
+		if (instrIt+1 != instructions.end())
+      		nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 		currentInstrutions.push_back(instr);
-		if (isa<StoreInst>(instr)) {
-			Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
-			std::stringstream ss;
-			ss << vertexNumber++;
-			pGraph[newVertex].name = ss.str();
-			pGraph[newVertex].instructions = currentInstrutions;
-			// save the instruction list the graph is based on
-			addInstructionsToList(currentInstrutions);
-			currentInstrutions.clear();
+		// handle init vertex
+		if (instrNumber == 2*paramCount-1) {
+				pGraph[initVertex].instructions = currentInstrutions;
+				// save the instruction list the graph is based on
+				addInstructionsToList(currentInstrutions);
+				currentInstrutions.clear();
 		}
+		// handle the calculations
+		else if (instrNumber >= 2*paramCount) {
+			if (isa<StoreInst>(instr) && !isa<BranchInst>(nextInstr)) {
+				Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
+				std::stringstream ss;
+				ss << vertexNumber++;
+				pGraph[newVertex].name = ss.str();
+				pGraph[newVertex].instructions = currentInstrutions;
+				// save the instruction list the graph is based on
+				addInstructionsToList(currentInstrutions);
+				currentInstrutions.clear();
+			}
+		}
+		instrNumber++;
 	}
 }
 
@@ -47,10 +75,16 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	for (std::vector<Instruction*>::iterator instrIt = instructionList.begin(); instrIt != instructionList.end(); ++instrIt, ++index) {
 		// find the ComputationUnit that contains the target instruction
 		Graph::vertex_descriptor targetVertex = getVertexForInstruction(*instrIt);
+		if (targetVertex == NULL)
+			// the target instruction is not part of the Graph -> continue with the next instruction
+			continue;
 		for (InstructionDependencies::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(instructionList[*depIt]);
+			if (dependencyVertex == NULL)
+				// the dependency instruction is not part of the Graph -> continue with the next instruction
+				continue;
 			if (targetVertex != dependencyVertex) {
 				Graph::edge_descriptor ed;
 				bool inserted;
@@ -74,6 +108,7 @@ PartitioningGraph::VertexDescriptor PartitioningGraph::getVertexForInstruction(I
 		if (std::find(instrList.begin(), instrList.end(), instruction) != instrList.end())
 			return *vertexIt;
 	}
+	return NULL;
 }
 
 
@@ -106,6 +141,11 @@ unsigned int PartitioningGraph::getPartition(VertexDescriptor vd) {
 }
 
 
+void PartitioningGraph::setInstructions(VertexDescriptor vd, std::vector<Instruction*> &instructions) {
+	pGraph[vd].instructions = instructions;
+}
+
+
 std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor vd) {
 	return pGraph[vd].instructions;
 }
@@ -134,12 +174,14 @@ void PartitioningGraph::printGraph(std::string &name) {
 }
 
 
-void PartitioningGraph::printGraphviz(std::string &name, std::string &outputDir) {
+void PartitioningGraph::printGraphviz(Function &func, std::string &name, std::string &outputDir) {
 	// set some node colors to visualize the different partitions
 	const char *nodeColors[] = { "greenyellow", "gold", "cornflowerblue", "darkorange", "aquamarine1" };
 
 	std::string filename = outputDir + "/partitioning-graph-" + name + ".dot";
 	std::ofstream dotfile(filename.c_str());
+
+	SimpleCCodeGenerator codegen;
 
 	dotfile << "digraph G {\n"
 		<< "  edge[style=\"bold\"];\n" 
@@ -149,13 +191,20 @@ void PartitioningGraph::printGraphviz(std::string &name, std::string &outputDir)
 	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt) {
 		dotfile << "  " << pGraph[*vertexIt].name << "[style=filled, fillcolor=" << nodeColors[pGraph[*vertexIt].partition] << ", label=\"" << pGraph[*vertexIt].name << ":\\n\\n\"\n";
 		std::vector<Instruction*> instructions = pGraph[*vertexIt].instructions;
-		for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
-			std::string instrString;
-			Instruction *instr = dyn_cast<Instruction>(*instrIt);
-    	llvm::raw_string_ostream rso(instrString);
-    	instr->print(rso);
-    	dotfile << "  + \"" << instrString << "\\l\"\n";
-  	}
+		if (false) {
+			for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
+				std::string instrString;
+				Instruction *instr = dyn_cast<Instruction>(*instrIt);
+				llvm::raw_string_ostream rso(instrString);
+				instr->print(rso);
+				dotfile << "  + \"" << instrString << "\\l\"\n";
+			}
+			dotfile << "  + \"\\n\"\n";
+		}
+		std::istringstream f(codegen.createCCode(func, instructions));
+		std::string line;  
+		while (std::getline(f, line))
+			dotfile << "  + \"" << line << "\\l\"\n";
 		dotfile << "  ];\n";
 	}
 
