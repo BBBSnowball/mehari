@@ -21,7 +21,7 @@ ext {
 
 	CODEGEN_PREPARATION_SCRIPT = file("$projectDir/../private/python/scripts/prepare_example_for_code_generation.py")
 
-	PARTITIONING_TARGET_FUNCTIONS = "evalS"
+	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
 	PARTITIONING_COUNT = 2
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
