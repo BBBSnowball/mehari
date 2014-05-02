@@ -1,5 +1,6 @@
 include "tools", "single-pendulum-vhdl", "llvm", "reconos"
 include "tools:vhdlgen"
+include "reconos:reconos-perftest:mbox_put_get"
 
 if (new File(rootDir, "private").isDirectory()) {
 	include "private"

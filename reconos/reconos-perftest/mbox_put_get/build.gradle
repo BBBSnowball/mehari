@@ -1,0 +1,59 @@
+
+apply plugin: ReconosPlugin
+
+reconosHardwareTest("MboxPutGetHardware") {
+	hardwareDir rootPath("hw")
+
+	downloadBitstream {
+		mustRunAfter ":reconos:runDemo"
+	}
+}
+
+//TODO also compile for host
+task compileMboxPutGetLinux(type: CrossCompileMakeTask) {
+	target "mbox_put_get"
+	workingDir rootPath("linux")
+
+	dependsOn ":reconos:compileReconosLib"
+
+	ext.binaryForTarget = rootPath(workingDir, "mbox_put_get")
+}
+
+task measureMboxPutGet(type: MySshTask) {
+	dependsOn ":reconos:prepareSsh", downloadMboxPutGetHardwareBitstream,
+		compileMboxPutGetLinux
+
+	def binaryForTarget       = compileMboxPutGetLinux.binaryForTarget
+	def binaryOnTarget        = "/tmp/mbox_put_get"
+	def measureScript         = rootPath("measure.sh")
+	def measureScriptOnTarget = "/tmp/measure.sh"
+
+	session(remotes.board) {
+		put(binaryForTarget.toString(), binaryOnTarget.toString())
+		put(measureScript.toString(), measureScriptOnTarget.toString())
+
+		execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
+		execute("sh $measureScriptOnTarget")
+
+		get("/tmp/mbox_put_get_results.tar", file("mbox_put_get_results.tar").toString())
+
+		exec {
+			commandLine "tar", "-C", file("."), "-xf", "mbox_put_get_results.tar"
+		}
+	}
+
+	doLast {
+		exec {
+			commandLine "./evaluate-measurement.py"
+		}
+	}
+}
+
+
+task compile {
+	dependsOn compileMboxPutGetLinux, compileMboxPutGetHardwareBitstream
+}
+
+task test {
+	dependsOn measureMboxPutGet
+}

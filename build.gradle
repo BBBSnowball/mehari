@@ -124,6 +124,7 @@ task compile {
 	dependsOn "reconos:compile"
 	dependsOn "llvm:compile"
 	dependsOn "single-pendulum-vhdl:compile"
+	dependsOn "reconos:reconos-perftest:mbox_put_get:compile"
 	if (havePrivateProject)
 		dependsOn "private:compile"
 
@@ -141,6 +142,7 @@ task test {
 	dependsOn "single-pendulum-vhdl:test"
 	dependsOn "reconos:test"
 	dependsOn "llvm:test"
+	dependsOn "reconos:reconos-perftest:mbox_put_get:test"
 	if (havePrivateProject)
 		dependsOn "private:test"
 

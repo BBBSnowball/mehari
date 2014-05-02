@@ -1,0 +1,12 @@
+/mbox_put_get/linux/mbox_put_get
+/mbox_put_get/linux/mbox_put_get_host
+run_test.tcl
+*.dat
+*/hw/edk_*/
+*_results.tar
+
+*/test/all.prj
+*/test/fuse*
+*/test/isim*
+*/test/isim/
+*/test/test_sim_*
