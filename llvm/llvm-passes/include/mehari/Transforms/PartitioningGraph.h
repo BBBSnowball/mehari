@@ -16,9 +16,11 @@ using namespace llvm;
 class PartitioningGraph {
 
 public:
-
+	
 	PartitioningGraph();
 	~PartitioningGraph();
+
+	void create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies);
 
 
 	struct ComputationUnit {
@@ -45,21 +47,28 @@ public:
 	VertexIterator getFirstIterator();
 	VertexIterator getEndIterator(); 
 
+
 	void setPartition(VertexDescriptor vd, unsigned int partition);
+	unsigned int getPartition(VertexDescriptor vd);
+
+	void setInstructions(VertexDescriptor vd, std::vector<Instruction*> &instructions);
+	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);
+
+	VertexDescriptor getVertexForInstruction(Instruction *instruction);
+
+	void printGraph(std::string &name);
+	void printGraphviz(Function &func, std::string &name, std::string &outputDir);
+
+private:
 
 	void createVertices(std::vector<Instruction*> &instructions);
 	void addEdges(InstructionDependencyList &dependencies);
 
-	void printGraph(std::string &name);
-	void printGraphviz(std::string &name, std::string &outputDir);
-
-private:
-
-	Graph::vertex_descriptor getVertexForInstruction(Instruction *instruction);
 	void addInstructionsToList(std::vector<Instruction*> instructions);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;
+	VertexDescriptor initVertex;
 };
 
 #endif /*PARTITIONING_GRAPH_H*/

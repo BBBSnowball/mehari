@@ -21,6 +21,15 @@ namespace llvm {
 typedef std::vector<unsigned int> InstructionDependencies;
 typedef std::vector<InstructionDependencies> InstructionDependencyList;
 
+// new representation of dependencies storing the real instructions
+// instead of just the numbers
+typedef std::vector<Instruction*> InstructionDependencyValues;
+typedef struct {
+	Instruction *instruction;
+	InstructionDependencyValues *dependencies;
+} InstructionDependencyValueListEntry;
+typedef std::vector<InstructionDependencyValueListEntry> InstructionDependencyValueList;
+
 
 class InstructionDependencyAnalysis : public FunctionPass {
 
@@ -34,6 +43,8 @@ public:
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 	InstructionDependencyList getDependencies(Function &func);
+	InstructionDependencyValueList getDependencyValues(Function &func);
+
 
 private:
 	DependenceAnalysis *DA;
