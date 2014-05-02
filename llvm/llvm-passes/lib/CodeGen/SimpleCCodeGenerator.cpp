@@ -164,9 +164,14 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
           ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
         }
         else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           Function *func = sInstr->getCalledFunction();
-          ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
+          if (func->getReturnType()->isVoidTy()) {
+            ccode += printVoidCall(sInstr->getOperand(0), func->getName().str());
+          }
+          else {
+            std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
+            ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
+          }
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
@@ -416,6 +421,12 @@ std::string SimpleCCodeGenerator::printCall(std::string tmpVar, Value *arg, std:
   return "\t" + tmpVar
     +  " = "
     +  funcName
+    +  "(" + getOperandString(arg) + ")"
+    +  ";\n";
+}
+
+std::string SimpleCCodeGenerator::printVoidCall(Value *arg, std::string funcName) {
+  return "\t" + funcName
     +  "(" + getOperandString(arg) + ")"
     +  ";\n";
 }

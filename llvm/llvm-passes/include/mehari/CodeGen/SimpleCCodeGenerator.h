@@ -58,6 +58,7 @@ private:
   std::string printStore(Value *op1, Value *op2);
   std::string printBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode);
   std::string printCall(std::string tmpVar, Value *arg, std::string funcName);
+  std::string printVoidCall(Value *arg, std::string funcName);
   std::string printComparison(std::string tmpVar, Value *op1, Value *op2, unsigned int comparePredicate);
   std::string printIntegerExtension(std::string tmpVar, Value *op);
   std::string printPhiNodeAssignment(std::string tmpVar, Value *op);
