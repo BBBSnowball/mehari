@@ -1248,6 +1248,11 @@ task sshShell(type: MySshTask) {
 
 task runDemo(type: MySshTask) {
 	dependsOn compileReconosDemoHardwareBitstream, prepareSsh
+
+	// In theory, we don't need this, but the FPGA won't work unless we
+	// download one image via JTAG.
+	//TODO investigate ^^
+	dependsOn downloadReconosDemoHardwareBitstream
 	
 	session(remotes.board) {
 		def demo = project.demo
