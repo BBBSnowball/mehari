@@ -12,6 +12,8 @@ ext.mboxPutGet = reconosHardwareTest("MboxPutGet") {
 task measureMboxPutGet(type: ReconosMeasureTask) {
 	testName "mbox_put_get"
 	reconosTestTasks mboxPutGet
+
+	configureIt()
 }
 
 

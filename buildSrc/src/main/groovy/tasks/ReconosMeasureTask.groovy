@@ -5,7 +5,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Exec
 import org.gradle.api.file.FileTree
 
-public class ReconosMeasureTask extends DefaultTask {
+public class ReconosMeasureTask extends MySshTask {
 	// we cannot access private variables in closures, so we do not make them private
 	String test_name
 	public Object binaryForTarget, binaryOnTarget, bitstreamForTarget, bitstreamOnTarget,
@@ -56,29 +56,28 @@ public class ReconosMeasureTask extends DefaultTask {
 			bitstreamForTarget = tasks.compileBitstream.binFile
 	}
 
-	@TaskAction
-	def runMeasurements() {
-		MySshService.sshexec {
-			session(project.remotes.board) {
-				put(binaryForTarget   .toString(), binaryOnTarget       .toString())
-				put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
-				put(measurements      .toString(), measurementsOnTarget .toString())
-				put(measureScript     .toString(), measureScriptOnTarget.toString())
+	public void configureIt() {
+		session(project.remotes.board) {
+			put(binaryForTarget   .toString(), binaryOnTarget       .toString())
+			put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
+			put(measurements      .toString(), measurementsOnTarget .toString())
+			put(measureScript     .toString(), measureScriptOnTarget.toString())
 
-				execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
-				execute("sh $measureScriptOnTarget $name")
+			execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
+			execute("sh $measureScriptOnTarget $test_name")
 
-				get(resultsTarOnTarget.toString(), resultsTarOnHost.toString())
+			get(resultsTarOnTarget.toString(), resultsTarOnHost.toString())
 
-				exec {
-					commandLine "tar", "-C", file("."), "-xf", resultsTarOnHost
-				}
+			project.exec {
+				commandLine "tar", "-C", project.file("."), "-xf", resultsTarOnHost
 			}
 		}
 
-		project.exec {
-			commandLine project.toolsFile("perf", "evaluate-measurement.py")
-			workingDir resultsDirOnHost
+		doLast {
+			project.exec {
+				commandLine project.toolsFile("perf", "evaluate-measurement.py")
+				workingDir resultsDirOnHost
+			}
 		}
 	}
 }
