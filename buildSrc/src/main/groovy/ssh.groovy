@@ -2,6 +2,9 @@
 
 import com.jcraft.jsch.JSch
 import org.hidetake.gradle.ssh.api.SshService
+import org.hidetake.gradle.ssh.api.SshSpec
+import org.gradle.util.ConfigureUtil
+
 @Singleton
 class MySshService implements SshService {
 	protected SshService inner = org.hidetake.gradle.ssh.internal.DefaultSshService.instance
@@ -23,6 +26,21 @@ class MySshService implements SshService {
 	@Override
 	void execute(org.hidetake.gradle.ssh.api.SshSpec sshSpec) {
 		inner.execute(sshSpec)
+	}
+
+	public static void sshexec(Closure configureClosure) {
+		assert configureClosure != null, 'configureClosure should be set'
+
+		def localSpec = new SshSpec()
+		ConfigureUtil.configure(configureClosure, localSpec)
+		//def merged = SshSpec.computeMerged(localSpec, sshSpec)
+		def merged = localSpec
+		if (merged.dryRun) {
+			org.hidetake.gradle.ssh.internal.DryRunSshService.instance.execute(merged)
+		} else {
+			merged.dryRun = false
+			MySshService.instance.execute(merged)
+		}
 	}
 }
 

@@ -9,45 +9,9 @@ ext.mboxPutGet = reconosHardwareTest("MboxPutGet") {
 	compileLinuxProgram.ext.binaryForTarget = rootPath(softwareDir, "mbox_put_get")
 }
 
-task measureMboxPutGet(type: MySshTask) {
-	dependsOn ":reconos:prepareSsh", mboxPutGet.compileBitstream,
-		mboxPutGet.compileLinuxProgram
-
-	def name                  = "mbox_put_get"
-	def binaryForTarget       = mboxPutGet.compileLinuxProgram.binaryForTarget
-	def binaryOnTarget        = "/tmp/${name}"
-	def bitstreamForTarget    = mboxPutGet.compileBitstream.binFile
-	def bitstreamOnTarget     = "/tmp/${name}.bin"
-	def measurements          = rootPath("measurements.sh")
-	def measurementsOnTarget  = "/tmp/${name}_measurements.sh"
-	def measureScript         = project.toolsFile("perf", "measure.sh")
-	def measureScriptOnTarget = "/tmp/measure.sh"
-	def resultsTarOnTarget    = "/tmp/${name}_results.tar"
-	def resultsTarOnHost      = file("${name}_results.tar")
-	def resultsDirOnHost      = file("${name}_results")
-
-	session(remotes.board) {
-		put(binaryForTarget   .toString(), binaryOnTarget       .toString())
-		put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
-		put(measurements      .toString(), measurementsOnTarget .toString())
-		put(measureScript     .toString(), measureScriptOnTarget.toString())
-
-		execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
-		execute("sh $measureScriptOnTarget $name")
-
-		get(resultsTarOnTarget.toString(), resultsTarOnHost.toString())
-
-		exec {
-			commandLine "tar", "-C", file("."), "-xf", resultsTarOnHost
-		}
-	}
-
-	doLast {
-		exec {
-			commandLine project.toolsFile("perf", "evaluate-measurement.py")
-			workingDir resultsDirOnHost
-		}
-	}
+task measureMboxPutGet(type: ReconosMeasureTask) {
+	testName "mbox_put_get"
+	reconosTestTasks mboxPutGet
 }
 
 
