@@ -5,7 +5,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Exec
 import org.gradle.api.file.FileTree
 
-public class ReconosMeasureTask extends MySshTask {
+public class ReconosMeasureTask extends DefaultTask {
 	// we cannot access private variables in closures, so we do not make them private
 	String test_name
 	public Object binaryForTarget, binaryOnTarget, bitstreamForTarget, bitstreamOnTarget,
@@ -56,28 +56,57 @@ public class ReconosMeasureTask extends MySshTask {
 			bitstreamForTarget = tasks.compileBitstream.binFile
 	}
 
-	public void configureIt() {
-		session(project.remotes.board) {
-			put(binaryForTarget   .toString(), binaryOnTarget       .toString())
-			put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
-			put(measurements      .toString(), measurementsOnTarget .toString())
-			put(measureScript     .toString(), measureScriptOnTarget.toString())
 
-			execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
-			execute("sh $measureScriptOnTarget $test_name")
+	boolean done
 
-			get(resultsTarOnTarget.toString(), resultsTarOnHost.toString())
+	@TaskAction
+	public void blub() {
+		// Instanitate MySshService because it adds the known_hosts file
+		// to the DefaultSshService. We cannot tell the plugin to use our
+		// service, but fortunately it will work nonetheless.
+		MySshService.instance;
 
-			project.exec {
-				commandLine "tar", "-C", project.file("."), "-xf", resultsTarOnHost
+		// done is used in a weird way to work through all the levels
+		// of closures...
+		def my_task = this
+		my_task.done = false
+		while (!my_task.done) {
+			project.sshexec {
+				session(project.remotes.board) {
+					try {
+						put(binaryForTarget   .toString(), binaryOnTarget       .toString())
+						put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
+						put(measurements      .toString(), measurementsOnTarget .toString())
+						put(measureScript     .toString(), measureScriptOnTarget.toString())
+
+						execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
+						execute("sh $measureScriptOnTarget $test_name")
+
+						get(resultsTarOnTarget.toString(), resultsTarOnHost.toString())
+
+						project.exec {
+							commandLine "tar", "-C", project.file("."), "-xf", resultsTarOnHost
+						}
+
+						my_task.done = true
+					} catch (com.jcraft.jsch.SftpException e) {
+						if (e.toString().equals("4: java.io.IOException: channel is broken")) {
+							// It sometimes fails with this error. This seems to be a bug in
+							// either Dropbear or the SSH library, so we ignore it and try again.
+							System.err.println("WARN: Channel is broken. Trying again.");
+							my_task.done = false
+						} else {
+							// another error -> don't ignore
+							throw new RuntimeException(e);
+						}
+					}
+				}
 			}
 		}
 
-		doLast {
-			project.exec {
-				commandLine project.toolsFile("perf", "evaluate-measurement.py")
-				workingDir resultsDirOnHost
-			}
+		project.exec {
+			commandLine project.toolsFile("perf", "evaluate-measurement.py")
+			workingDir resultsDirOnHost
 		}
 	}
 }
