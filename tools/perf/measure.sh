@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NAME=mbox_put_get
+NAME="$1"
 
 set -e
 
@@ -70,15 +70,14 @@ avg() {
 }
 
 PREFIX="${NAME}_"
-ITERATIONS=10000
-
-rm -f ${PREFIX}*.perf.txt
+RESULT_DIR="${NAME}_results"
 
 load_bitstream "$NAME.bin"
 
-measure "${PREFIX}hw_1_10k.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_1_10k.perf.txt" 10   ./mbox_put_get 0 1  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_2_10k.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_32_10k.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS --dont-flush
+EXECUTABLE="../$NAME"
+rm -rf "$RESULT_DIR"
+mkdir -p "$RESULT_DIR"
 
-tar -cf "${PREFIX}results.tar" ${PREFIX}*.perf.txt
+( cd "$RESULT_DIR" && source "../${NAME}_measurements.sh" )
+
+tar -cf "${PREFIX}results.tar" "$RESULT_DIR"

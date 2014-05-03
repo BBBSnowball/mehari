@@ -308,6 +308,13 @@ class HelpersPluginConvention {
 		return values
 	}
 
+	private final String toolsProjectPath = ":tools"
+
+	public File toolsFile(...pathElements) {
+		def toolsProjectPath = project.project(toolsProjectPath).projectDir
+		return project.rootProject.file(path(toolsProjectPath, *pathElements))
+	}
+
 
 	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->

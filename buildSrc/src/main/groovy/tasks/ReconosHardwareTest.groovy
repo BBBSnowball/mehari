@@ -117,7 +117,6 @@ class ReconosHardwareTest {
 			compileLinuxProgramTask = project.task(getTaskName("compile", "Linux"),
 										type: CrossCompileMakeTask)
 			compileLinuxProgramTask.dependsOn(project.reconosTaskPath("compileReconosLib"))
-			println("created compileLinuxProgramTask: " + compileLinuxProgramTask.name)
 		}
 	}
 

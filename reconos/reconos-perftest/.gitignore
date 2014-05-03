@@ -4,6 +4,7 @@ run_test.tcl
 *.dat
 */hw/edk_*/
 *_results.tar
+*_results/
 
 */test/all.prj
 */test/fuse*
