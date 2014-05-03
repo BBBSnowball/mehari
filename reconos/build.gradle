@@ -735,7 +735,7 @@ def demoHwDir(...suffix) {
 	return rootPath(demoDir, "hw", *suffix)
 }
 
-reconosHardwareTest("ReconosDemoHardware") {
+reconosHardwareTest("ReconosDemo") {
 	hardwareDir demoHwDir()
 
 	prepare {

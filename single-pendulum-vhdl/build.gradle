@@ -144,7 +144,7 @@ fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 
 apply plugin: ReconosPlugin
 
-reconosHardwareTest("SinglePendulumSimpleHardware") {
+reconosHardwareTest("SinglePendulumSimple") {
 	hardwareDir rootPath("reconos", "hw")
 
 	prepare {

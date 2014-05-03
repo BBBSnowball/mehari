@@ -1,26 +1,21 @@
 
 apply plugin: ReconosPlugin
 
-reconosHardwareTest("MboxPutGetHardware") {
+ext.mboxPutGet = reconosHardwareTest("MboxPutGet") {
 	hardwareDir rootPath("hw")
-}
 
-task compileMboxPutGetLinux(type: CrossCompileMakeTask) {
-	target "all"
-	workingDir rootPath("linux")
-
-	dependsOn ":reconos:compileReconosLib"
-
-	ext.binaryForTarget = rootPath(workingDir, "mbox_put_get")
+	softwareTarget "all"
+	softwareDir rootPath("linux")
+	compileLinuxProgram.ext.binaryForTarget = rootPath(softwareDir, "mbox_put_get")
 }
 
 task measureMboxPutGet(type: MySshTask) {
-	dependsOn ":reconos:prepareSsh", compileMboxPutGetHardwareBitstream,
-		compileMboxPutGetLinux
+	dependsOn ":reconos:prepareSsh", mboxPutGet.compileBitstream,
+		mboxPutGet.compileLinuxProgram
 
-	def binaryForTarget       = compileMboxPutGetLinux.binaryForTarget
+	def binaryForTarget       = mboxPutGet.compileLinuxProgram.binaryForTarget
 	def binaryOnTarget        = "/tmp/mbox_put_get"
-	def bitstreamForTarget    = compileMboxPutGetHardwareBitstream.binFile
+	def bitstreamForTarget    = mboxPutGet.compileBitstream.binFile
 	def bitstreamOnTarget     = "/tmp/mbox_put_get.bin"
 	def measureScript         = rootPath("measure.sh")
 	def measureScriptOnTarget = "/tmp/measure.sh"

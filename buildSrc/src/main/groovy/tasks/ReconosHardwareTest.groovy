@@ -6,16 +6,21 @@ import org.gradle.api.GradleException
 class ReconosHardwareTest {
 	private Project project
 	private String testName
-	private DefaultTask cleanTask, prepareTask, compileBitstreamTask, downloadBitstreamTask
+	private DefaultTask cleanTask, prepareTask, compileBitstreamTask, downloadBitstreamTask,
+						compileLinuxProgramTask
 
 	ReconosHardwareTest(project, testName, closure=null) {
 		this.project  = project
 		this.testName = testName
 
-		cleanTask             = project.task(getTaskName("clean"))
-		prepareTask           = project.task(getTaskName("prepare"), type: ReconosPrepareTask)
-		compileBitstreamTask  = project.task(getTaskName("compile", "Bitstream"), type: ReconosXpsTask)
-		downloadBitstreamTask = project.task(getTaskName("download", "Bitstream"), type: ReconosXmdTask)
+		cleanTask               = project.task(getTaskName("clean", "Hardware"))
+		prepareTask             = project.task(getTaskName("prepare", "Hardware"),
+									type: ReconosPrepareTask)
+		compileBitstreamTask    = project.task(getTaskName("compile", "HardwareBitstream"),
+									type: ReconosXpsTask)
+		downloadBitstreamTask   = project.task(getTaskName("download", "HardwareBitstream"),
+									type: ReconosXmdTask)
+		compileLinuxProgramTask = null
 
 		configureTasks()
 
@@ -73,11 +78,47 @@ class ReconosHardwareTest {
 		return downloadBitstreamTask
 	}
 
+	public def getCompileLinuxProgram() {
+		return compileLinuxProgramTask
+	}
+
+	public def compileLinuxProgram(closure=null) {
+		if (closure)
+			compileLinuxProgramTask.configure(closure)
+
+		return compileLinuxProgramTask
+	}
+
 	public void hardwareDir(dir) {
 		prepareTask.hardwareDir(dir)
 		compileBitstreamTask.projectDir(prepareTask.outputDir)
 		//cleanTask.delete(prepareTask.outputDir)
 		downloadBitstreamTask.workingDir(prepareTask.outputDir)
+	}
+
+	public void softwareTarget(...targets) {
+		makeSureSoftwareTaskExists()
+
+		compileLinuxProgramTask.target(*targets)
+	}
+
+	public void softwareDir(dir) {
+		makeSureSoftwareTaskExists()
+
+		compileLinuxProgramTask.workingDir(dir)
+	}
+
+	public def getSoftwareDir() {
+		return compileLinuxProgramTask.workingDir
+	}
+
+	private makeSureSoftwareTaskExists() {
+		if (!compileLinuxProgramTask) {
+			compileLinuxProgramTask = project.task(getTaskName("compile", "Linux"),
+										type: CrossCompileMakeTask)
+			compileLinuxProgramTask.dependsOn(project.reconosTaskPath("compileReconosLib"))
+			println("created compileLinuxProgramTask: " + compileLinuxProgramTask.name)
+		}
 	}
 
 	private String reconosTaskPath(String taskName) {
@@ -115,5 +156,9 @@ class ReconosHardwareTest {
 		downloadBitstreamTask.shouldRunAfter reconosTaskPath("downloadImagesToZynq")
 
 		downloadBitstreamTask.command "fpga", "-f", { project.path("implementation", compileBitstreamTask.projectName + ".bit") }
+
+
+		//prepareTask.doFirst { throw new GradleException("blub") }
+		//compileBitstreamTask.doFirst { throw new GradleException("blub") }
 	}
 }
