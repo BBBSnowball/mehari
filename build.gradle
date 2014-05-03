@@ -4,7 +4,7 @@ buildscript {
 	}
 	dependencies {
 		classpath 'net.saliman:gradle-properties-plugin:1.2.0'
-		classpath 'org.hidetake:gradle-ssh-plugin:0.2.2'
+		classpath 'org.hidetake:gradle-ssh-plugin:0.3.4'
 	}
 
 	repositories {
@@ -46,6 +46,11 @@ allprojects {
 			user = "root"
 			useDefaultIdentityFile(it)
 		}
+	}
+
+	ssh {
+		//TODO This should work for gradle-ssh-plugin >=0.2.3, but it doesn't.
+		//knownHosts = path(System.getenv()["HOME"], ".ssh", "known_hosts")
 	}
 }
 
