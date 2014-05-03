@@ -222,6 +222,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	// set template and output files
 	std::string mehariTemplate = TemplateDir + "/mehari.tpl";
 	std::string threadDeclTemplate = TemplateDir + "/thread_declaration.tpl";
+	std::string threadCreationTemplate = TemplateDir + "/thread_creation.tpl";
 	std::string threadImplTemplate = TemplateDir + "/thread_implementation.tpl";
 	std::string outputFile = OutputDir + "/mehari.c";
 
@@ -237,12 +238,35 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		globVarOutput += codeGen.createExternArray(*gvIt);
 	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput);
 
+	// write number of used semaphores
+	tWriter.setValue("SEM_DATA_COUNT", "5"); // TODO: set value depending on the partitioning results
+	std::string semReturnCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << functions.size()))->str();
+	tWriter.setValue("SEM_RETURN_COUNT", semReturnCountStr);
+
+	// write number of data dependencies
+	tWriter.setValue("DATA_DEP_COUNT", "8"); // TODO: set value depending on the partitioning results
+	std::string dataDepParamCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (partitionCount*functions.size())))->str();
+	tWriter.setValue("DATA_DEP_PARAM_COUNT", dataDepParamCountStr);
+
+	// insert partition and thread count
+	std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitionCount))->str();
+	tWriter.setValue("PARTITION_COUNT", partitionCountStr);
+	unsigned int threadCount = functions.size()*(partitionCount-1);
+	std::string threadCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadCount))->str();
+	tWriter.setValue("THREAD_COUNT", threadCountStr);
+
+	// count threads during function writing
+	unsigned int threadNumber = 0;
+
 	// write partitioning for each function
-	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt) {
+	unsigned int functionIndex = 0;
+	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt, functionIndex++) {
 		std::string currentFunction = funcIt->first;
 		std::string currentFunctionUppercase = boost::to_upper_copy(currentFunction);
+		std::string functionIndexStr = static_cast<std::ostringstream*>( &(std::ostringstream() << functionIndex))->str();
 
 		std::string functionTemplate = TemplateDir + "/" + currentFunction + "_func.tpl";
+		std::string funcCallTemplate = TemplateDir + "/" + currentFunction + "_call.tpl";
 
 		Function *func = funcIt->second;
 		PartitioningGraph *pGraph = graphs[currentFunction];
@@ -266,37 +290,49 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 		// generate C code for each partition of this function and write it into template
 		for (int i=0; i<partitionCount; i++) {
-			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i) )->str();
+			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
 			std::string functionName = currentFunction + "_" + partitionNumber;
 			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
 			// create a new thread for the evaluation functions 1+
 			if (i > 0) {
-				// add declaration
-				tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", partitionNumber,
+				// add thread declaration
+				tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", functionName + "_THREAD_DECL",
 					"FUNCTION_NAME", functionName);
-				// add implementation
-				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", partitionNumber,
+				// add thread creation
+				std::string threadNumberStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadNumber))->str();
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
 					"FUNCTION_NAME", functionName);
-				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", partitionNumber,
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
+					"THREAD_NUMBER", threadNumberStr);
+				// add thread implementation
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"FUNCTION_NAME", functionName);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
 					"FUNCTION", currentFunction);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"THREAD_NUMBER", threadNumberStr);
+				// NOTE: this call sets a sub-template in a sub-template!
+				tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
+					"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
+				
+				// increment thread number for next thread creation
+				threadNumber++;
 			}
 			// create new function
-			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", partitionNumber, 
-				"FUNCTION_NAME", functionName);
-			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", partitionNumber, 
+			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
+				"FUNCTION_NUMBER", partitionNumber);
+			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 				"FUNCTION_BODY", functionBody);
+			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
+				"RETURN_SEM_INDEX", functionIndexStr);
 
-			// TODO: add implementation of main evaluation function
+			// add implementation to main calculation function
+			unsigned int putParamStart = partitionCount * functionIndex;
+			std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
+			tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
+			tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
 		}
 	}
-
-	// TODO: set values depending on the partitioning results
-	tWriter.setValue("SEMAPHORE_COUNT", "5");
-	tWriter.setValue("DATA_DEP_COUNT", "8");
-
-	// insert thread count
-	std::string threadCount = static_cast<std::ostringstream*>( &(std::ostringstream() << (partitionCount-1)) )->str();
-	tWriter.setValue("THREAD_COUNT", threadCount);
 
 	// expand and save template
 	tWriter.expandTemplate(mehariTemplate);
