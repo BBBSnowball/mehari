@@ -5,6 +5,7 @@ buildscript {
 	dependencies {
 		classpath 'net.saliman:gradle-properties-plugin:1.2.0'
 		classpath 'org.hidetake:gradle-ssh-plugin:0.3.4'
+		classpath 'com.jcraft:jsch:0.1.51'
 	}
 
 	repositories {
