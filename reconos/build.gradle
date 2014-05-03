@@ -719,24 +719,20 @@ task compileReconosLib(type: CrossCompileMakeTask) {
 	target "all", "libreconos.a", "libreconos_host.a"
 	workingDir rootPath("reconos", "linux", "lib")
 }
-task compileReconosDemoLinux(type: CrossCompileMakeTask) {
-	target ""
-	ext.demo = "sort_demo"
-	ext.demoDir = rootPath("reconos", "demos", demo)
-	workingDir path(demoDir, "linux")
 
-	//requiredProperty "demo"
-
-	dependsOn compileReconosLib
+ext.demo = "sort_demo"
+def demoDir(...suffix) {
+	def demoDir = project.rootPath("reconos", "demos", project.demo)
+	return rootPath(demoDir, *suffix)
 }
-
 def demoHwDir(...suffix) {
-	def demoDir = compileReconosDemoLinux.demoDir
-	return rootPath(demoDir, "hw", *suffix)
+	return demoDir("hw", *suffix)
 }
 
 reconosHardwareTest("ReconosDemo") {
 	hardwareDir demoHwDir()
+	softwareTarget ""
+	softwareDir demoDir("linux")
 
 	prepare {
 		mustRunAfter cleanReconos
@@ -747,7 +743,6 @@ reconosHardwareTest("ReconosDemo") {
 }
 
 task copyReconosDeviceTree(type: Copy) {
-	def demo = compileReconosDemoLinux.demo
 	from path(FILES, "device_tree.dts")
 	into demoHwDir("edk_zynq_linux")
 }
@@ -1256,8 +1251,8 @@ task runDemo(type: MySshTask) {
 	
 	session(remotes.board) {
 		def demo_args = "2 2 50"
-		def demo = compileReconosDemoLinux.demo
-		def demo_binary = path(compileReconosDemoLinux.demoDir, "linux", demo)
+		def demo = project.demo
+		def demo_binary = demoDir("linux", demo)
 		def demo_on_target = path("/tmp", demo)
 		put(demo_binary.toString(), demo_on_target.toString())
 

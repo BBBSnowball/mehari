@@ -146,6 +146,8 @@ apply plugin: ReconosPlugin
 
 reconosHardwareTest("SinglePendulumSimple") {
 	hardwareDir rootPath("reconos", "hw")
+	softwareTarget ""
+	softwareDir rootPath("reconos", "linux")
 
 	prepare {
 		dependsOn coregen, createSinglePendulumSimpleMetaFiles
@@ -154,16 +156,8 @@ reconosHardwareTest("SinglePendulumSimple") {
 	downloadBitstream {
 		mustRunAfter ":reconos:runDemo"
 	}
-}
 
-//TODO also compile for host
-task compileSinglePendulumSimpleLinux(type: CrossCompileMakeTask) {
-	target "single_pendulum_simple"
-	workingDir rootPath("reconos", "linux")
-
-	dependsOn ":reconos:compileReconosLib"
-
-	ext.binaryForTarget = rootPath(workingDir, "single_pendulum_simple")
+	compileLinuxProgram.ext.binaryForTarget = rootPath(softwareDir, "single_pendulum_simple")
 }
 
 task measureSinglePendulumSimple(type: MySshTask) {
