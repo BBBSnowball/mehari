@@ -15,7 +15,8 @@ public:
   void setValue(std::string variable, std::string value);
   void setValueInSection(std::string secName, std::string variable, std::string value);
   void enableSection(std::string secName);
-  void setValueInSubTemplate(std::string tplFile, std::string tplName, std::string number, std::string variable, std::string value);
+  void setValueInSubTemplate(std::string tplFile, std::string tplName, std::string key, 
+    std::string variable, std::string value, std::string subDictionary = "");
 
   void expandTemplate(std::string tplFile);
   void writeToFile(std::string outFile);
