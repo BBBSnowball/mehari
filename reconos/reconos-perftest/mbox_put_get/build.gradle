@@ -3,10 +3,6 @@ apply plugin: ReconosPlugin
 
 reconosHardwareTest("MboxPutGetHardware") {
 	hardwareDir rootPath("hw")
-
-	downloadBitstream {
-		mustRunAfter ":single-pendulum-vhdl:test"
-	}
 }
 
 task compileMboxPutGetLinux(type: CrossCompileMakeTask) {
@@ -19,16 +15,19 @@ task compileMboxPutGetLinux(type: CrossCompileMakeTask) {
 }
 
 task measureMboxPutGet(type: MySshTask) {
-	dependsOn ":reconos:prepareSsh", downloadMboxPutGetHardwareBitstream,
+	dependsOn ":reconos:prepareSsh", compileMboxPutGetHardwareBitstream,
 		compileMboxPutGetLinux
 
 	def binaryForTarget       = compileMboxPutGetLinux.binaryForTarget
 	def binaryOnTarget        = "/tmp/mbox_put_get"
+	def bitstreamForTarget    = compileMboxPutGetHardwareBitstream.binFile
+	def bitstreamOnTarget     = "/tmp/mbox_put_get.bin"
 	def measureScript         = rootPath("measure.sh")
 	def measureScriptOnTarget = "/tmp/measure.sh"
 
 	session(remotes.board) {
 		put(binaryForTarget.toString(), binaryOnTarget.toString())
+		put(bitstreamForTarget.toString(), bitstreamOnTarget.toString())
 		put(measureScript.toString(), measureScriptOnTarget.toString())
 
 		execute("chmod +x $binaryOnTarget $measureScriptOnTarget")

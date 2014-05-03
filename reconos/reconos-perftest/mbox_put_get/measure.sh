@@ -1,6 +1,31 @@
 #!/bin/bash
 
+NAME=mbox_put_get
+
+set -e
+
 cd "$(dirname "$0")"
+
+load_bitstream() {
+	if [ ! -f "$1" ] ; then
+		echo "ERROR: Bitstream file '$1' doesn't exist!" >&2
+		exit 1
+	fi
+	if [ ! -e "/dev/xdevcfg" ] ; then
+		echo "ERROR: Device file /dev/xdevcfg doesn't exist!" >&2
+		exit 1
+	fi
+
+	echo -n "Loading bitstream onto FPGA... "
+	cat "$1" >/dev/xdevcfg
+
+	if [ "$(cat /sys/devices/amba.0/f8007000.ps7-dev-cfg/prog_done)" -ne "1" ] ; then
+		echo "ERROR: Couldn't download bitstream!" >&2
+		exit 1
+	fi
+
+	echo "done"
+}
 
 measure() {
 	output="$1"
@@ -44,14 +69,16 @@ avg() {
 	div_rounding $SUM $COUNT
 }
 
-PREFIX="mbox_put_get_"
+PREFIX="${NAME}_"
 ITERATIONS=10000
 
-rm ${PREFIX}*.perf.txt
+rm -f ${PREFIX}*.perf.txt
+
+load_bitstream "$NAME.bin"
 
 measure "${PREFIX}hw_1_10k.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS --dont-flush
 measure "${PREFIX}sw_1_10k.perf.txt" 10   ./mbox_put_get 0 1  -n $ITERATIONS --dont-flush
 measure "${PREFIX}sw_2_10k.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS --dont-flush
 measure "${PREFIX}sw_32_10k.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS --dont-flush
 
-tar -cf mbox_put_get_results.tar ${PREFIX}*.perf.txt
+tar -cf "${PREFIX}results.tar" ${PREFIX}*.perf.txt

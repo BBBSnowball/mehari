@@ -3,6 +3,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Exec
+import org.gradle.api.file.FileTree
 
 // This will most likely only work with the :reconos project because
 // it is tightly coupled to the reconosConfig task.
@@ -44,6 +45,22 @@ public class ReconosXpsTask extends DefaultTask {
 		return xps_project_dir
 	}
 
+	public FileTree getBitFiles() {
+		return project.fileTree(project.path(projectDir, "implementation")) { include "*.bit" }
+	}
+
+	public FileTree getBinFiles() {
+		return project.fileTree(project.path(projectDir, "implementation")) { include "*.bin" }
+	}
+
+	public File getBitFile() {
+		return getBitFiles().singleFile
+	}
+
+	public File getBinFile() {
+		return getBinFiles().singleFile
+	}
+
 	@TaskAction
 	def runXps() {
 		if (xpsCommands.isEmpty())
@@ -64,6 +81,7 @@ public class ReconosXpsTask extends DefaultTask {
 		inputs.property("RECONOS_ARCH") { project.getReconosVariable("RECONOS_ARCH") }
 		inputs.property("RECONOS_OS"  ) { project.getReconosVariable("RECONOS_OS")   }
 
-		outputs.files { project.fileTree(project.path(projectDir, "implementation")) { include "*.bit" } }
+		outputs.files { getBitFiles() }
+		outputs.files { getBinFiles() }
 	}
 }
