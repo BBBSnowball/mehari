@@ -5,7 +5,7 @@ reconosHardwareTest("MboxPutGetHardware") {
 	hardwareDir rootPath("hw")
 
 	downloadBitstream {
-		mustRunAfter ":reconos:runDemo"
+		mustRunAfter ":single-pendulum-vhdl:test"
 	}
 }
 
