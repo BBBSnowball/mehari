@@ -9,9 +9,8 @@ reconosHardwareTest("MboxPutGetHardware") {
 	}
 }
 
-//TODO also compile for host
 task compileMboxPutGetLinux(type: CrossCompileMakeTask) {
-	target "mbox_put_get"
+	target "all"
 	workingDir rootPath("linux")
 
 	dependsOn ":reconos:compileReconosLib"
