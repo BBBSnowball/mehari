@@ -1247,11 +1247,18 @@ task sshShell(type: MySshTask) {
 }
 
 task runDemo(type: MySshTask) {
-	dependsOn prepareSsh
+	dependsOn compileReconosDemoHardwareBitstream, prepareSsh
 	
 	session(remotes.board) {
-		def demo_args = "2 2 50"
 		def demo = project.demo
+		def bitstreamForTarget = compileReconosDemoHardwareBitstream.binFile
+		def bitstreamOnTarget  = "/tmp/${demo}.bin"
+
+		put(bitstreamForTarget.toString(), bitstreamOnTarget.toString())
+
+		execute("cat " + escapeForShell(bitstreamOnTarget) + ">/dev/xdevcfg")
+
+		def demo_args = "2 2 50"
 		def demo_binary = demoDir("linux", demo)
 		def demo_on_target = path("/tmp", demo)
 		put(demo_binary.toString(), demo_on_target.toString())
