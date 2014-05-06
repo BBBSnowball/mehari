@@ -64,6 +64,8 @@ private:
 	void createVertices(std::vector<Instruction*> &instructions);
 	void addEdges(InstructionDependencyList &dependencies);
 
+	bool isCuttingInstr(Instruction *instr);
+
 	void addInstructionsToList(std::vector<Instruction*> instructions);
 
 	std::vector<Instruction*> instructionList;

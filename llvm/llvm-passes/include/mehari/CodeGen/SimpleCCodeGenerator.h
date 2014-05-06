@@ -30,6 +30,7 @@ private:
   std::map<std::string, std::vector<std::string> > tmpVariables;
   unsigned int tmpVarNumber;
   unsigned int tmpLabelNumber;
+  std::string lastGetDataVar;
   
   std::map<std::string, std::string> binaryOperatorStrings;
   std::map<unsigned int, std::string> comparePredicateStrings;  

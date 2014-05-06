@@ -34,6 +34,8 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 
 	int vertexNumber = 0;
 	int instrNumber = 0;
+	bool isIfStatement = false;
+	bool isIfCompleted = false;
 	initVertex = boost::add_vertex(pGraph);
 	pGraph[initVertex].name = "init";
 	std::vector<Instruction*> currentInstrutions;
@@ -52,21 +54,39 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 		}
 		// handle the calculations
 		else if (instrNumber >= 2*paramCount) {
-			if (isa<StoreInst>(instr) && !isa<BranchInst>(nextInstr)) {
-				Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
-				std::stringstream ss;
-				ss << vertexNumber++;
-				pGraph[newVertex].name = ss.str();
-				pGraph[newVertex].instructions = currentInstrutions;
-				// save the instruction list the graph is based on
-				addInstructionsToList(currentInstrutions);
-				currentInstrutions.clear();
+			// do we currently handle an if statement?
+			if (isa<BranchInst>(instr)) {
+				if (!isIfStatement)
+					isIfStatement = true;
+				else
+					isIfCompleted = true;
 			}
-		}
+			else if (isCuttingInstr(instr)) {
+				if (!isIfStatement || (isIfStatement && isIfCompleted)) {
+					Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
+					std::stringstream ss;
+					ss << vertexNumber++;
+					pGraph[newVertex].name = ss.str();
+					pGraph[newVertex].instructions = currentInstrutions;
+					addInstructionsToList(currentInstrutions);
+					currentInstrutions.clear();
+					isIfStatement = false;
+					isIfCompleted = false;
+				}
+			}
+		} // end handle calculations
 		instrNumber++;
 	}
 }
 
+bool PartitioningGraph::isCuttingInstr(Instruction *instr) {
+	return (isa<StoreInst>(instr)
+		||	isa<BinaryOperator>(instr)
+		||	isa<CallInst>(instr)
+		||	isa<CmpInst>(instr)
+		||	isa<ZExtInst>(instr)
+		||	isa<ReturnInst>(instr));
+}
 
 void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	// add edges between the vertices (ComputationUnit) of the partitioning graph

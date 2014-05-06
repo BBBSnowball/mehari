@@ -170,7 +170,11 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
           }
           else {
             std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-            ccode += printCall(tmpVar, sInstr->getOperand(0), func->getName().str());
+            std::string functionName = func->getName().str();
+            ccode += printCall(tmpVar, sInstr->getOperand(0), functionName);
+            if (functionName == "get_data") {
+              lastGetDataVar = tmpVar;
+            }
           }
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
@@ -368,6 +372,12 @@ std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
     double value = cf->getValueAPF().convertToDouble();
     return static_cast<std::ostringstream*>( &(std::ostringstream() << value) )->str();
+  }
+  // if a value was got from another thread by the get_data function, return it
+  else if (!lastGetDataVar.empty()) {
+    std::string tmpVar = lastGetDataVar;
+    lastGetDataVar.clear();
+    return tmpVar;
   }
   // else return the address itself as a string
   else {
