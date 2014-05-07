@@ -34,7 +34,7 @@ private:
   
 	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
 
-  void handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyValueList &dependencies);
+  void handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies);
 
   void savePartitioning(std::map<std::string, Function*> &functions, std::map<std::string, PartitioningGraph*> &graphs);
 };

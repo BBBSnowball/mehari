@@ -92,18 +92,18 @@ bool Partitioning::runOnModule(Module &M) {
 		// run InstructionDependencyAnalysis
 		InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>(*func);
 		InstructionDependencyList dependencies = IDA->getDependencies(*func);
-		InstructionDependencyValueList depencencyValues = IDA->getDependencyValues(*func);
+		InstructionDependencyNumbersList dependencyNumbers = IDA->getDependencyNumbers(*func);
 
 		// create partitioning graph
 		PartitioningGraph *pGraph = new PartitioningGraph();
-		pGraph->create(worklist, dependencies);
+		pGraph->create(worklist, dependencyNumbers);
 		
 		// create partitioning
 		applyRandomPartitioning(*pGraph, 42);
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
-		handleDependencies(M, *func, *pGraph, depencencyValues);
+		handleDependencies(M, *func, *pGraph, dependencies);
 		
 		// print partitioning graph results
 		// pGraph->printGraph(functionName);
@@ -143,7 +143,7 @@ void Partitioning::applyRandomPartitioning(PartitioningGraph &pGraph, unsigned i
 }
 
 
-void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyValueList &dependencies) {
+void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies) {
 	// create new functions to put or get data dependencies
 	Function *newGetFunc = cast<Function>(
 		M.getOrInsertFunction("get_data",
@@ -161,23 +161,23 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 	unsigned int depNumber = 1;
 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
-	for (InstructionDependencyValueList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
-		InstructionDependencyValueListEntry depEntry = *listIt;
-		Instruction *instr = depEntry.instruction;
-		InstructionDependencyValues *instrDep = depEntry.dependencies;
+	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
+		InstructionDependencyEntry depEntry = *listIt;
+		Instruction *instr = depEntry.tgtInstruction;
+		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
 		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(instr);
 		if (instrVertex == NULL)
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
-		for (InstructionDependencyValues::iterator depValIt = instrDep->begin(); depValIt != instrDep->end(); ++depValIt) {
-			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(*depValIt);
+		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
+			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depValIt->depInstruction);
 			if (depVertex == NULL)
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
 			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {
 				// errs() << "Instruction and dependency are in different partitions:\n";
 				// errs() << "instr: (" << pGraph.getPartition(instrVertex) << ") - " << *instr  << "\n";
-				// errs() << "dep:   (" << pGraph.getPartition(depVertex)   << ") - " << **depValIt << "\n";
+				// errs() << "dep:   (" << pGraph.getPartition(depVertex)   << ") - " << **(depValIt->depInstruction) << "\n";
 				// errs() << "\n";
 				
 				// create dependency number
@@ -201,11 +201,11 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				}
 
 				std::vector<Instruction*> depInstrList = pGraph.getInstructions(depVertex);
-				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), *depValIt);
+				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depValIt->depInstruction);
 				if (depIt != tgtInstrList.end()) {
 					CallInst *newInstr = CallInst::Create(newPutFunc, number, "");
 					// add instruction to function
-					(*depValIt)->getParent()->getInstList().insert(*depValIt, newInstr); // TODO: add put instr behind instruction!
+					depValIt->depInstruction->getParent()->getInstList().insert(depValIt->depInstruction, newInstr); // TODO: add put instr behind instruction!
 					// add instruction to vertex instruction list
 					depInstrList.insert(depIt+1, newInstr);
 					pGraph.setInstructions(depVertex, depInstrList);

@@ -51,11 +51,11 @@ protected:
   }
 
 
-  InstructionDependencyList ParseResults(std::string &result) {
-    InstructionDependencyList parsedResult;
+  InstructionDependencyNumbersList ParseResults(std::string &result) {
+    InstructionDependencyNumbersList parsedResult;
     std::istringstream iss(result);
     for (std::string entry; std::getline(iss, entry); ) {
-        InstructionDependencies tmpDep;
+        InstructionDependencyNumbers tmpDep;
         std::vector<std::string> dependencies;
         boost::algorithm::split(dependencies, entry, boost::algorithm::is_any_of(" "));
         for (std::vector<std::string>::iterator it = dependencies.begin(); it != dependencies.end(); ++it)
@@ -67,13 +67,13 @@ protected:
   }
 
 
-  void CheckResult(InstructionDependencyList ExpectedResult) {
+  void CheckResult(InstructionDependencyNumbersList ExpectedResult) {
 
     static char ID;
 
     class CheckResultPass : public FunctionPass {
      public:
-      CheckResultPass(Function &F, InstructionDependencyList ExpectedResult)
+      CheckResultPass(Function &F, InstructionDependencyNumbersList ExpectedResult)
           : FunctionPass(ID), ExpectedResult(ExpectedResult) {}
 
       static int initialize() {
@@ -95,26 +95,26 @@ protected:
 
         // run instruction dependency analysis
         InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-        InstructionDependencyList AnalysisResult = IDA->getDependencies(F);
+        InstructionDependencyNumbersList AnalysisResult = IDA->getDependencyNumbers(F);
 
         // DEBUG: print expected and analysis results
         if (false) {
           std::cout << "EXPECTED RESULTS:\n";
           int index = 0;
-          for (InstructionDependencyList::iterator instrDepIt = ExpectedResult.begin(); 
+          for (InstructionDependencyNumbersList::iterator instrDepIt = ExpectedResult.begin(); 
                 instrDepIt != ExpectedResult.end(); ++instrDepIt, index++) {
             std::cout << index << ":";
-            for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
+            for (InstructionDependencyNumbers::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
               std::cout << " " << int(*depNumIt);
             }
             std::cout << "\n";
           }
           std::cout << "ANALYSIS RESULTS:\n";
           index = 0;
-          for (InstructionDependencyList::iterator instrDepIt = AnalysisResult.begin(); 
+          for (InstructionDependencyNumbersList::iterator instrDepIt = AnalysisResult.begin(); 
                 instrDepIt != AnalysisResult.end(); ++instrDepIt, index++) {
             std::cout << index << ":";
-            for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
+            for (InstructionDependencyNumbers::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
               std::cout << " " << int(*depNumIt);
             }
             std::cout << "\n";
@@ -133,7 +133,7 @@ protected:
         return false;
       }
       
-      InstructionDependencyList ExpectedResult;
+      InstructionDependencyNumbersList ExpectedResult;
     };
 
     static int initialize = CheckResultPass::initialize();

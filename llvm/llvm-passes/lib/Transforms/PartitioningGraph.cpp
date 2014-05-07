@@ -12,7 +12,7 @@ PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}
 
 
-void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies) {
+void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies) {
 	createVertices(instructions);
 	addEdges(dependencies);
 
@@ -88,7 +88,7 @@ bool PartitioningGraph::isCuttingInstr(Instruction *instr) {
 		||	isa<ReturnInst>(instr));
 }
 
-void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
+void PartitioningGraph::addEdges(InstructionDependencyNumbersList &dependencies) {
 	// add edges between the vertices (ComputationUnit) of the partitioning graph
 	// that represent dependencies between the instructions inside the vertices
 	int index = 0;
@@ -98,7 +98,7 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 		if (targetVertex == NULL)
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
-		for (InstructionDependencies::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
+		for (InstructionDependencyNumbers::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(instructionList[*depIt]);
