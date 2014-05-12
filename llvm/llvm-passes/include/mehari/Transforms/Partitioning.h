@@ -28,6 +28,9 @@ private:
   std::vector<std::string> targetFunctions;
   unsigned int partitionCount;
 
+  unsigned int depNumberMax;
+  unsigned int semNumberMax;
+
   std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;
 
   void parseTargetFunctions(void);

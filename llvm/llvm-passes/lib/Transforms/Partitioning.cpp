@@ -5,8 +5,6 @@
 #include "mehari/CodeGen/TemplateWriter.h"
 
 #include "llvm/IR/GlobalVariable.h"
-
-//DEBUG
 #include "llvm/IR/Constants.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -71,6 +69,10 @@ bool Partitioning::runOnModule(Module &M) {
 	// create partitioning for each target function
 	std::map<std::string, Function*> partitioningFunctions;
 	std::map<std::string, PartitioningGraph*> partitioningGraphs;
+
+	// init maximum numbers
+	semNumberMax = 0;
+	depNumberMax = 0;
 
 	for (std::vector<std::string>::iterator funcIt = targetFunctions.begin(); funcIt != targetFunctions.end(); ++funcIt) {
 		Function *func = M.getFunction(*funcIt);
@@ -145,20 +147,67 @@ void Partitioning::applyRandomPartitioning(PartitioningGraph &pGraph, unsigned i
 
 void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies) {
 	// create new functions to put or get data dependencies
-	Function *newGetFunc = cast<Function>(
-		M.getOrInsertFunction("get_data",
+	Function *newGetFloatFunc = cast<Function>(
+		M.getOrInsertFunction("_get_real",
 			Type::getDoubleTy(M.getContext()),
 			Type::getInt32Ty(M.getContext()),
 			(Type *)0));
-	Function *newPutFunc = cast<Function>(
-		M.getOrInsertFunction("put_data",
+	Function *newGetIntFunc = cast<Function>(
+		M.getOrInsertFunction("_get_int",
+			Type::getInt32Ty(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			(Type *)0));
+	Function *newGetBoolFunc = cast<Function>(
+		M.getOrInsertFunction("_get_bool",
+			Type::getInt1Ty(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			(Type *)0));
+	Function *newGetIntPtrFunc = cast<Function>(
+		M.getOrInsertFunction("_get_intptr",
+			Type::getInt32PtrTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			(Type *)0));
+
+	Function *newPutFloatFunc = cast<Function>(
+		M.getOrInsertFunction("_put_real",
+			Type::getVoidTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			Type::getDoubleTy(M.getContext()),
+			(Type *)0));
+	Function *newPutIntFunc = cast<Function>(
+		M.getOrInsertFunction("_put_int",
+			Type::getVoidTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			(Type *)0));
+	Function *newPutBoolFunc = cast<Function>(
+		M.getOrInsertFunction("_put_bool",
+			Type::getVoidTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			Type::getInt1Ty(M.getContext()),
+			(Type *)0));
+	Function *newPutIntPtrFunc = cast<Function>(
+		M.getOrInsertFunction("_put_intptr",
+			Type::getVoidTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			Type::getInt32PtrTy(M.getContext()),
+			(Type *)0));
+
+	// create new functions to handle semaphores
+	Function *newSemWaitFunc = cast<Function>(
+		M.getOrInsertFunction("_sem_wait",
+			Type::getVoidTy(M.getContext()),
+			Type::getInt32Ty(M.getContext()),
+			(Type *)0));
+	Function *newSemPostFunc = cast<Function>(
+		M.getOrInsertFunction("_sem_post",
 			Type::getVoidTy(M.getContext()),
 			Type::getInt32Ty(M.getContext()), 
 			(Type *)0));
-	// TODO: add paremeter for put value -> put_data(depNumber, data)
 
-	// enumerate the dependencies
-	unsigned int depNumber = 1;
+	// reset counting of data dependencies and semaphore uses
+	unsigned int depNumber = 0;
+	unsigned int semNumber = 0;
 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
 	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
@@ -171,6 +220,8 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depValIt->depInstruction);
+			bool depNumberUsed = false;
+			bool semNumberUsed = false;
 			if (depVertex == NULL)
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
@@ -180,41 +231,92 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				// errs() << "dep:   (" << pGraph.getPartition(depVertex)   << ") - " << **(depValIt->depInstruction) << "\n";
 				// errs() << "\n";
 				
-				// create dependency number
-				Value *number = ConstantInt::get(Type::getInt32Ty(M.getContext()), depNumber);
+				// create dependency and semaphore number
+				Value *depNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), depNumber);
+				Value *semNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), semNumber);
 
 				// add function calls to handle dependencies between partitions
 				std::vector<Instruction*> tgtInstrList = pGraph.getInstructions(instrVertex);
 				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), instr);
+				Type *instrType = depValIt->depInstruction->getType();
 				if (instrIt != tgtInstrList.end()) {
-					CallInst *newInstr = CallInst::Create(newGetFunc, number, "data");
+					CallInst *newInstr;
+					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+						newInstr = CallInst::Create(newSemWaitFunc, semNumberVal);
+						semNumberUsed = true;
+					}
+					else if (depValIt->isRegdep) {
+						if (instrType->isIntegerTy()) {
+							if (instrType->getIntegerBitWidth() == 1)
+								newInstr = CallInst::Create(newGetBoolFunc, depNumberVal, "data");
+							else
+								newInstr = CallInst::Create(newGetIntFunc, depNumberVal, "data");
+						}
+						else if (instrType->isFloatingPointTy())
+							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
+						else if (instrType->isPointerTy())
+							newInstr = CallInst::Create(newGetIntPtrFunc, depNumberVal, "data");						
+						else {
+							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
+									<< instrType->getTypeID() << "\n";
+							errs() << "Instruction: " << *depValIt->depInstruction << "\n";
+							continue;
+						}
+						depNumberUsed = true;
+					}
 					// add instruction to function
 					instr->getParent()->getInstList().insert(instr, newInstr);
 					// add instruction to vertex instruction list
 					tgtInstrList.insert(instrIt, newInstr);
 					pGraph.setInstructions(instrVertex, tgtInstrList);
-					// TODO: change operand in target instruction to use the new temporary variable that contains the data
-					// target operand == dependency !?
-					// for (User::op_iterator opIt = instr->op_begin(); opIt != instr->op_end(); ++opIt) {
-					// 	errs() << "   * " << **opIt << "\n";
-					// }
 				}
 
 				std::vector<Instruction*> depInstrList = pGraph.getInstructions(depVertex);
 				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depValIt->depInstruction);
 				if (depIt != tgtInstrList.end()) {
-					CallInst *newInstr = CallInst::Create(newPutFunc, number, "");
+					CallInst *newInstr;
+					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+						newInstr = CallInst::Create(newSemPostFunc, semNumberVal);
+						semNumberUsed = true;
+					}
+					else if (depValIt->isRegdep) {							
+						std::vector<Value*> params;
+						params.push_back(depNumberVal);
+						params.push_back(depValIt->depInstruction);
+						if (instrType->isIntegerTy()) {
+							if (instrType->getIntegerBitWidth() == 1)
+								newInstr = CallInst::Create(newPutBoolFunc, params);
+							else
+								newInstr = CallInst::Create(newPutIntFunc, params);
+						}
+						else if (instrType->isFloatingPointTy())
+							newInstr = CallInst::Create(newPutFloatFunc, params);
+						else if (instrType->isPointerTy())
+							newInstr = CallInst::Create(newPutIntPtrFunc, params);
+						else {
+							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
+									<< instrType->getTypeID() << "\n";
+							errs() << "Instruction: " << *depValIt->depInstruction << "\n";
+							continue;
+						}
+						depNumberUsed = true;
+					}
 					// add instruction to function
-					depValIt->depInstruction->getParent()->getInstList().insert(depValIt->depInstruction, newInstr); // TODO: add put instr behind instruction!
+					depValIt->depInstruction->getParent()->getInstList().insertAfter(depValIt->depInstruction, newInstr);
 					// add instruction to vertex instruction list
 					depInstrList.insert(depIt+1, newInstr);
 					pGraph.setInstructions(depVertex, depInstrList);
 				}
-
-				depNumber++;
+				if (depNumberUsed)
+					depNumber++;
+				if (semNumberUsed)
+					semNumber++;
 			}
 		}
 	}
+	// set maximum number of data and semaphore counts
+	semNumberMax = std::max(semNumberMax, semNumber);
+	depNumberMax = std::max(depNumberMax, depNumber);
 }
 
 
@@ -239,12 +341,14 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput);
 
 	// write number of used semaphores
-	tWriter.setValue("SEM_DATA_COUNT", "5"); // TODO: set value depending on the partitioning results
+	std::string semDataCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << semNumberMax))->str();
+	tWriter.setValue("SEM_DATA_COUNT", semDataCountStr);
 	std::string semReturnCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << functions.size()))->str();
 	tWriter.setValue("SEM_RETURN_COUNT", semReturnCountStr);
 
 	// write number of data dependencies
-	tWriter.setValue("DATA_DEP_COUNT", "8"); // TODO: set value depending on the partitioning results
+	std::string dataDepCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << depNumberMax))->str();
+	tWriter.setValue("DATA_DEP_COUNT", dataDepCountStr);
 	std::string dataDepParamCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (partitionCount*functions.size())))->str();
 	tWriter.setValue("DATA_DEP_PARAM_COUNT", dataDepParamCountStr);
 

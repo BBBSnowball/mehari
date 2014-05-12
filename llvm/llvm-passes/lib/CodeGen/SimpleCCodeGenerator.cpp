@@ -172,7 +172,9 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
             std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
             std::string functionName = func->getName().str();
             ccode += printCall(tmpVar, sInstr->getOperand(0), functionName);
-            if (functionName == "get_data") {
+            // TODO: not very nice.. is there a better solution without asking for the function name?
+            if (functionName == "_get_real" || functionName == "_get_int" 
+             || functionName == "_get_bool" || functionName == "_get_intptr") {
               lastGetDataVar = tmpVar;
             }
           }
