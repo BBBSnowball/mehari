@@ -2,6 +2,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Operator.h"
@@ -163,19 +164,23 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
           ccode += printBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
         }
-        else if (CallInst *sInstr = dyn_cast<CallInst>(instr)) {
-          Function *func = sInstr->getCalledFunction();
+        else if (CallInst *cInstr = dyn_cast<CallInst>(instr)) {
+          Function *func = cInstr->getCalledFunction();
+          std::string functionName = func->getName().str();
+          std::vector<Value*> args;
+          for (int i=0; i<cInstr->getNumArgOperands(); i++)
+            args.push_back(cInstr->getArgOperand(i));
           if (func->getReturnType()->isVoidTy()) {
-            ccode += printVoidCall(sInstr->getOperand(0), func->getName().str());
+            ccode += printVoidCall(functionName, args);
           }
           else {
             std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-            std::string functionName = func->getName().str();
-            ccode += printCall(tmpVar, sInstr->getOperand(0), functionName);
+            ccode += printCall(functionName, tmpVar, args);
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
              || functionName == "_get_bool" || functionName == "_get_intptr") {
-              lastGetDataVar = tmpVar;
+              std::string tgtOperand = cast<MDString>(instr->getMetadata("targetop")->getOperand(0))->getString();
+              dataDependencies[tgtOperand] = tmpVar;
             }
           }
         }
@@ -251,6 +256,7 @@ void SimpleCCodeGenerator::resetVariables() {
   variables.clear();
   branchLabels.clear();
   tmpVariables.clear();
+  dataDependencies.clear();
   tmpVarNumber = 0;
   tmpLabelNumber = 0;
 }
@@ -324,6 +330,8 @@ void SimpleCCodeGenerator::addIndexToVariable(Value *source, Value *target, std:
 
 std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
   Type *type = addr->getType();
+  if (type->isPointerTy())
+    return "int *";
   if (type->isIntegerTy())
     return "int";
   else if (type->isFloatingPointTy())
@@ -375,18 +383,17 @@ std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
     double value = cf->getValueAPF().convertToDouble();
     return static_cast<std::ostringstream*>( &(std::ostringstream() << value) )->str();
   }
-  // if a value was got from another thread by the get_data function, return it
-  else if (!lastGetDataVar.empty()) {
-    std::string tmpVar = lastGetDataVar;
-    lastGetDataVar.clear();
-    return tmpVar;
-  }
+
+  // convert operand address to string
+  std::stringstream ss;
+  ss << addr;
+  std::string opString = ss.str();
+  // if the value was got from another thread by the get_data function, return it
+  if (dataDependencies.find(opString) != dataDependencies.end())
+    return dataDependencies[opString];
   // else return the address itself as a string
-  else {
-    std::stringstream ss;
-    ss << addr;
-    return "## " + ss.str() + " ##";
-  }
+  else
+    return "## " + opString + " ##";
 }
 
 
@@ -429,17 +436,25 @@ std::string SimpleCCodeGenerator::printBinaryOperator(std::string tmpVar, Value 
     +  ";\n";
 }
 
-std::string SimpleCCodeGenerator::printCall(std::string tmpVar, Value *arg, std::string funcName) {
+std::string SimpleCCodeGenerator::printCall(std::string funcName, std::string tmpVar, std::vector<Value*> args) {
+  std::string argString;
+  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it)
+    argString += getOperandString(*it) + ", ";
+  argString = argString.substr(0, argString.size()-2);
   return "\t" + tmpVar
     +  " = "
     +  funcName
-    +  "(" + getOperandString(arg) + ")"
+    +  "(" + argString + ")"
     +  ";\n";
 }
 
-std::string SimpleCCodeGenerator::printVoidCall(Value *arg, std::string funcName) {
+std::string SimpleCCodeGenerator::printVoidCall(std::string funcName, std::vector<Value*> args) {
+  std::string argString;
+  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it)
+    argString += getOperandString(*it) + ", ";
+  argString = argString.substr(0, argString.size()-2);
   return "\t" + funcName
-    +  "(" + getOperandString(arg) + ")"
+    +  "(" + argString + ")"
     +  ";\n";
 }
 

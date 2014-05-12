@@ -212,33 +212,29 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
 	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
 		InstructionDependencyEntry depEntry = *listIt;
-		Instruction *instr = depEntry.tgtInstruction;
+		Instruction *tgtinstr = depEntry.tgtInstruction;
 		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
-		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(instr);
+		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtinstr);
 		if (instrVertex == NULL)
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
-			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depValIt->depInstruction);
+			Instruction *depInstr = depValIt->depInstruction;
+			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
 			if (depVertex == NULL)
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
-			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {
-				// errs() << "Instruction and dependency are in different partitions:\n";
-				// errs() << "instr: (" << pGraph.getPartition(instrVertex) << ") - " << *instr  << "\n";
-				// errs() << "dep:   (" << pGraph.getPartition(depVertex)   << ") - " << **(depValIt->depInstruction) << "\n";
-				// errs() << "\n";
-				
+			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {				
 				// create dependency and semaphore number
 				Value *depNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), depNumber);
 				Value *semNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), semNumber);
 
 				// add function calls to handle dependencies between partitions
 				std::vector<Instruction*> tgtInstrList = pGraph.getInstructions(instrVertex);
-				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), instr);
-				Type *instrType = depValIt->depInstruction->getType();
+				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), tgtinstr);
+				Type *instrType = depInstr->getType();
 				if (instrIt != tgtInstrList.end()) {
 					CallInst *newInstr;
 					if (depValIt->isMemDep || depValIt->isCtrlDep) {
@@ -259,20 +255,26 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
-							errs() << "Instruction: " << *depValIt->depInstruction << "\n";
+							errs() << "Instruction: " << *depInstr << "\n";
 							continue;
 						}
 						depNumberUsed = true;
 					}
+					// add metadata to specify the target operand for the get_data call
+					std::stringstream ss;
+					ss << depInstr;
+					LLVMContext& context = tgtinstr->getContext();
+					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
+					newInstr->setMetadata("targetop", mdn);
 					// add instruction to function
-					instr->getParent()->getInstList().insert(instr, newInstr);
+					tgtinstr->getParent()->getInstList().insert(tgtinstr, newInstr);
 					// add instruction to vertex instruction list
 					tgtInstrList.insert(instrIt, newInstr);
 					pGraph.setInstructions(instrVertex, tgtInstrList);
 				}
 
 				std::vector<Instruction*> depInstrList = pGraph.getInstructions(depVertex);
-				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depValIt->depInstruction);
+				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depInstr);
 				if (depIt != tgtInstrList.end()) {
 					CallInst *newInstr;
 					if (depValIt->isMemDep || depValIt->isCtrlDep) {
@@ -282,7 +284,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 					else if (depValIt->isRegdep) {							
 						std::vector<Value*> params;
 						params.push_back(depNumberVal);
-						params.push_back(depValIt->depInstruction);
+						params.push_back(depInstr);
 						if (instrType->isIntegerTy()) {
 							if (instrType->getIntegerBitWidth() == 1)
 								newInstr = CallInst::Create(newPutBoolFunc, params);
@@ -296,13 +298,13 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						else {
 							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
 									<< instrType->getTypeID() << "\n";
-							errs() << "Instruction: " << *depValIt->depInstruction << "\n";
+							errs() << "Instruction: " << *depInstr << "\n";
 							continue;
 						}
 						depNumberUsed = true;
 					}
 					// add instruction to function
-					depValIt->depInstruction->getParent()->getInstList().insertAfter(depValIt->depInstruction, newInstr);
+					depInstr->getParent()->getInstList().insertAfter(depInstr, newInstr);
 					// add instruction to vertex instruction list
 					depInstrList.insert(depIt+1, newInstr);
 					pGraph.setInstructions(depVertex, depInstrList);
