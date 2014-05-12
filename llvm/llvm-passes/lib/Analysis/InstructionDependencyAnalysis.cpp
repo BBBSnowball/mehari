@@ -70,6 +70,7 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 				// add dependency
 				InstructionDependency instrdep;
 				instrdep.depInstruction = opInstr;
+				instrdep.isRegdep = true;
 				currentDependencyEntry.dependencies.push_back(instrdep);
 				if (Verbose)
 					errs() << "USE-DEF: " << *instr << " depends on " << *opInstr << "\n";
@@ -121,6 +122,7 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 					int currentInstrNumber = getInstructionNumber(instructions, lastInstr);
 					InstructionDependency instrdep;
 					instrdep.depInstruction = instructions[currentInstrNumber-1];
+					instrdep.isCtrlDep = true;
 					dependencies[currentInstrNumber].dependencies.push_back(instrdep);
 					if (Verbose)
 						errs() << "CTL-DEP: " << *lastInstr << "  depends on  " << *instructions[currentInstrNumber-1] << "\n";
@@ -135,6 +137,7 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 					// the only instruction in this function
 					InstructionDependency instrdep;
 					instrdep.depInstruction = instructions[currentInstrNumber-1];
+					instrdep.isCtrlDep = true;
 					dependencies[currentInstrNumber].dependencies.push_back(instrdep);
 					if (Verbose)
 						errs() << "CTL-DEP: " << *lastInstr << "  depends on  " << *instructions[currentInstrNumber-1] << "\n";
@@ -150,6 +153,7 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 			int tgtNumber = getInstructionNumber(instructions, &(bb->front()));
 			InstructionDependency instrdep;
 			instrdep.depInstruction = &(pbb->back());
+			instrdep.isCtrlDep = true;
 			dependencies[tgtNumber].dependencies.push_back(instrdep);
 			if (Verbose)
 				errs() << "CTL-DEP: " << (bb->front()) << "  depends on  " << (pbb->back()) << "\n";

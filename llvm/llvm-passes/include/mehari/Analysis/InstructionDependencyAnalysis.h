@@ -24,9 +24,11 @@ typedef std::vector<InstructionDependencyNumbers> InstructionDependencyNumbersLi
 // new representation of dependencies storing the real instructions
 // and some more logic instead of just the instruction numbers
 typedef struct InstructionDependency {
-	InstructionDependency() : isMemDep(false) {}
+	InstructionDependency() : isMemDep(false), isCtrlDep(false), isRegdep(false) {}
 	Instruction *depInstruction;
+	bool isRegdep;
 	bool isMemDep;
+	bool isCtrlDep;
 } InstructionDependency;
 
 typedef struct InstructionDependencyEntry {
