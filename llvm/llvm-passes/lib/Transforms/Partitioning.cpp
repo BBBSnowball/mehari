@@ -351,7 +351,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	// write number of data dependencies
 	std::string dataDepCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << depNumberMax))->str();
 	tWriter.setValue("DATA_DEP_COUNT", dataDepCountStr);
-	std::string dataDepParamCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (partitionCount*functions.size())))->str();
+	std::string dataDepParamCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (functions.size()*(partitionCount-1))))->str();
 	tWriter.setValue("DATA_DEP_PARAM_COUNT", dataDepParamCountStr);
 
 	// insert partition and thread count
@@ -433,7 +433,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				"RETURN_SEM_INDEX", functionIndexStr);
 
 			// add implementation to main calculation function
-			unsigned int putParamStart = partitionCount * functionIndex;
+			unsigned int putParamStart = (partitionCount-1) * functionIndex;
 			std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
 			tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
 			tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
