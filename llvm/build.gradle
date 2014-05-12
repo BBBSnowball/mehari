@@ -289,8 +289,18 @@ task createIRGraphs(type: Exec) {
 }
 
 
+task prepareCodeGenerationResult(type: Exec) {
+	dependsOn prepareExample
+
+	def inputfile = file("$OUTPUT_DIR/example.c")
+	def targetfile = file("$OUTPUT_DIR/example-final.c")
+
+	commandLine "python", CODEGEN_PREPARATION_SCRIPT, inputfile, targetfile, PARTITIONING_TARGET_FUNCTIONS
+}
+
+
 task applyPartitioning(type: Exec) {
-	dependsOn installLLVMPasses, createIR, applyInlining
+	dependsOn installLLVMPasses, createIR, applyInlining, prepareCodeGenerationResult
 
 	doFirst {
 		OUTPUT_DIR.mkdirs()
@@ -307,15 +317,6 @@ task applyPartitioning(type: Exec) {
 	"-partitioning-count $PARTITIONING_COUNT " +
 	"-partitioning-output-dir \"$OUTPUT_DIR\" " +
 	"-S $targetfile > /dev/null"
-}
-
-
-task prepareCodeGenerationResult(type: Exec) {
-	dependsOn applyPartitioning
-
-	def targetfile = file("$OUTPUT_DIR/example-final.c")
-
-	commandLine "python", CODEGEN_PREPARATION_SCRIPT, EXAMPLE_FILE, targetfile, PARTITIONING_TARGET_FUNCTIONS
 }
 
 
