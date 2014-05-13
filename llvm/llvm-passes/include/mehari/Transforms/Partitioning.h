@@ -28,7 +28,7 @@ private:
   std::vector<std::string> targetFunctions;
   unsigned int partitionCount;
 
-  unsigned int depNumberMax;
+  std::vector<std::string> dataDependencies;
   unsigned int semNumberMax;
 
   std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;

@@ -72,7 +72,6 @@ bool Partitioning::runOnModule(Module &M) {
 
 	// init maximum numbers
 	semNumberMax = 0;
-	depNumberMax = 0;
 
 	for (std::vector<std::string>::iterator funcIt = targetFunctions.begin(); funcIt != targetFunctions.end(); ++funcIt) {
 		Function *func = M.getFunction(*funcIt);
@@ -247,11 +246,16 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 								newInstr = CallInst::Create(newGetBoolFunc, depNumberVal, "data");
 							else
 								newInstr = CallInst::Create(newGetIntFunc, depNumberVal, "data");
+							dataDependencies.push_back("IntT");
 						}
-						else if (instrType->isFloatingPointTy())
+						else if (instrType->isFloatingPointTy()) {
 							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
-						else if (instrType->isPointerTy())
-							newInstr = CallInst::Create(newGetIntPtrFunc, depNumberVal, "data");						
+							dataDependencies.push_back("RealT");
+						}
+						else if (instrType->isPointerTy()) {
+							newInstr = CallInst::Create(newGetIntPtrFunc, depNumberVal, "data");
+							dataDependencies.push_back("IntT*");
+						}						
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -316,9 +320,8 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			}
 		}
 	}
-	// set maximum number of data and semaphore counts
+	// set maximum number of semaphore counts
 	semNumberMax = std::max(semNumberMax, semNumber);
-	depNumberMax = std::max(depNumberMax, depNumber);
 }
 
 
@@ -328,6 +331,8 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	std::string threadDeclTemplate = TemplateDir + "/thread_declaration.tpl";
 	std::string threadCreationTemplate = TemplateDir + "/thread_creation.tpl";
 	std::string threadImplTemplate = TemplateDir + "/thread_implementation.tpl";
+	std::string dataDepInitTemplate = TemplateDir + "/dep_data_init.tpl";
+	std::string paramDepInitTemplate = TemplateDir + "/dep_param_init.tpl";
 	std::string outputFile = OutputDir + "/mehari.c";
 
 	// use the template write to fill template
@@ -349,10 +354,19 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	tWriter.setValue("SEM_RETURN_COUNT", semReturnCountStr);
 
 	// write number of data dependencies
-	std::string dataDepCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << depNumberMax))->str();
+	std::string dataDepCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << dataDependencies.size()))->str();
 	tWriter.setValue("DATA_DEP_COUNT", dataDepCountStr);
 	std::string dataDepParamCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (functions.size()*(partitionCount-1))))->str();
 	tWriter.setValue("DATA_DEP_PARAM_COUNT", dataDepParamCountStr);
+
+	// insert initialization of data dependencies
+	for (std::vector<std::string>::iterator depIt = dataDependencies.begin(); depIt != dataDependencies.end(); ++depIt) {
+		std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << int(depIt-dataDependencies.begin())))->str();
+		tWriter.setValueInSubTemplate(dataDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_INIT",
+			"DEPENDENCY_NUMBER", depNum);
+		tWriter.setValueInSubTemplate(dataDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_INIT",
+			"DATA_TYPE", *depIt);
+	}
 
 	// insert partition and thread count
 	std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitionCount))->str();
@@ -437,6 +451,15 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 			std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
 			tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
 			tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
+
+			// add initialization of parameter depdendencies
+			for (int j=putParamStart; j<putParamStart+partitionCount-1; j++) {
+				std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
+				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+					"DEPENDENCY_NUMBER", depNum);
+				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+					"FUNCTION_NAME", currentFunction);	
+			}
 		}
 	}
 
