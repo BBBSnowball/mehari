@@ -24,7 +24,8 @@ void PartitioningGraph::create(std::vector<Instruction*> &instructions, Instruct
 
 void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) {
 	// create vertices from instructions by cutting 
-	// the instruction list at store instructions
+	// the instruction list at specific instructions
+	// if statements and pointer assignment are kept together
 
 	// detemine number of parameters
     unsigned int paramCount = 0;
@@ -34,8 +35,9 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 
 	int vertexNumber = 0;
 	int instrNumber = 0;
-	bool isIfStatement = false;
-	bool isIfCompleted = false;
+	bool isBlock = false;
+	bool isBlockCompleted = false;
+	bool isPtrAssignment = false;
 	initVertex = boost::add_vertex(pGraph);
 	pGraph[initVertex].name = "init";
 	std::vector<Instruction*> currentInstrutions;
@@ -56,13 +58,18 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 		else if (instrNumber >= 2*paramCount) {
 			// do we currently handle an if statement?
 			if (isa<BranchInst>(instr)) {
-				if (!isIfStatement)
-					isIfStatement = true;
+				if (!isBlock)
+					isBlock = true;
 				else
-					isIfCompleted = true;
+					isBlockCompleted = true;
 			}
-			else if (isCuttingInstr(instr)) {
-				if (!isIfStatement || (isIfStatement && isIfCompleted)) {
+			else if (isa<LoadInst>(instr) && instr->getOperand(0)->getName() == "status.addr")
+				isPtrAssignment = true;
+			else if (isPtrAssignment && isa<StoreInst>(instr))
+				isPtrAssignment = false;
+
+			if (isCuttingInstr(instr)) {
+				if (!isPtrAssignment && (!isBlock || (isBlock && isBlockCompleted))) {
 					Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
 					std::stringstream ss;
 					ss << vertexNumber++;
@@ -70,8 +77,8 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 					pGraph[newVertex].instructions = currentInstrutions;
 					addInstructionsToList(currentInstrutions);
 					currentInstrutions.clear();
-					isIfStatement = false;
-					isIfCompleted = false;
+					isBlock = false;
+					isBlockCompleted = false;
 				}
 			}
 		} // end handle calculations
