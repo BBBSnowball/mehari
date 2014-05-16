@@ -148,6 +148,12 @@ class ReconosHardwareTest {
 			if (!bitstream_file.exists())
 				throw new GradleException("XPS didn't generate the bitstream file.")
 		}
+		compileBitstreamTask.onlyIf {
+			def bitstream_file = project.path(compileBitstreamTask.projectDir,
+				"implementation", compileBitstreamTask.projectName + ".bit")
+			
+			return !bitstream_file.exists()
+		}
 
 
 		downloadBitstreamTask.mustRunAfter reconosTaskPath("checkHostIp"), reconosTaskPath("updateNfsRoot")
