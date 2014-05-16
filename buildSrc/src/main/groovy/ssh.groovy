@@ -27,21 +27,6 @@ class MySshService implements SshService {
 	void execute(org.hidetake.gradle.ssh.api.SshSpec sshSpec) {
 		inner.execute(sshSpec)
 	}
-
-	public static void sshexec(Closure configureClosure) {
-		assert configureClosure != null, 'configureClosure should be set'
-
-		def localSpec = new SshSpec()
-		ConfigureUtil.configure(configureClosure, localSpec)
-		//def merged = SshSpec.computeMerged(localSpec, sshSpec)
-		def merged = localSpec
-		if (merged.dryRun) {
-			org.hidetake.gradle.ssh.internal.DryRunSshService.instance.execute(merged)
-		} else {
-			merged.dryRun = false
-			MySshService.instance.execute(merged)
-		}
-	}
 }
 
 public class MySshTask extends org.hidetake.gradle.ssh.SshTask {
