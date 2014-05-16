@@ -66,10 +66,10 @@ public class ReconosXmdTask extends DefaultTask {
 		}.join(" ")
 	}
 
-	public static downloadBitstream(compileBitstreamTask) {
-		project = compileBitstreamTask.project
+	public static void downloadBitstream(compileBitstreamTask) {
+		def project = compileBitstreamTask.project
 		def bitstream_file = project.path("implementation", compileBitstreamTask.projectName + ".bit")
-		command = "fpga", "-f", project.escapeForShell(bitstream_file)
+		def command = [ "fpga", "-f", project.escapeForShell(bitstream_file) ]
 		project.runXmd(command, compileBitstreamTask.projectDir)
 	}
 }
