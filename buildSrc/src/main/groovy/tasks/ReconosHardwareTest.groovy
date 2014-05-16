@@ -155,9 +155,5 @@ class ReconosHardwareTest {
 		downloadBitstreamTask.shouldRunAfter reconosTaskPath("downloadImagesToZynq")
 
 		downloadBitstreamTask.command "fpga", "-f", { project.path("implementation", compileBitstreamTask.projectName + ".bit") }
-
-
-		//prepareTask.doFirst { throw new GradleException("blub") }
-		//compileBitstreamTask.doFirst { throw new GradleException("blub") }
 	}
 }
