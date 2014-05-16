@@ -144,7 +144,7 @@ fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 
 apply plugin: ReconosPlugin
 
-reconosHardwareTest("SinglePendulumSimple") {
+ext.singlePendulumSimple = reconosHardwareTest("SinglePendulumSimple") {
 	hardwareDir rootPath("reconos", "hw")
 	softwareTarget ""
 	softwareDir rootPath("reconos", "linux")
@@ -160,35 +160,11 @@ reconosHardwareTest("SinglePendulumSimple") {
 	compileLinuxProgram.ext.binaryForTarget = rootPath(softwareDir, "single_pendulum_simple")
 }
 
-task measureSinglePendulumSimple(type: MySshTask) {
-	dependsOn ":reconos:prepareSsh", downloadSinglePendulumSimpleHardwareBitstream,
-		compileSinglePendulumSimpleLinux
+task measureSinglePendulumSimple(type: ReconosMeasureTask) {
+	testName "single_pendulum_simple"
+	reconosTestTasks singlePendulumSimple
 
-	def binaryForTarget       = compileSinglePendulumSimpleLinux.binaryForTarget
-	def binaryOnTarget        = "/tmp/single_pendulum_simple"
-	def measureScript         = rootPath("reconos", "measure.sh")
-	def measureScriptOnTarget = "/tmp/measure.sh"
-
-	session(remotes.board) {
-		put(binaryForTarget.toString(), binaryOnTarget.toString())
-		put(measureScript.toString(), measureScriptOnTarget.toString())
-
-		execute("chmod +x $binaryOnTarget $measureScriptOnTarget")
-		execute("sh $measureScriptOnTarget")
-
-		get("/tmp/single_pendulum_simple_results.tar", file("single_pendulum_simple_results.tar").toString())
-
-		exec {
-			commandLine "tar", "-C", file("reconos"), "-xf", "single_pendulum_simple_results.tar"
-		}
-	}
-
-	doLast {
-		exec {
-			commandLine "./evaluate-measurement.py"
-			workingDir file("reconos")
-		}
-	}
+	measurements = rootPath("reconos", "measurements.sh")
 }
 
 task clean(type: Delete) {
