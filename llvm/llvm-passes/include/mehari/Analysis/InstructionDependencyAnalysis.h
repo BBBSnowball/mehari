@@ -18,17 +18,25 @@ namespace llvm {
 // new type to represent the dependencies between instructions
 // instruction #3 -> [instruction #1, instruction #2]: 
 // instruction #3 depends on instruction #1 and instruction #2
-typedef std::vector<unsigned int> InstructionDependencies;
-typedef std::vector<InstructionDependencies> InstructionDependencyList;
+typedef std::vector<unsigned int> InstructionDependencyNumbers;
+typedef std::vector<InstructionDependencyNumbers> InstructionDependencyNumbersList;
 
 // new representation of dependencies storing the real instructions
-// instead of just the numbers
-typedef std::vector<Instruction*> InstructionDependencyValues;
-typedef struct {
-	Instruction *instruction;
-	InstructionDependencyValues *dependencies;
-} InstructionDependencyValueListEntry;
-typedef std::vector<InstructionDependencyValueListEntry> InstructionDependencyValueList;
+// and some more logic instead of just the instruction numbers
+typedef struct InstructionDependency {
+	InstructionDependency() : isMemDep(false), isCtrlDep(false), isRegdep(false) {}
+	Instruction *depInstruction;
+	bool isRegdep;
+	bool isMemDep;
+	bool isCtrlDep;
+} InstructionDependency;
+
+typedef struct InstructionDependencyEntry {
+	Instruction *tgtInstruction;
+	std::vector<InstructionDependency> dependencies;
+} InstructionDependencyEntry;
+
+typedef std::vector<InstructionDependencyEntry> InstructionDependencyList;
 
 
 class InstructionDependencyAnalysis : public FunctionPass {
@@ -43,8 +51,7 @@ public:
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 	InstructionDependencyList getDependencies(Function &func);
-	InstructionDependencyValueList getDependencyValues(Function &func);
-
+	InstructionDependencyNumbersList getDependencyNumbers(Function &func);
 
 private:
 	DependenceAnalysis *DA;

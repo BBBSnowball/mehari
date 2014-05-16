@@ -40,16 +40,16 @@ void IRGraphPrinter::printDataflowGraph(std::string &filename, Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(func);
+  InstructionDependencyNumbersList dependencies = IDA->getDependencyNumbers(func);
 
   // create new graph  
   typedef boost::adjacency_list<boost::setS, boost::vecS, boost::directedS > Graph;
   Graph g;
 
   int index = 0;
-  for (InstructionDependencyList::iterator instrDepIt = dependencies.begin(); 
+  for (InstructionDependencyNumbersList::iterator instrDepIt = dependencies.begin(); 
         instrDepIt != dependencies.end(); ++instrDepIt, index++) {
-    for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
+    for (InstructionDependencyNumbers::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
       boost::add_edge(int(*depNumIt), int(index), g);
     }
   }

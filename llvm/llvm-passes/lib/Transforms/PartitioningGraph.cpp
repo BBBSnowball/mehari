@@ -12,7 +12,7 @@ PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}
 
 
-void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies) {
+void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies) {
 	createVertices(instructions);
 	addEdges(dependencies);
 
@@ -24,7 +24,8 @@ void PartitioningGraph::create(std::vector<Instruction*> &instructions, Instruct
 
 void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) {
 	// create vertices from instructions by cutting 
-	// the instruction list at store instructions
+	// the instruction list at specific instructions
+	// if statements and pointer assignment are kept together
 
 	// detemine number of parameters
     unsigned int paramCount = 0;
@@ -34,6 +35,9 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 
 	int vertexNumber = 0;
 	int instrNumber = 0;
+	bool isBlock = false;
+	bool isBlockCompleted = false;
+	bool isPtrAssignment = false;
 	initVertex = boost::add_vertex(pGraph);
 	pGraph[initVertex].name = "init";
 	std::vector<Instruction*> currentInstrutions;
@@ -52,23 +56,46 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 		}
 		// handle the calculations
 		else if (instrNumber >= 2*paramCount) {
-			if (isa<StoreInst>(instr) && !isa<BranchInst>(nextInstr)) {
-				Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
-				std::stringstream ss;
-				ss << vertexNumber++;
-				pGraph[newVertex].name = ss.str();
-				pGraph[newVertex].instructions = currentInstrutions;
-				// save the instruction list the graph is based on
-				addInstructionsToList(currentInstrutions);
-				currentInstrutions.clear();
+			// do we currently handle an if statement?
+			if (isa<BranchInst>(instr)) {
+				if (!isBlock)
+					isBlock = true;
+				else
+					isBlockCompleted = true;
 			}
-		}
+			else if (isa<LoadInst>(instr) && instr->getOperand(0)->getName() == "status.addr")
+				isPtrAssignment = true;
+			else if (isPtrAssignment && isa<StoreInst>(instr))
+				isPtrAssignment = false;
+
+			if (isCuttingInstr(instr)) {
+				if (!isPtrAssignment && (!isBlock || (isBlock && isBlockCompleted))) {
+					Graph::vertex_descriptor newVertex = boost::add_vertex(pGraph);
+					std::stringstream ss;
+					ss << vertexNumber++;
+					pGraph[newVertex].name = ss.str();
+					pGraph[newVertex].instructions = currentInstrutions;
+					addInstructionsToList(currentInstrutions);
+					currentInstrutions.clear();
+					isBlock = false;
+					isBlockCompleted = false;
+				}
+			}
+		} // end handle calculations
 		instrNumber++;
 	}
 }
 
+bool PartitioningGraph::isCuttingInstr(Instruction *instr) {
+	return (isa<StoreInst>(instr)
+		||	isa<BinaryOperator>(instr)
+		||	isa<CallInst>(instr)
+		||	isa<CmpInst>(instr)
+		||	isa<ZExtInst>(instr)
+		||	isa<ReturnInst>(instr));
+}
 
-void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
+void PartitioningGraph::addEdges(InstructionDependencyNumbersList &dependencies) {
 	// add edges between the vertices (ComputationUnit) of the partitioning graph
 	// that represent dependencies between the instructions inside the vertices
 	int index = 0;
@@ -78,7 +105,7 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 		if (targetVertex == NULL)
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
-		for (InstructionDependencies::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
+		for (InstructionDependencyNumbers::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(instructionList[*depIt]);

@@ -20,7 +20,7 @@ public:
 	PartitioningGraph();
 	~PartitioningGraph();
 
-	void create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies);
+	void create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies);
 
 
 	struct ComputationUnit {
@@ -62,7 +62,9 @@ public:
 private:
 
 	void createVertices(std::vector<Instruction*> &instructions);
-	void addEdges(InstructionDependencyList &dependencies);
+	void addEdges(InstructionDependencyNumbersList &dependencies);
+
+	bool isCuttingInstr(Instruction *instr);
 
 	void addInstructionsToList(std::vector<Instruction*> instructions);
 

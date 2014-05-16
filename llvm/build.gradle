@@ -25,9 +25,11 @@ ext {
 	PARTITIONING_COUNT = 2
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
+	MEHARI_SOURCES = file("$projectDir/examples/mehari")
 
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
+	PARTITIONING_RESULTS_DIR = file("$OUTPUT_DIR/partitioning")
 }
 
 
@@ -289,12 +291,32 @@ task createIRGraphs(type: Exec) {
 }
 
 
-task applyPartitioning(type: Exec) {
-	dependsOn installLLVMPasses, createIR, applyInlining
+task prepareCodeGenerationResult(type: Exec) {
+	dependsOn prepareExample
 
 	doFirst {
-		OUTPUT_DIR.mkdirs()
+		PARTITIONING_RESULTS_DIR.mkdirs()
 	}
+
+	def inputfile = file("$OUTPUT_DIR/example.c")
+	def targetfile = file("$PARTITIONING_RESULTS_DIR/example.c")
+
+	commandLine "python", CODEGEN_PREPARATION_SCRIPT, inputfile, targetfile, PARTITIONING_TARGET_FUNCTIONS
+}
+
+
+task copyMehariSources(type: Copy) {
+	doFirst {
+		PARTITIONING_RESULTS_DIR.mkdirs()
+	}
+
+	from MEHARI_SOURCES
+	into PARTITIONING_RESULTS_DIR
+}
+
+
+task applyPartitioning(type: Exec) {
+	dependsOn installLLVMPasses, createIR, applyInlining, prepareCodeGenerationResult, copyMehariSources
 
 	// TODO better solution for this
 	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
@@ -305,17 +327,8 @@ task applyPartitioning(type: Exec) {
 	"-template-dir \"$TEMPLATE_DIR\" " +
 	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
 	"-partitioning-count $PARTITIONING_COUNT " +
-	"-partitioning-output-dir \"$OUTPUT_DIR\" " +
+	"-partitioning-output-dir \"$PARTITIONING_RESULTS_DIR\" " +
 	"-S $targetfile > /dev/null"
-}
-
-
-task prepareCodeGenerationResult(type: Exec) {
-	dependsOn applyPartitioning
-
-	def targetfile = file("$OUTPUT_DIR/example-final.c")
-
-	commandLine "python", CODEGEN_PREPARATION_SCRIPT, EXAMPLE_FILE, targetfile, PARTITIONING_TARGET_FUNCTIONS
 }
 
 

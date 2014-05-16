@@ -29,20 +29,31 @@ void TemplateWriter::enableSection(std::string secName) {
 }
 
 
-void TemplateWriter::setValueInSubTemplate(std::string tplFile, std::string tplName, std::string number, std::string variable, std::string value) {
-	ctemplate::TemplateDictionary *sub_dict;
-	std::string entryName = tplName + number;
-	if (subDictionaries.find(entryName) != subDictionaries.end()) {
+void TemplateWriter::setValueInSubTemplate(std::string tplFile, std::string tplName, std::string key, 
+	std::string variable, std::string value, std::string subDictionary)  {
+	ctemplate::TemplateDictionary *subDict;
+	if (subDictionaries.find(key) != subDictionaries.end()) {
 		// this sub-template already exists -> get it
-		sub_dict = subDictionaries[entryName];
+		subDict = subDictionaries[key];
 	}
 	else {
 		// the sub-template does not exists -> create it
-		sub_dict = dict->AddIncludeDictionary(tplName);
-		sub_dict->SetFilename(tplFile);
-		subDictionaries[entryName] = sub_dict;
+		// set parent directory of the template
+		ctemplate::TemplateDictionary *parentDict;
+		if (!subDictionary.empty()) {
+			if (subDictionaries.find(subDictionary) != subDictionaries.end())
+				parentDict = subDictionaries[subDictionary];
+			else
+				// the given key for the sub-template was not found -> exit
+				return;
+		}
+		else 
+			parentDict = dict;
+		subDict = parentDict->AddIncludeDictionary(tplName);
+		subDict->SetFilename(tplFile);
+		subDictionaries[key] = subDict;
 	}
-	sub_dict->SetValue(variable, value);
+	subDict->SetValue(variable, value);
 }
 
 

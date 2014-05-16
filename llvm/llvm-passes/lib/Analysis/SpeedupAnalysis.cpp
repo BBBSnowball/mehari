@@ -50,9 +50,9 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
 
   // run InstructionDependencyAnalysis
   InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>();
-  InstructionDependencyList dependencies = IDA->getDependencies(func);
+  InstructionDependencyNumbersList dependencies = IDA->getDependencyNumbers(func);
 
-  // convert InstructionDependencyList to a graph
+  // convert InstructionDependencyNumbersList to a graph
   buildDependencyGraph(dependencies);
 
 
@@ -115,11 +115,11 @@ void SpeedupAnalysis::parseTargetFunctions() {
 }
 
 
-void SpeedupAnalysis::buildDependencyGraph(InstructionDependencyList &dependencies) {
+void SpeedupAnalysis::buildDependencyGraph(InstructionDependencyNumbersList &dependencies) {
   int index = 0;
-  for (InstructionDependencyList::iterator instrDepIt = dependencies.begin(); 
+  for (InstructionDependencyNumbersList::iterator instrDepIt = dependencies.begin(); 
         instrDepIt != dependencies.end(); ++instrDepIt, index++) {
-    for (InstructionDependencies::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
+    for (InstructionDependencyNumbers::iterator depNumIt = instrDepIt->begin(); depNumIt != instrDepIt->end(); ++depNumIt) {
       boost::add_edge(int(*depNumIt), int(index), (-1)*(getInstructionCost(worklist[*depNumIt])), depGraph);
     }
   }

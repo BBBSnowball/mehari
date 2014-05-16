@@ -26,7 +26,7 @@ private:
   void parseTargetFunctions();
   
 	unsigned int getInstructionCost(Instruction *instruction);
-	void buildDependencyGraph(InstructionDependencyList &dependencies);
+	void buildDependencyGraph(InstructionDependencyNumbersList &dependencies);
 	void printGraphviz(std::string &name);
 
 	typedef boost::property<boost::edge_weight_t, int> EdgeWeightProperty;

@@ -28,6 +28,7 @@ private:
   std::map<Value*, std::string> variables;
   std::map<Value*, std::vector<std::string> > branchLabels;
   std::map<std::string, std::vector<std::string> > tmpVariables;
+  std::map<std::string, std::string> dataDependencies;
   unsigned int tmpVarNumber;
   unsigned int tmpLabelNumber;
   
@@ -57,8 +58,8 @@ private:
 
   std::string printStore(Value *op1, Value *op2);
   std::string printBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode);
-  std::string printCall(std::string tmpVar, Value *arg, std::string funcName);
-  std::string printVoidCall(Value *arg, std::string funcName);
+  std::string printCall(std::string funcName, std::string tmpVar, std::vector<Value*> args);
+  std::string printVoidCall(std::string funcName, std::vector<Value*> args);
   std::string printComparison(std::string tmpVar, Value *op1, Value *op2, unsigned int comparePredicate);
   std::string printIntegerExtension(std::string tmpVar, Value *op);
   std::string printPhiNodeAssignment(std::string tmpVar, Value *op);

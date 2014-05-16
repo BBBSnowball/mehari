@@ -65,7 +65,7 @@ I hope your are using a Linux distribution that uses deb packages. If you do, si
 ```
 # Tools used by the build scripts and/ or tests
 sudo apt-get install curl git build-essential python-yaml python-unipath bc python2.7-dev libctemplate-dev gawk \
-	build-essential cmake libboost-graph1.48-dev graphviz qemu-user-static swig
+	build-essential cmake libboost-graph1.48-dev graphviz qemu-user-static swig realpath
 # Optional tools
 sudo apt-get install sispmctl gdb-multiarch libncurses5-dev
 
@@ -176,6 +176,18 @@ You also have to make sure that your user is in the groups `plugdev` and `dialou
 ### Setup source repository
 
 On our CI server, we use Artifactory to provide source artifacts of LLVM and some other tools. You can either use our Artifactory server or create a repository in a local directory. We don't have further information about this, yet.
+
+If you want to use our Artifactory repository at [https://pc-techinf-18.cs.uni-paderborn.de/artifactory](https://pc-techinf-18.cs.uni-paderborn.de/artifactory), you have to add its SSL key to your Java trust store:
+
+```
+# use the one that exists
+CACERTS=/opt/java/jre/lib/security/cacerts
+CACERTS=/usr/lib/jvm/java-6-openjdk-amd64/jre/lib/security/cacerts
+
+echo -n | openssl s_client -connect mehari-ci.bbbsnowball.de:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /tmp/mycert.crt
+openssl x509 -in /tmp/mycert.crt -text
+keytool -import -trustcacerts -keystore $CACERTS -storepass changeit -noprompt -alias mycert -file /tmp/mycert.crt
+```
 
 ### Create build configuration
 
