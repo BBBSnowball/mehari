@@ -148,7 +148,7 @@ task checkDigilentDriverSimple {
 				         install it (adapt the path as appropriate):
 				           cd /opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64/digilent
 				           sudo ./install_digilent.sh
-				           sudo chown -R "$USER" ~/.cse
+				           sudo chown -R "\$USER" ~/.cse
 				           sudo cp -r ~/.cse ~some_user/
 				           sudo chown -R some_user ~some_user/.cse
 				"""))
