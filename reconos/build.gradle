@@ -771,7 +771,8 @@ task prepareReconosDeviceTree {
 
 task compileReconosDeviceTree(type: Exec) {
 	//TODO depend on the task that builds dtc
-	dependsOn reconosConfig, prepareReconosDeviceTree, prepareReconosDemoHardware
+	dependsOn reconosConfig, prepareReconosDeviceTree, prepareReconosDemoHardware,
+		compileKernel
 
 	workingDir demoHwDir("edk_zynq_linux")
 
@@ -1247,7 +1248,7 @@ task sshShell(type: MySshTask) {
 }
 
 task runDemo(type: MySshTask) {
-	dependsOn compileReconosDemoHardwareBitstream, prepareSsh
+	dependsOn compileReconos, compileReconosDemoLinux, compileReconosDemoHardware, prepareSsh
 
 	doFirst {
 		ReconosXmdTask.downloadBitstream(compileReconosDemoHardwareBitstream)
