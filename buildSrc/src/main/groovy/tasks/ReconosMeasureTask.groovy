@@ -8,9 +8,10 @@ import org.gradle.api.file.FileTree
 public class ReconosMeasureTask extends DefaultTask {
 	// we cannot access private variables in closures, so we do not make them private
 	String test_name
-	public Object binaryForTarget, binaryOnTarget, bitstreamForTarget, bitstreamOnTarget,
+	public Object binaryForTarget, binaryOnTarget,
 		measurements, measurementsOnTarget, measureScript, measureScriptOnTarget,
 		resultsTarOnTarget, resultsTarOnHost, resultsDirOnHost
+	public Object compileBitstreamTask
 
 	public ReconosMeasureTask() {
 		if (project.convention.findPlugin(HelpersPluginConvention.class) == null)
@@ -30,8 +31,6 @@ public class ReconosMeasureTask extends DefaultTask {
 
 		if (binaryOnTarget == null)
 			binaryOnTarget       = "/tmp/${test_name}"
-		if (bitstreamOnTarget == null)
-			bitstreamOnTarget    = "/tmp/${test_name}.bin"
 		if (measurementsOnTarget == null)
 			measurementsOnTarget = "/tmp/${test_name}_measurements.sh"
 		if (resultsTarOnTarget == null)
@@ -50,21 +49,24 @@ public class ReconosMeasureTask extends DefaultTask {
 		dependsOn tasks.compileLinuxProgram
 		dependsOn tasks.compileBitstream
 
+		compileBitstreamTask = tasks.compileBitstream
+
 		if (binaryForTarget == null)
 			binaryForTarget    = tasks.compileLinuxProgram.binaryForTarget
-		if (bitstreamForTarget == null)
-			bitstreamForTarget = tasks.compileBitstream.binFile
 	}
 
 
 	boolean done
 
 	@TaskAction
-	public void blub() {
+	public void measurePerformance() {
 		// Instanitate MySshService because it adds the known_hosts file
 		// to the DefaultSshService. We cannot tell the plugin to use our
 		// service, but fortunately it will work nonetheless.
 		MySshService.instance;
+
+		if (compileBitstreamTask)
+			ReconosXmdTask.downloadBitstream(compileBitstreamTask)
 
 		// done is used in a weird way to work through all the levels
 		// of closures...
@@ -75,7 +77,6 @@ public class ReconosMeasureTask extends DefaultTask {
 				session(project.remotes.board) {
 					try {
 						put(binaryForTarget   .toString(), binaryOnTarget       .toString())
-						put(bitstreamForTarget.toString(), bitstreamOnTarget    .toString())
 						put(measurements      .toString(), measurementsOnTarget .toString())
 						put(measureScript     .toString(), measureScriptOnTarget.toString())
 

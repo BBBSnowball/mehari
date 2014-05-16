@@ -72,7 +72,7 @@ avg() {
 PREFIX="${NAME}_"
 RESULT_DIR="${NAME}_results"
 
-load_bitstream "$NAME.bin"
+#load_bitstream "$NAME.bin"
 
 EXECUTABLE="../$NAME"
 rm -rf "$RESULT_DIR"

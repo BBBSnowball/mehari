@@ -1249,19 +1249,12 @@ task sshShell(type: MySshTask) {
 task runDemo(type: MySshTask) {
 	dependsOn compileReconosDemoHardwareBitstream, prepareSsh
 
-	// In theory, we don't need this, but the FPGA won't work unless we
-	// download one image via JTAG.
-	//TODO investigate ^^
-	dependsOn downloadReconosDemoHardwareBitstream
+	doFirst {
+		ReconosXmdTask.downloadBitstream(compileReconosDemoHardwareBitstream)
+	}
 	
 	session(remotes.board) {
 		def demo = project.demo
-		def bitstreamForTarget = compileReconosDemoHardwareBitstream.binFile
-		def bitstreamOnTarget  = "/tmp/${demo}.bin"
-
-		put(bitstreamForTarget.toString(), bitstreamOnTarget.toString())
-
-		execute("cat " + escapeForShell(bitstreamOnTarget) + ">/dev/xdevcfg")
 
 		def demo_args = "2 2 50"
 		def demo_binary = demoDir("linux", demo)
