@@ -134,6 +134,15 @@ class ReconosHardwareTest {
 
 
 		prepareTask.mustRunAfter cleanTask
+		prepareTask.onlyIf {
+			def bitstream_file = project.path(compileBitstreamTask.projectDir,
+				"implementation", compileBitstreamTask.projectName + ".bit")
+
+			print "bitstream: " + bitstream_file + "\n"
+			print "should run? " + (!bitstream_file.exists()) + "\n"
+			
+			return !bitstream_file.exists()
+		}
 
 
 		compileBitstreamTask.dependsOn prepareTask
@@ -151,6 +160,9 @@ class ReconosHardwareTest {
 		compileBitstreamTask.onlyIf {
 			def bitstream_file = project.path(compileBitstreamTask.projectDir,
 				"implementation", compileBitstreamTask.projectName + ".bit")
+
+			print "bitstream: " + bitstream_file + "\n"
+			print "should run? " + (!bitstream_file.exists()) + "\n"
 			
 			return !bitstream_file.exists()
 		}
