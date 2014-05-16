@@ -78,6 +78,6 @@ EXECUTABLE="../$NAME"
 rm -rf "$RESULT_DIR"
 mkdir -p "$RESULT_DIR"
 
-( cd "$RESULT_DIR" && source "../${NAME}_measurements.sh" )
+( cd "$RESULT_DIR" && source "../${NAME}_measurements.sh" ) || exit $?
 
 tar -cf "${PREFIX}results.tar" "$RESULT_DIR"
