@@ -43,6 +43,8 @@ public:
 
 	typedef Graph::vertex_iterator VertexIterator;
 	typedef Graph::vertex_descriptor VertexDescriptor;
+	typedef Graph::edge_iterator EdgeIterator;
+	typedef Graph::edge_descriptor EdgeDescriptor;
 
 	VertexIterator getFirstIterator();
 	VertexIterator getEndIterator(); 
@@ -53,6 +55,8 @@ public:
 
 	void setInstructions(VertexDescriptor vd, std::vector<Instruction*> &instructions);
 	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);
+
+	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 

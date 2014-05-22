@@ -178,6 +178,17 @@ std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor v
 }
 
 
+unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2) {
+	bool exists;
+	EdgeDescriptor ed;
+	boost::tie(ed, exists) = boost::edge(vd1, vd2, pGraph);
+	if (exists)
+		return pGraph[ed].cost;
+	else
+		return 0;
+}
+
+
 void PartitioningGraph::printGraph(std::string &name) {
 	errs() << "Partitioning Graph: " << name << "\n";
 	errs() << "\nVERTICES:\n";

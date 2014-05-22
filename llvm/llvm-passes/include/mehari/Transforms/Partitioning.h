@@ -34,8 +34,6 @@ private:
   std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;
 
   void parseTargetFunctions(void);
-  
-	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
 
   void handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies);
 

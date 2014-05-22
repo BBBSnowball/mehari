@@ -1,4 +1,5 @@
 #include "mehari/Transforms/Partitioning.h"
+#include "mehari/Transforms/PartitioningAlgorithms.h"
 
 #include "mehari/Analysis/InstructionDependencyAnalysis.h"
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
@@ -100,7 +101,8 @@ bool Partitioning::runOnModule(Module &M) {
 		pGraph->create(worklist, dependencyNumbers);
 		
 		// create partitioning
-		applyRandomPartitioning(*pGraph, 42);
+		HierarchicalClustering P;
+		P.apply(*pGraph, partitionCount);
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
@@ -130,17 +132,6 @@ void Partitioning::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void Partitioning::parseTargetFunctions(void) {
   boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
-}
-
-
-void Partitioning::applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed) {
-	srand(seed);
-	PartitioningGraph::VertexIterator vIt = pGraph.getFirstIterator(); 
-	PartitioningGraph::VertexIterator vEnd = pGraph.getEndIterator();
-	for (; vIt != vEnd; ++vIt) {
-		PartitioningGraph::VertexDescriptor vd = *vIt;
-		pGraph.setPartition(vd, rand()%partitionCount);
-	}
 }
 
 
