@@ -2,6 +2,7 @@
 #define SIMPLE_CCODE_GENERATOR_H
 
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Instructions.h"
 
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ private:
   unsigned int tmpLabelNumber;
   
   std::map<std::string, std::string> binaryOperatorStrings;
-  std::map<unsigned int, std::string> comparePredicateStrings;  
+  std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;  
 
   void resetVariables();
 
@@ -47,7 +48,7 @@ private:
   std::string getDatatype(Value *addr);
 
   std::string parseBinaryOperator(std::string opcode);
-  std::string parseComparePredicate(unsigned int predicateNumber);
+  std::string parseComparePredicate(FCmpInst::Predicate predicateNumber);
 
   std::string getOperandString(Value* addr);
 
@@ -60,7 +61,7 @@ private:
   std::string printBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode);
   std::string printCall(std::string funcName, std::string tmpVar, std::vector<Value*> args);
   std::string printVoidCall(std::string funcName, std::vector<Value*> args);
-  std::string printComparison(std::string tmpVar, Value *op1, Value *op2, unsigned int comparePredicate);
+  std::string printComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
   std::string printIntegerExtension(std::string tmpVar, Value *op);
   std::string printPhiNodeAssignment(std::string tmpVar, Value *op);
   std::string printUnconditionalBranch(std::string label);

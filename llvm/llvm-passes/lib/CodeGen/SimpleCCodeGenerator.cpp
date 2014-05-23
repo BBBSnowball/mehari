@@ -29,21 +29,34 @@ SimpleCCodeGenerator::SimpleCCodeGenerator() {
   binaryOperatorStrings["or"]   = "|";
   binaryOperatorStrings["and"]  = "&";
 
-  comparePredicateStrings[1]  = "==";
-  comparePredicateStrings[2]  = ">";
-  comparePredicateStrings[3]  = ">=";
-  comparePredicateStrings[4]  = "<";
-  comparePredicateStrings[5]  = "<=";
-  comparePredicateStrings[32] = "==";
-  comparePredicateStrings[33] = "!=";
-  comparePredicateStrings[34] = ">";
-  comparePredicateStrings[35] = ">=";
-  comparePredicateStrings[36] = "<";
-  comparePredicateStrings[37] = "<=";
-  comparePredicateStrings[38] = ">";
-  comparePredicateStrings[39] = ">=";
-  comparePredicateStrings[40] = "<";
-  comparePredicateStrings[41] = "<=";
+  // not all of these cases are implemented in the code generator
+  // isnan: at least one of the arguments is a not-a-number value
+  comparePredicateStrings[FCmpInst::FCMP_FALSE] = "false";
+  comparePredicateStrings[FCmpInst::FCMP_OEQ]   = "==";
+  comparePredicateStrings[FCmpInst::FCMP_OGT]   = ">";
+  comparePredicateStrings[FCmpInst::FCMP_OGE]   = ">=";
+  comparePredicateStrings[FCmpInst::FCMP_OLT]   = "<";
+  comparePredicateStrings[FCmpInst::FCMP_OLE]   = "<=";
+  comparePredicateStrings[FCmpInst::FCMP_ONE]   = "!=";
+  comparePredicateStrings[FCmpInst::FCMP_ORD]   = "!isnan";
+  comparePredicateStrings[FCmpInst::FCMP_UNO]   = "isnan";
+  comparePredicateStrings[FCmpInst::FCMP_UEQ]   = "isnan || ==";
+  comparePredicateStrings[FCmpInst::FCMP_UGT]   = "isnan || >";
+  comparePredicateStrings[FCmpInst::FCMP_UGE]   = "isnan || >=";
+  comparePredicateStrings[FCmpInst::FCMP_ULT]   = "isnan || <";
+  comparePredicateStrings[FCmpInst::FCMP_ULE]   = "isnan || <=";
+  comparePredicateStrings[FCmpInst::FCMP_UNE]   = "isnan || !=";
+  comparePredicateStrings[FCmpInst::FCMP_TRUE]  = "true";
+  comparePredicateStrings[FCmpInst::ICMP_EQ]    = "==";
+  comparePredicateStrings[FCmpInst::ICMP_NE]    = "!=";
+  comparePredicateStrings[FCmpInst::ICMP_UGT]   = ">";
+  comparePredicateStrings[FCmpInst::ICMP_UGE]   = ">=";
+  comparePredicateStrings[FCmpInst::ICMP_ULT]   = "<";
+  comparePredicateStrings[FCmpInst::ICMP_ULE]   = "<=";
+  comparePredicateStrings[FCmpInst::ICMP_SGT]   = ">";
+  comparePredicateStrings[FCmpInst::ICMP_SGE]   = ">=";
+  comparePredicateStrings[FCmpInst::ICMP_SLT]   = "<";
+  comparePredicateStrings[FCmpInst::ICMP_SLE]   = "<=";
 }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
@@ -350,7 +363,7 @@ std::string SimpleCCodeGenerator::parseBinaryOperator(std::string opcode) {
     return "<binary operator " + opcode + ">";
 }
 
-std::string SimpleCCodeGenerator::parseComparePredicate(unsigned int predicateNumber) {
+std::string SimpleCCodeGenerator::parseComparePredicate(FCmpInst::Predicate predicateNumber) {
   if (comparePredicateStrings.find(predicateNumber) != comparePredicateStrings.end())
     return comparePredicateStrings[predicateNumber];
   else
@@ -458,7 +471,8 @@ std::string SimpleCCodeGenerator::printVoidCall(std::string funcName, std::vecto
     +  ";\n";
 }
 
-std::string SimpleCCodeGenerator::printComparison(std::string tmpVar, Value *op1, Value *op2, unsigned int comparePredicate) {
+std::string SimpleCCodeGenerator::printComparison(std::string tmpVar, Value *op1, Value *op2,
+    FCmpInst::Predicate comparePredicate) {
   return "\t" + tmpVar
     +  " = ("
     +  getOperandString(op1)
