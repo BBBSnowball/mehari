@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Tue Dec 10 01:53:18 2013
+# Date: Thu May 22 23:06:09 2014
 #
 ##############################################################
 #
@@ -51,9 +51,9 @@ CSET c_has_divide_by_zero=false
 CSET c_has_invalid_op=false
 CSET c_has_overflow=false
 CSET c_has_underflow=false
-CSET c_latency=8
+CSET c_latency=4
 CSET c_mult_usage=No_Usage
-CSET c_optimization=Speed_Optimized
+CSET c_optimization=Low_Latency
 CSET c_rate=1
 CSET c_result_exponent_width=11
 CSET c_result_fraction_width=53
@@ -78,4 +78,4 @@ CSET result_tlast_behv=Null
 MISC pkg_timestamp=2013-07-22T10:46:33Z
 # END Extra information
 GENERATE
-# CRC: 3bf3dd46
+# CRC: 220e540b
