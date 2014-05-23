@@ -4,13 +4,14 @@
 #include <map>
 
 template<typename KEY, typename VALUE>
-inline const VALUE& contains(const std::map<KEY, VALUE>& map, const KEY& key) {
+inline static const VALUE& contains(const std::map<KEY, VALUE>& map, const KEY& key) {
   typename std::map<KEY, VALUE>::const_iterator found = map.find(key);
   return (found != map.end());
 }
 
 template<typename KEY, typename VALUE>
-inline const VALUE& getValueOrDefault(const std::map<KEY, VALUE>& map, const KEY& key, const VALUE& default_value) {
+inline static const VALUE& getValueOrDefault(
+    const std::map<KEY, VALUE>& map, const KEY& key, const VALUE& default_value) {
   typename std::map<KEY, VALUE>::const_iterator found = map.find(key);
   if (found != map.end())
     return found->second;
@@ -19,7 +20,7 @@ inline const VALUE& getValueOrDefault(const std::map<KEY, VALUE>& map, const KEY
 }
 
 template<typename KEY, typename VALUE>
-inline VALUE* getValueOrNull(std::map<KEY, VALUE>& map, const KEY& key) {
+inline static VALUE* getValueOrNull(std::map<KEY, VALUE>& map, const KEY& key) {
   typename std::map<KEY, VALUE>::iterator found = map.find(key);
   if (found != map.end())
     return &found->second;

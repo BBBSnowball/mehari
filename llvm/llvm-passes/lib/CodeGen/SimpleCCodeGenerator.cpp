@@ -19,7 +19,7 @@
 using namespace llvm;
 
 
-SimpleCCodeGenerator::SimpleCCodeGenerator() {
+SimpleCCodeGenerator::SimpleCCodeGenerator() : tmpVarNameGenerator("t") {
   // TODO: complete and check operator and compare predicate mappings
   binaryOperatorStrings["fadd"] = "+";
   binaryOperatorStrings["add"]  = "+";
@@ -267,7 +267,7 @@ void SimpleCCodeGenerator::resetVariables() {
   variables.clear();
   tmpVariables.clear();
   dataDependencies.clear();
-  tmpVarNumber = 0;
+  tmpVarNameGenerator.reset();
 
   backend->reset();
 }
@@ -406,7 +406,7 @@ std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
 
 
 std::string SimpleCCodeGenerator::createTemporaryVariable(Value *addr, std::string datatype) {
-  std::string newTmpVar = std::string("t") + (tmpVarNumber++);
+  std::string newTmpVar = tmpVarNameGenerator.next();
   variables[addr] = newTmpVar;
   tmpVariables[datatype].push_back(newTmpVar);
   return newTmpVar;
@@ -421,15 +421,15 @@ std::string SimpleCCodeGenerator::getOrCreateTemporaryVariable(Value *addr) {
 
 
 CCodeBackend::CCodeBackend(SimpleCCodeGenerator* generator)
-  : generator(generator) { }
+  : generator(generator), branchLabelNameGenerator("label") { }
 
 void CCodeBackend::reset() {
   branchLabels.clear();
-  tmpLabelNumber = 0;
+  branchLabelNameGenerator.reset();
 }
 
 std::string CCodeBackend::generateBranchLabel(Value *target) {
-  std::string label = "label" + static_cast<std::ostringstream*>( &(std::ostringstream() << tmpLabelNumber++) )->str();
+  std::string label = branchLabelNameGenerator.next();
   branchLabels[target].push_back(label);
   return label;
 }
@@ -535,8 +535,6 @@ std::string CCodeBackend::generateBranchTargetIfNecessary(llvm::Instruction* ins
   }
   return ccode;
 }
-
-#include <iostream>
 
 std::string CCodeBackend::getOperandString(Value* addr) {
   return generator->getOperandString(addr);

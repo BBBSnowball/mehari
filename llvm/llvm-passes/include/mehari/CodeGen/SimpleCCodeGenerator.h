@@ -8,6 +8,8 @@
 #include <vector>
 #include <map>
 
+#include "mehari/utils/UniqueNameSource.h"
+
 using namespace llvm;
 
 class CodeGeneratorBackend;
@@ -37,7 +39,7 @@ private:
   std::map<Value*, std::string> variables;
   std::map<std::string, std::vector<std::string> > tmpVariables;
   std::map<std::string, std::string> dataDependencies;
-  unsigned int tmpVarNumber;
+  UniqueNameSource tmpVarNameGenerator;
   
   std::map<std::string, std::string> binaryOperatorStrings;
   std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;
@@ -81,7 +83,7 @@ public:
 };
 
 class CCodeBackend : public CodeGeneratorBackend {
-  unsigned int tmpLabelNumber;
+  UniqueNameSource branchLabelNameGenerator;
   std::map<Value*, std::vector<std::string> > branchLabels;
 
   SimpleCCodeGenerator* generator;

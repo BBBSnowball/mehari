@@ -2,8 +2,9 @@
 #define STRING_UTILS_H
 
 #include <string>
+#include <sstream>
 
-std::string operator+(const std::string& a, unsigned int b) {
+inline static std::string operator+(const std::string& a, unsigned int b) {
   std::ostringstream stream;
   stream << a;
   stream << b;

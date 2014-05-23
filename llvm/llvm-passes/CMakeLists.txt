@@ -59,12 +59,14 @@ set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
 set(MEHARI_ANALYSIS_SOURCES IRGraphPrinter.cpp InstructionDependencyAnalysis.cpp SpeedupAnalysis.cpp)
 set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp TemplateWriter.cpp)
 set(MEHARI_TRANSFORMS_SOURCES Partitioning.cpp PartitioningGraph.cpp AddAlwaysInlineAttributePass.cpp)
+set(MEHARI_UTILS_SOURCES UniqueNameSource.cpp)
 
 # put path and source file names together
 prepend_path("lib" MEHARI_COMMON_SOURCES)
 prepend_path("lib/Analysis" MEHARI_ANALYSIS_SOURCES)
 prepend_path("lib/CodeGen" MEHARI_CODEGEN_SOURCES)
 prepend_path("lib/Transforms" MEHARI_TRANSFORMS_SOURCES)
+prepend_path("lib/utils" MEHARI_UTILS_SOURCES)
 
 # create a shared library
 add_llvm_loadable_module(SharedMehariLLVMPasses 
@@ -72,6 +74,7 @@ add_llvm_loadable_module(SharedMehariLLVMPasses
   ${MEHARI_ANALYSIS_SOURCES} 
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES}
+  ${MEHARI_UTILS_SOURCES}
   )
 target_link_libraries(SharedMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
 set_target_properties(SharedMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
@@ -81,7 +84,8 @@ add_llvm_library(LibraryMehariLLVMPasses
   ${MEHARI_COMMON_SOURCES}
   ${MEHARI_ANALYSIS_SOURCES} 
   ${MEHARI_CODEGEN_SOURCES} 
-  ${MEHARI_TRANSFORMS_SOURCES})
+  ${MEHARI_TRANSFORMS_SOURCES}
+  ${MEHARI_UTILS_SOURCES})
 target_link_libraries(LibraryMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
 set_target_properties(LibraryMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
 
