@@ -13,6 +13,9 @@
 #include <sstream>
 #include <fstream>
 
+#include "mehari/utils/map_utils.h"
+#include "mehari/utils/string_utils.h"
+
 using namespace llvm;
 
 
@@ -94,9 +97,9 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
       nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 
     // insert a label for branch targets if the current instruction is one
-    if (branchLabels.find(instr) != branchLabels.end()) {
-      std::vector<std::string> labels = branchLabels[instr];
-      for (std::vector<std::string>::iterator it = labels.begin(); it != labels.end(); ++it)
+    llvm::Value* instr_as_value = instr;
+    if (std::vector<std::string>* labels = getValueOrNull(branchLabels, instr_as_value)) {
+      for (std::vector<std::string>::iterator it = labels->begin(); it != labels->end(); ++it)
         ccode += *it + ":\n";
     }
 
@@ -357,40 +360,37 @@ std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
 
 
 std::string SimpleCCodeGenerator::parseBinaryOperator(std::string opcode) {
-  if (binaryOperatorStrings.find(opcode) != binaryOperatorStrings.end())
-    return binaryOperatorStrings[opcode];
-  else
-    return "<binary operator " + opcode + ">";
+  return getValueOrDefault(binaryOperatorStrings, opcode, "<binary operator " + opcode + ">");
 }
 
 std::string SimpleCCodeGenerator::parseComparePredicate(FCmpInst::Predicate predicateNumber) {
-  if (comparePredicateStrings.find(predicateNumber) != comparePredicateStrings.end())
-    return comparePredicateStrings[predicateNumber];
-  else
-    return "<compare predicate " + static_cast<std::ostringstream*>( &(std::ostringstream() << predicateNumber) )->str() + ">";
+  return getValueOrDefault(comparePredicateStrings, predicateNumber,
+    std::string("<compare predicate ") + predicateNumber + ">");
 }
 
 
 std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
   // return operand if it is a variable and already known
-  if (variables.find(addr) != variables.end())
-    return variables[addr];
+  if (const std::string* str = getValueOrNull(variables, addr))
+    return *str;
+
   // handle global value operands
   else if (GEPOperator *op = dyn_cast<GEPOperator>(addr)) {
     std::string index;
     if (op->hasIndices())
       // NOTE: the last index is the one we want to know
       for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
-        index = dyn_cast<ConstantInt>(*it)->getValue().toString(10, true);
+        index = "[" + dyn_cast<ConstantInt>(*it)->getValue().toString(10, true) + "]";
     std::string name = op->getPointerOperand()->getName();
-    std::string operand;
-    index.empty() ? operand = name : operand = name + "[" + index + "]"; 
+    std::string operand = name + index;
     variables[addr] = operand;
     return operand;
   }
+
   // handle constant integers
   else if (ConstantInt *ci = dyn_cast<ConstantInt>(addr))
     return ci->getValue().toString(10, true);
+
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
     double value = cf->getValueAPF().convertToDouble();
@@ -411,15 +411,15 @@ std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
 
 
 std::string SimpleCCodeGenerator::createTemporaryVariable(Value *addr, std::string datatype) {
-  std::string newTmpVar = "t" + static_cast<std::ostringstream*>( &(std::ostringstream() << tmpVarNumber++) )->str();
+  std::string newTmpVar = std::string("t") + (tmpVarNumber++);
   variables[addr] = newTmpVar;
   tmpVariables[datatype].push_back(newTmpVar);
   return newTmpVar;
 }
 
 std::string SimpleCCodeGenerator::getTemporaryVariable(Value *addr) {
-  if (variables.find(addr) != variables.end())
-    return variables[addr];
+  if (const std::string* varname = getValueOrNull(variables, addr))
+    return *varname;
   else
     return "";
 }
