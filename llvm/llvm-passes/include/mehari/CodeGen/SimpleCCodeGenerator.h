@@ -53,7 +53,7 @@ private:
   std::string getOperandString(Value* addr);
 
   std::string createTemporaryVariable(Value *addr, std::string datatype);
-  std::string getTemporaryVariable(Value *addr);
+  std::string getOrCreateTemporaryVariable(Value *addr);
 
   std::string createBranchLabel(Value *target);
 

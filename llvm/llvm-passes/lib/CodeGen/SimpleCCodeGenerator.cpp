@@ -213,10 +213,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
             // handle phi nodes branch targets
             if (PHINode *phiInstr = dyn_cast<PHINode>(&brInstr->getSuccessor(0)->front())) {
               // create temporary variable for phi node assignment before the branch instruction
-              std::string tmpVar = getTemporaryVariable(phiInstr);
-              if (tmpVar.empty())
-                // this is the first time handling this phi node --> create new variable 
-                tmpVar = createTemporaryVariable(phiInstr, getDatatype(phiInstr));
+              std::string tmpVar = getOrCreateTemporaryVariable(phiInstr);
               // print assignment for the phi node variable
               ccode += printPhiNodeAssignment(tmpVar, prevInstr);
             }
@@ -417,11 +414,11 @@ std::string SimpleCCodeGenerator::createTemporaryVariable(Value *addr, std::stri
   return newTmpVar;
 }
 
-std::string SimpleCCodeGenerator::getTemporaryVariable(Value *addr) {
+std::string SimpleCCodeGenerator::getOrCreateTemporaryVariable(Value *addr) {
   if (const std::string* varname = getValueOrNull(variables, addr))
     return *varname;
   else
-    return "";
+    return createTemporaryVariable(addr, getDatatype(addr));
 }
 
 
