@@ -96,13 +96,18 @@ bool HierarchicalClustering::Edge::operator> (const Edge &e) const {
 
 boost::tuple<float, unsigned int> HierarchicalClustering::closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2) {
 	// NOTE: for this closeness function the so called ratio cut metric ist used
-	unsigned int comCost = 0;
+	unsigned int comCost = 0, pExecTime1 = 0, pExecTime2 = 0;
 	FunctionalUnitList funits1 = clusteringGraph[vd1].funcUnits;
 	FunctionalUnitList funits2 = clusteringGraph[vd2].funcUnits;
-	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1)
+	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1) {
+		pExecTime1 += partitioningGraph.getExecutionTime(*it1);
 		for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
 			comCost += partitioningGraph.getCommunicationCost(*it1, *it2);
-	unsigned int pSizeProduct = funits1.size() * funits2.size();
+	}
+	for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
+		pExecTime2 += partitioningGraph.getExecutionTime(*it2);
+	
+	unsigned int pSizeProduct = pExecTime1 * pExecTime2;
 	float closeness = float(comCost) / float(pSizeProduct);
 
 	return boost::make_tuple(closeness, pSizeProduct);
