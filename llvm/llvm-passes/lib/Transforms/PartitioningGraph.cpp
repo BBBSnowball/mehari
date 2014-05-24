@@ -12,12 +12,13 @@ PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}
 
 
-void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies) {
+void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies) {
 	createVertices(instructions);
 	addEdges(dependencies);
 
 	// remove init vertex because it only handles parameter initialization that is not 
 	// useful for the partitioning and C code generation
+	boost::clear_vertex(initVertex, pGraph);
 	boost::remove_vertex(initVertex, pGraph);
 }
 
@@ -95,7 +96,7 @@ bool PartitioningGraph::isCuttingInstr(Instruction *instr) {
 		||	isa<ReturnInst>(instr));
 }
 
-void PartitioningGraph::addEdges(InstructionDependencyNumbersList &dependencies) {
+void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	// add edges between the vertices (ComputationUnit) of the partitioning graph
 	// that represent dependencies between the instructions inside the vertices
 	int index = 0;
@@ -105,10 +106,10 @@ void PartitioningGraph::addEdges(InstructionDependencyNumbersList &dependencies)
 		if (targetVertex == NULL)
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
-		for (InstructionDependencyNumbers::iterator depIt = dependencies[index].begin(); depIt != dependencies[index].end(); ++depIt) {
+		for (std::vector<InstructionDependency>::iterator depIt = dependencies[index].dependencies.begin(); depIt != dependencies[index].dependencies.end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
-			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(instructionList[*depIt]);
+			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(depIt->depInstruction);
 			if (dependencyVertex == NULL)
 				// the dependency instruction is not part of the Graph -> continue with the next instruction
 				continue;
@@ -116,12 +117,18 @@ void PartitioningGraph::addEdges(InstructionDependencyNumbersList &dependencies)
 				Graph::edge_descriptor ed;
 				bool inserted;
 				boost::tie(ed, inserted) = boost::add_edge(dependencyVertex, targetVertex, pGraph);
+				unsigned int newCost;
+				// TODO: find appropriate values for data and memory dependency costs
+				if (depIt->isRegdep) // register depdendency -> use of a data dependency method (e.g. mbox)
+					newCost = 5;
+				else // memory or control dependency -> use of a semaphore
+					newCost = 1;
 				if (inserted)
 					// initialize the communication cost
-					pGraph[ed].cost = 1;
+					pGraph[ed].cost = newCost;
 				else
 					// there already is an edge between the two vertices -> increment the communication cost
-					pGraph[ed].cost += 1;
+					pGraph[ed].cost += newCost;
 			}	
 		}
 	}
@@ -158,6 +165,11 @@ PartitioningGraph::VertexIterator PartitioningGraph::getEndIterator() {
 }
 
 
+std::string PartitioningGraph::getName(VertexDescriptor vd) {
+	return pGraph[vd].name;
+}
+
+
 void PartitioningGraph::setPartition(PartitioningGraph::VertexDescriptor vd, unsigned int partition) {
 	pGraph[vd].partition = partition;	
 }
@@ -179,13 +191,16 @@ std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor v
 
 
 unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2) {
-	bool exists;
-	EdgeDescriptor ed;
-	boost::tie(ed, exists) = boost::edge(vd1, vd2, pGraph);
-	if (exists)
-		return pGraph[ed].cost;
-	else
-		return 0;
+	bool exists1, exists2;
+	EdgeDescriptor ed1, ed2;
+	boost::tie(ed1, exists1) = boost::edge(vd1, vd2, pGraph);
+	boost::tie(ed2, exists2) = boost::edge(vd2, vd1, pGraph);
+	unsigned int costs = 0;
+	if (exists1)
+		costs += pGraph[ed1].cost;
+	if (exists2)
+		costs += pGraph[ed2].cost;
+	return costs;
 }
 
 

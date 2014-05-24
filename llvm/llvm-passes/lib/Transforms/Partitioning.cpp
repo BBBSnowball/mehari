@@ -94,11 +94,10 @@ bool Partitioning::runOnModule(Module &M) {
 		// run InstructionDependencyAnalysis
 		InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>(*func);
 		InstructionDependencyList dependencies = IDA->getDependencies(*func);
-		InstructionDependencyNumbersList dependencyNumbers = IDA->getDependencyNumbers(*func);
 
 		// create partitioning graph
 		PartitioningGraph *pGraph = new PartitioningGraph();
-		pGraph->create(worklist, dependencyNumbers);
+		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
 		HierarchicalClustering P;

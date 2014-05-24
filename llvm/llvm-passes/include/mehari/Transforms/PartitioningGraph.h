@@ -20,7 +20,7 @@ public:
 	PartitioningGraph();
 	~PartitioningGraph();
 
-	void create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies);
+	void create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies);
 
 
 	struct ComputationUnit {
@@ -49,6 +49,7 @@ public:
 	VertexIterator getFirstIterator();
 	VertexIterator getEndIterator(); 
 
+	std::string getName(VertexDescriptor vd);
 
 	void setPartition(VertexDescriptor vd, unsigned int partition);
 	unsigned int getPartition(VertexDescriptor vd);
@@ -66,7 +67,7 @@ public:
 private:
 
 	void createVertices(std::vector<Instruction*> &instructions);
-	void addEdges(InstructionDependencyNumbersList &dependencies);
+	void addEdges(InstructionDependencyList &dependencies);
 
 	bool isCuttingInstr(Instruction *instr);
 
