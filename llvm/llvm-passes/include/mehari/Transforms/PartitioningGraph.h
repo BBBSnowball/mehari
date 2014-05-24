@@ -58,6 +58,7 @@ public:
 	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);
 
 	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
+	unsigned int getExecutionTime(VertexDescriptor vd);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 

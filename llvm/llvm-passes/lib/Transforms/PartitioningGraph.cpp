@@ -3,6 +3,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "mehari/HardwareInformation.h"
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 
 #include <sstream>
@@ -201,6 +202,20 @@ unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, Verte
 	if (exists2)
 		costs += pGraph[ed2].cost;
 	return costs;
+}
+
+
+unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd) {
+	// TODO: implement this function by using the HardwareInformation class
+	HardwareInformation hwInfo;
+	DeviceInformation *devInfo = hwInfo.getDeviceInfo("Cortex-A9");
+	unsigned int texe = 0;
+	std::vector<Instruction*> instrList = getInstructions(vd);
+	for (std::vector<Instruction*>::iterator it = instrList.begin(); it != instrList.end(); ++it) {
+		InstructionInformation *instrInfo = devInfo->getInstructionInfo((*it)->getOpcodeName());
+		instrInfo != NULL ? texe += instrInfo->getCycleCount() : texe += 1;		
+	}
+	return texe;
 }
 
 
