@@ -29,8 +29,12 @@ public:
 
 private:
 	typedef std::vector<PartitioningGraph::VertexDescriptor> FunctionalUnitList;
-	struct Vertex 	{ FunctionalUnitList funcUnits; };
-	struct Edge		{ float closeness; };
+	struct Vertex { FunctionalUnitList funcUnits; };
+	struct Edge { 
+		float closeness; 
+		unsigned int pSizeProduct;
+		bool operator> (const Edge &) const;
+	};
 
 	typedef boost::adjacency_list<
 		boost::setS, 			// store out-edges of each vertex in a set to avoid parallel edges
@@ -48,13 +52,15 @@ public:
 
 private:
 	Graph clusteringGraph;
+	PartitioningGraph partitioningGraph;
 
-	float closenessFunction(PartitioningGraph &pGraph, VertexDescriptor vd1, VertexDescriptor vd2);
+	boost::tuple<float, unsigned int> closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2);
 
 	boost::tuple<VertexDescriptor, VertexDescriptor> getPairMaxCloseness(void);
 	VertexDescriptor mergeVertices(VertexDescriptor vd1, VertexDescriptor vd2);
 	void updateEdges(VertexDescriptor vd1, VertexDescriptor vd2, VertexDescriptor vdnew);
 	void removeOutdatedVertices(VertexDescriptor vd1, VertexDescriptor vd2);
+	void updateCloseness(void);
 
 	void printGraph(void);
 };
