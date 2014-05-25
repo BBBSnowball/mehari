@@ -22,11 +22,17 @@
 static cl::opt<std::string> TargetFunctions("partitioning-functions", 
             cl::desc("Specify the functions the partitioning will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
+static cl::opt<std::string> PartitioningMethod("partitioning-method", 
+            cl::desc("Specify the name of the partitioning method"), 
+            cl::value_desc("partitioning-count"));
 static cl::opt<std::string> PartitionCount("partitioning-count", 
             cl::desc("Specify the number ob partitions"), 
             cl::value_desc("partitioning-count"));
 static cl::opt<std::string> OutputDir("partitioning-output-dir", 
-            cl::desc("Set the output directory for graph results"), 
+            cl::desc("Set the output directory for partitioning results"), 
+            cl::value_desc("partitioning-output-dir"));
+static cl::opt<std::string> GraphOutputDir("partitioning-graph-output-dir", 
+            cl::desc("Set the output directory for graph results"),
             cl::value_desc("partitioning-output-dir"));
 static cl::opt<std::string> TemplateDir("template-dir", 
             cl::desc("Set the directory where the code generation templates are located"), 
@@ -100,16 +106,20 @@ bool Partitioning::runOnModule(Module &M) {
 		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
-		HierarchicalClustering P;
-		P.apply(*pGraph, partitionCount);
+		AbstractPartitioningMethod *PM;
+		if (PartitioningMethod == "random") 
+			PM = new RandomPartitioning();
+		else if (PartitioningMethod == "clustering") 
+			PM = new HierarchicalClustering();
+		PM->apply(*pGraph, partitionCount);
+		delete PM;
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
 		handleDependencies(M, *func, *pGraph, dependencies);
 		
 		// print partitioning graph results
-		// pGraph->printGraph(functionName);
-		pGraph->printGraphviz(*func, functionName, OutputDir);
+		pGraph->printGraphviz(*func, functionName, GraphOutputDir);
 
 		// save partitioning function and graph
 		partitioningFunctions[functionName] = func;
