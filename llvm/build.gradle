@@ -17,7 +17,7 @@ ext {
 	IPANEMA_INCLUDES_SIM = file("$IPANEMA/include/sim")
 	IPANEMA_PYTHON_LIB_DIR = file("$projectDir/../private/python/lib")
 
-	EXAMPLE_FILE = file("$projectDir/examples/single_pendulum.c")
+	EXAMPLE_FILE = file("$projectDir/examples/dc_motor.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 
 	EXAMPLE_NAME = EXAMPLE_FILE.name.lastIndexOf('.').with {it != -1 ? EXAMPLE_FILE.name[0..<it] : EXAMPLE_FILE.name}
