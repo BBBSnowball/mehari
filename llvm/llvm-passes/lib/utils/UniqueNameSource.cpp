@@ -1,5 +1,5 @@
 #include "mehari/utils/UniqueNameSource.h"
-#include "mehari/utils/string_utils.h"
+#include "mehari/utils/StringUtils.h"
 
 UniqueNameSource::UniqueNameSource(const std::string& prefix)
   : prefix(prefix), counter(0) { }

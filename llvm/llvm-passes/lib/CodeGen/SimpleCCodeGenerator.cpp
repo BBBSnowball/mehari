@@ -13,8 +13,8 @@
 #include <sstream>
 #include <fstream>
 
-#include "mehari/utils/map_utils.h"
-#include "mehari/utils/string_utils.h"
+#include "mehari/utils/MapUtils.h"
+#include "mehari/utils/StringUtils.h"
 
 using namespace llvm;
 
