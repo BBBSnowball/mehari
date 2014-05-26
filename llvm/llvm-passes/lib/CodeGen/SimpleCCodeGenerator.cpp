@@ -315,24 +315,16 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   unsigned int paramCount = 0;
 
   std::vector<Instruction*> worklist;
-  for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I) 
-    worklist.push_back(&*I);
+  for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I) {
+    Instruction *instr = dyn_cast<Instruction>(&*I);
 
-  for (std::vector<Instruction*>::iterator instrIt = worklist.begin(); instrIt != worklist.end(); ++instrIt) {
-
-    Instruction *instr, *nextInstr;
-    instr = dyn_cast<Instruction>(*instrIt);
-    if (instrIt+1 != worklist.end())
-      nextInstr = dyn_cast<Instruction>(*(instrIt+1));
+    if (pstate == ALLOCA && isa<StoreInst>(instr))
+      pstate = STORE;
 
     switch (pstate) {
       case ALLOCA:
-      {
         paramCount++;
-        if (isa<StoreInst>(nextInstr))
-          pstate = STORE;
-      }
-      break;
+        break;
 
       case STORE:
       {
