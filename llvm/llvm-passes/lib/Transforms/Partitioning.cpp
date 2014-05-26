@@ -45,6 +45,8 @@ Partitioning::Partitioning() : ModulePass(ID) {
 	parseTargetFunctions();
 	std::stringstream ss(PartitionCount);
 	ss >> partitionCount;
+	// init dependency number to count them over all partitioned functions
+	depNumber = 0;
 }
 
 Partitioning::~Partitioning() {}
@@ -161,11 +163,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			Type::getInt1Ty(M.getContext()),
 			Type::getInt32Ty(M.getContext()),
 			(Type *)0));
-	Function *newGetIntPtrFunc = cast<Function>(
-		M.getOrInsertFunction("_get_intptr",
-			Type::getInt32PtrTy(M.getContext()),
-			Type::getInt32Ty(M.getContext()),
-			(Type *)0));
 
 	Function *newPutFloatFunc = cast<Function>(
 		M.getOrInsertFunction("_put_real",
@@ -185,12 +182,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			Type::getInt32Ty(M.getContext()),
 			Type::getInt1Ty(M.getContext()),
 			(Type *)0));
-	Function *newPutIntPtrFunc = cast<Function>(
-		M.getOrInsertFunction("_put_intptr",
-			Type::getVoidTy(M.getContext()),
-			Type::getInt32Ty(M.getContext()),
-			Type::getInt32PtrTy(M.getContext()),
-			(Type *)0));
 
 	// create new functions to handle semaphores
 	Function *newSemWaitFunc = cast<Function>(
@@ -204,8 +195,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			Type::getInt32Ty(M.getContext()), 
 			(Type *)0));
 
-	// reset counting of data dependencies and semaphore uses
-	unsigned int depNumber = 0;
+	// reset counting semaphore uses (semaphores are reused in each partitioned function)
 	unsigned int semNumber = 0;
 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
@@ -251,11 +241,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						else if (instrType->isFloatingPointTy()) {
 							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
 							dataDependencies.push_back("RealT");
-						}
-						else if (instrType->isPointerTy()) {
-							newInstr = CallInst::Create(newGetIntPtrFunc, depNumberVal, "data");
-							dataDependencies.push_back("IntT*");
-						}						
+						}					
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -297,8 +283,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						}
 						else if (instrType->isFloatingPointTy())
 							newInstr = CallInst::Create(newPutFloatFunc, params);
-						else if (instrType->isPointerTy())
-							newInstr = CallInst::Create(newPutIntPtrFunc, params);
 						else {
 							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
 									<< instrType->getTypeID() << "\n";
