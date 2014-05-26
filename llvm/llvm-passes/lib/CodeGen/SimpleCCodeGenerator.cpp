@@ -310,36 +310,37 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   if (func.arg_begin() == func.arg_end())
     return;
 
-  enum ParsingState {ALLOCA, STORE};
-  ParsingState pstate = ALLOCA;
-  unsigned int paramCount = 0;
+  int remainingParams = 0;
 
-  std::vector<Instruction*> worklist;
-  for (inst_iterator I = inst_begin(func), E = inst_end(func); I != E; ++I) {
+  inst_iterator I = inst_begin(func), E = inst_end(func);
+
+  for (; I != E; ++I) {
     Instruction *instr = dyn_cast<Instruction>(&*I);
 
-    if (pstate == ALLOCA && isa<StoreInst>(instr))
-      pstate = STORE;
-
-    switch (pstate) {
-      case ALLOCA:
-        paramCount++;
-        break;
-
-      case STORE:
-      {
-        // read parameter values and save them in variable mapping
-        std::string paramName = instr->getOperand(0)->getName();
-        // TODO: very quick and dirty -> find a better solution for this!
-        if (paramName == "status")
-          paramName = "*status";
-        addVariable(instr->getOperand(1), paramName);
-        if (variables.size() == paramCount) {
-          return;
-        }
-      }
+    if (!isa<AllocaInst>(instr))
       break;
-    }
+
+    remainingParams++;
+  }
+
+  for (; I != E && remainingParams > 0; ++I) {
+    Instruction *instr = dyn_cast<Instruction>(&*I);
+
+    if (!isa<StoreInst>(instr))
+      break;
+
+    // read parameter values and save them in variable mapping
+    std::string paramName = instr->getOperand(0)->getName();
+    // TODO: very quick and dirty -> find a better solution for this!
+    if (paramName == "status")
+      paramName = "*status";
+    addVariable(instr->getOperand(1), paramName);
+
+    remainingParams--;
+  }
+
+  if (remainingParams != 0) {
+    errs() << "WARNING: Mismatched ALLOCA and STORE instructions in function " << func;
   }
 }
 
