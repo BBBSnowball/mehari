@@ -11,6 +11,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <sstream>
+#include <iomanip>
 #include <fstream>
 
 using namespace llvm;
@@ -381,7 +382,9 @@ std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
     double value = cf->getValueAPF().convertToDouble();
-    return static_cast<std::ostringstream*>( &(std::ostringstream() << value) )->str();
+    std::ostringstream os;
+    os << std::setprecision(20) << value;
+    return os.str();
   }
 
   // convert operand address to string
