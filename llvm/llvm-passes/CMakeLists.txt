@@ -129,17 +129,17 @@ set(LLVM_LINK_COMPONENTS Analysis AsmParser)
 set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
 
 # build unittest
-add_mehari_llvm_unittest(MehariAnalysisTests
+add_mehari_llvm_unittest(MehariUnittests
   ${MEHARI_ANALYSIS_TEST_SOURCES}
   ${MEHARI_CODEGEN_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariAnalysisTests MehariLLVMPasses ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariUnittests MehariLLVMPasses ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
-add_dependencies(MehariAnalysisTests LibraryMehariLLVMPasses)
+add_dependencies(MehariUnittests LibraryMehariLLVMPasses)
 
 # install unittest
-install(TARGETS MehariAnalysisTests
+install(TARGETS MehariUnittests
   RUNTIME DESTINATION unittests
 )

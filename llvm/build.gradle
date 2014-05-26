@@ -379,7 +379,7 @@ task runOptimizationPassesUnittests(type: Exec) {
 	dependsOn installLLVMPasses
 
 	workingDir file("$LLVM_PASSES_INSTALL/unittests")
-	commandLine "./MehariAnalysisTests"
+	commandLine "./MehariUnittests"
 }
 
 
