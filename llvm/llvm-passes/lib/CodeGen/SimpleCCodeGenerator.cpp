@@ -119,7 +119,8 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
 
   // generate C code for the given instruction vector
-  for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
+  for (std::vector<Instruction*>::iterator instrIt = instructions.begin();
+      instrIt != instructions.end(); ++instrIt) {
 
     Instruction *instr = dyn_cast<Instruction>(*instrIt);
     Instruction *prevInstr, *nextInstr;
@@ -135,8 +136,10 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
       case LOAD_VAR:
       {
-        if (!isa<LoadInst>(instr))
-          errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
+        if (!isa<LoadInst>(instr)) {
+          errs() << "ERROR: Expected load instruction but there is an instruction of a different type!\n";
+          break;
+        }
 
         // handle load of global variable
         if (GEPOperator *op = dyn_cast<GEPOperator>(dyn_cast<LoadInst>(instr)->getOperand(0))) {
@@ -166,8 +169,10 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
       case GET_INDEX:
       {
-        if (!isa<GetElementPtrInst>(instr))
+        if (!isa<GetElementPtrInst>(instr)) {
           errs() << "ERROR: Expected getelementptr instruction but there an instruction of a different type!\n";
+          break;
+        }
 
         std::string index = dyn_cast<llvm::ConstantInt>(instr->getOperand(1))->getValue().toString(10, true);
         addIndexToVariable(instr->getOperand(0), instr, index);
@@ -182,8 +187,10 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
       case LOAD_INDEX:
       {
-        if (!isa<LoadInst>(instr))
+        if (!isa<LoadInst>(instr)) {
           errs() << "ERROR: Expected load instruction but there an instruction of a different type!\n";
+          break;
+        }
 
         // copy name of loaded value to new variable (with current instruction address)
         copyVariable(instr->getOperand(0), instr);
@@ -230,7 +237,8 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-          ccode += backend->generateComparison(tmpVar, cmpInstr->getOperand(0), cmpInstr->getOperand(1), cmpInstr->getPredicate());
+          ccode += backend->generateComparison(tmpVar, cmpInstr->getOperand(0),
+            cmpInstr->getOperand(1), cmpInstr->getPredicate());
         }
         else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
@@ -288,7 +296,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
 std::string SimpleCCodeGenerator::createExternArray(GlobalArrayVariable &globVar) {
   std::string output = "extern " + globVar.type + " " + globVar.name 
-      + "[" + static_cast<std::ostringstream*>( &(std::ostringstream() << (globVar.numElem)) )->str() + "];\n";
+      + "[" + toString(globVar.numElem) + "];\n";
   return output;
 }
 
@@ -340,7 +348,7 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   }
 
   if (remainingParams != 0) {
-    errs() << "WARNING: Mismatched ALLOCA and STORE instructions in function " << func;
+    errs() << "WARNING: Mismatched ALLOCA and STORE instructions in function " << func << "\n";
   }
 }
 
@@ -350,7 +358,7 @@ void SimpleCCodeGenerator::addVariable(Value *addr, std::string name) {
 }
 
 void SimpleCCodeGenerator::addVariable(Value *addr, std::string name, std::string index) {
-  index.empty() ? variables[addr] = name : variables[addr] = name + "[" + index + "]";
+  variables[addr] = (index.empty() ? name : name + "[" + index + "]");
 }
 
 void SimpleCCodeGenerator::copyVariable(Value *source, Value *target) {
@@ -361,12 +369,14 @@ void SimpleCCodeGenerator::addIndexToVariable(Value *source, Value *target, std:
   variables[target] = variables[source] + "[" + index + "]";
 }
 
-
 std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
-  Type *type = addr->getType();
+  return getDatatype(addr->getType());
+}
+
+std::string SimpleCCodeGenerator::getDatatype(Type *type) {
   if (type->isPointerTy())
-    return "int *";
-  if (type->isIntegerTy())
+    return getDatatype(type->getPointerElementType()) + " *";
+  else if (type->isIntegerTy())
     return "int";
   else if (type->isFloatingPointTy())
     return "double";
@@ -374,47 +384,6 @@ std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
     return "void";
   else
     return "<unsupported datatype>";
-}
-
-
-std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
-  // return operand if it is a variable and already known
-  if (const std::string* str = getValueOrNull(variables, addr))
-    return *str;
-
-  // handle global value operands
-  else if (GEPOperator *op = dyn_cast<GEPOperator>(addr)) {
-    std::string index;
-    if (op->hasIndices())
-      // NOTE: the last index is the one we want to know
-      for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
-        index = "[" + dyn_cast<ConstantInt>(*it)->getValue().toString(10, true) + "]";
-    std::string name = op->getPointerOperand()->getName();
-    std::string operand = name + index;
-    variables[addr] = operand;
-    return operand;
-  }
-
-  // handle constant integers
-  else if (ConstantInt *ci = dyn_cast<ConstantInt>(addr))
-    return ci->getValue().toString(10, true);
-
-  // handle constant floating point numbers
-  else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
-    double value = cf->getValueAPF().convertToDouble();
-    return static_cast<std::ostringstream*>( &(std::ostringstream() << value) )->str();
-  }
-
-  // convert operand address to string
-  std::stringstream ss;
-  ss << addr;
-  std::string opString = ss.str();
-  // if the value was got from another thread by the get_data function, return it
-  if (dataDependencies.find(opString) != dataDependencies.end())
-    return dataDependencies[opString];
-  // else return the address itself as a string
-  else
-    return "## " + opString + " ##";
 }
 
 
@@ -432,6 +401,14 @@ std::string SimpleCCodeGenerator::getOrCreateTemporaryVariable(Value *addr) {
     return createTemporaryVariable(addr, getDatatype(addr));
 }
 
+std::map<Value*, std::string>& SimpleCCodeGenerator::getVariables() {
+  return variables;
+}
+
+std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opString, std::string defaultValue) {
+  return getValueOrDefault(dataDependencies, opString, defaultValue);
+}
+
 
 CCodeBackend::CCodeBackend(SimpleCCodeGenerator* generator)
   : generator(generator), branchLabelNameGenerator("label") { }
@@ -445,6 +422,43 @@ std::string CCodeBackend::generateBranchLabel(Value *target) {
   std::string label = branchLabelNameGenerator.next();
   branchLabels[target].push_back(label);
   return label;
+}
+
+
+std::string CCodeBackend::getOperandString(Value* addr) {
+  // return operand if it is a variable and already known
+  if (const std::string* str = getValueOrNull(generator->getVariables(), addr))
+    return *str;
+
+  // handle global value operands
+  else if (GEPOperator *op = dyn_cast<GEPOperator>(addr)) {
+    if (!op->hasAllConstantIndices())
+      errs() << "ERROR: Variable indices are not supported!\n";
+    std::string indices;
+    if (op->hasIndices())
+      // NOTE: the last index is the one we want to know
+      for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
+        indices = "[" + dyn_cast<ConstantInt>(*it)->getValue().toString(10, true) + "]";
+    std::string name = op->getPointerOperand()->getName();
+    std::string operand = name + indices;
+    generator->getVariables()[addr] = operand;
+    return operand;
+  }
+
+  // handle constant integers
+  else if (ConstantInt *ci = dyn_cast<ConstantInt>(addr))
+    return ci->getValue().toString(10, true);
+
+  // handle constant floating point numbers
+  else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
+    double value = cf->getValueAPF().convertToDouble();
+    return toString(value);
+  }
+
+  // convert operand address to string
+  std::string opString = toString(addr);
+  // if the value was got from another thread by the get_data function, return it
+  return generator->getDataDependencyOrDefault(opString, "## " + opString + " ##");
 }
 
 

@@ -31,6 +31,9 @@ public:
 
   std::string getOperandString(Value* addr);
 
+  std::map<Value*, std::string>& getVariables();
+  std::string getDataDependencyOrDefault(std::string opString, std::string defaultValue);
+
 private:
   std::map<Value*, std::string> variables;
   std::map<std::string, std::vector<std::string> > tmpVariables;
@@ -49,6 +52,7 @@ private:
   void addIndexToVariable(Value *source, Value *target, std::string index);
 
   std::string getDatatype(Value *addr);
+  std::string getDatatype(Type *type);
 
   std::string createTemporaryVariable(Value *addr, std::string datatype);
   std::string getOrCreateTemporaryVariable(Value *addr);
