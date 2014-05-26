@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <sstream>
 
 #include "mehari/utils/UniqueNameSource.h"
 
@@ -26,8 +27,14 @@ public:
     unsigned int numElem;
   } GlobalArrayVariable;
 
-  std::string createCCode(Function &func, std::vector<Instruction*> &instructions);
-  std::string createExternArray(GlobalArrayVariable &globVar);
+  void createCCode(std::ostream& stream, Function &func, std::vector<Instruction*> &instructions);
+  void createExternArray(std::ostream& stream, GlobalArrayVariable &globVar);
+
+  inline std::string createCCode(Function &func, std::vector<Instruction*> &instructions) {
+    std::stringstream stream;
+    createCCode(stream, func, instructions);
+    return stream.str();
+  }
 
   std::string getOperandString(Value* addr);
 
@@ -56,8 +63,6 @@ private:
 
   std::string createTemporaryVariable(Value *addr, std::string datatype);
   std::string getOrCreateTemporaryVariable(Value *addr);
-
-  std::string generateVariableDeclarations();
 };
 
 class CodeGeneratorBackend {
@@ -65,18 +70,29 @@ public:
   virtual void reset() =0;
 
   virtual std::string generateBranchLabel(Value *target) =0;
-  virtual std::string generateStore(Value *op1, Value *op2) =0;
-  virtual std::string generateBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode) =0;
-  virtual std::string generateCall(std::string funcName, std::string tmpVar, std::vector<Value*> args) =0;
-  virtual std::string generateVoidCall(std::string funcName, std::vector<Value*> args) =0;
-  virtual std::string generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate) =0;
-  virtual std::string generateIntegerExtension(std::string tmpVar, Value *op) =0;
-  virtual std::string generatePhiNodeAssignment(std::string tmpVar, Value *op) =0;
-  virtual std::string generateUnconditionalBranch(std::string label) =0;
-  virtual std::string generateConditionalBranch(Value *condition, std::string label1, std::string label2) =0;
-  virtual std::string generateReturn(Value *retVal) =0;
-  //virtual std::string generateVariableDeclarations() =0;
-  virtual std::string generateBranchTargetIfNecessary(llvm::Instruction* instr) =0;
+  virtual void generateStore(std::ostream& stream,
+    Value *op1, Value *op2) =0;
+  virtual void generateBinaryOperator(std::ostream& stream,
+    std::string tmpVar, Value *op1, Value *op2, std::string opcode) =0;
+  virtual void generateCall(std::ostream& stream,
+    std::string funcName, std::string tmpVar, std::vector<Value*> args) =0;
+  virtual void generateVoidCall(std::ostream& stream,
+    std::string funcName, std::vector<Value*> args) =0;
+  virtual void generateComparison(std::ostream& stream,
+    std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate) =0;
+  virtual void generateIntegerExtension(std::ostream& stream,
+    std::string tmpVar, Value *op) =0;
+  virtual void generatePhiNodeAssignment(std::ostream& stream,
+    std::string tmpVar, Value *op) =0;
+  virtual void generateUnconditionalBranch(std::ostream& stream,
+    std::string label) =0;
+  virtual void generateConditionalBranch(std::ostream& stream,
+    Value *condition, std::string label1, std::string label2) =0;
+  virtual void generateReturn(std::ostream& stream,
+    Value *retVal) =0;
+  virtual void generateVariableDeclarations(std::ostream& stream,
+    const std::map<std::string, std::vector<std::string> >& tmpVariables) =0;
+  virtual void generateBranchTargetIfNecessary(std::ostream& stream, llvm::Instruction* instr) =0;
 };
 
 class CCodeBackend : public CodeGeneratorBackend {
@@ -90,18 +106,29 @@ public:
   void reset();
 
   std::string generateBranchLabel(Value *target);
-  std::string generateStore(Value *op1, Value *op2);
-  std::string generateBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode);
-  std::string generateCall(std::string funcName, std::string tmpVar, std::vector<Value*> args);
-  std::string generateVoidCall(std::string funcName, std::vector<Value*> args);
-  std::string generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
-  std::string generateIntegerExtension(std::string tmpVar, Value *op);
-  std::string generatePhiNodeAssignment(std::string tmpVar, Value *op);
-  std::string generateUnconditionalBranch(std::string label);
-  std::string generateConditionalBranch(Value *condition, std::string label1, std::string label2);
-  std::string generateReturn(Value *retVal);
-  //std::string generateVariableDeclarations();
-  std::string generateBranchTargetIfNecessary(llvm::Instruction* instr);
+  void generateStore(std::ostream& stream,
+    Value *op1, Value *op2);
+  void generateBinaryOperator(std::ostream& stream,
+    std::string tmpVar, Value *op1, Value *op2, std::string opcode);
+  void generateCall(std::ostream& stream,
+    std::string funcName, std::string tmpVar, std::vector<Value*> args);
+  void generateVoidCall(std::ostream& stream,
+    std::string funcName, std::vector<Value*> args);
+  void generateComparison(std::ostream& stream,
+    std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
+  void generateIntegerExtension(std::ostream& stream,
+    std::string tmpVar, Value *op);
+  void generatePhiNodeAssignment(std::ostream& stream,
+    std::string tmpVar, Value *op);
+  void generateUnconditionalBranch(std::ostream& stream,
+    std::string label);
+  void generateConditionalBranch(std::ostream& stream,
+    Value *condition, std::string label1, std::string label2);
+  void generateReturn(std::ostream& stream,
+    Value *retVal);
+  void generateVariableDeclarations(std::ostream& stream,
+    const std::map<std::string, std::vector<std::string> >& tmpVariables);
+  void generateBranchTargetIfNecessary(std::ostream& stream, llvm::Instruction* instr);
 
 private:
   std::string getOperandString(Value* addr);

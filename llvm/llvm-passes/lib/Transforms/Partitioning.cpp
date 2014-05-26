@@ -342,10 +342,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	SimpleCCodeGenerator codeGen;
 
 	// write extern global variables
-	std::string globVarOutput;
+	std::stringstream globVarOutput;
 	for (std::vector<SimpleCCodeGenerator::GlobalArrayVariable>::iterator gvIt = globalVariables.begin(); gvIt != globalVariables.end(); ++gvIt)
-		globVarOutput += codeGen.createExternArray(*gvIt);
-	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput);
+		codeGen.createExternArray(globVarOutput, *gvIt);
+	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput.str());
 
 	// write number of used semaphores
 	std::string semDataCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << semNumberMax))->str();

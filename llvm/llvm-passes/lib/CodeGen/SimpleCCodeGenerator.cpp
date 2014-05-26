@@ -97,12 +97,12 @@ SimpleCCodeGenerator::SimpleCCodeGenerator() : tmpVarNameGenerator("t") {
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
 
 
-std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instruction*> &instructions) {
+void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std::vector<Instruction*> &instructions) {
   
   enum CalcState {LOAD_VAR, GET_INDEX, LOAD_INDEX, APPLY};
   CalcState cstate;
 
-  std::string ccode;
+  std::stringstream ccode;
 
   // reset all variables before starting the code generation
   resetVariables();
@@ -130,7 +130,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
       nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 
     // insert a label for branch targets if the current instruction is one
-    ccode += backend->generateBranchTargetIfNecessary(instr);
+    backend->generateBranchTargetIfNecessary(ccode, instr);
 
     switch (cstate) {
 
@@ -207,13 +207,13 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
       {
 
         if (isa<StoreInst>(instr)) {
-          ccode += backend->generateStore(instr->getOperand(1), instr->getOperand(0));
+          backend->generateStore(ccode, instr->getOperand(1), instr->getOperand(0));
         }
         else if (isa<BinaryOperator>(instr)) {
           std::string opcode = instr->getOpcodeName();
           // create new temporary variable and print C code
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-          ccode += backend->generateBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
+          backend->generateBinaryOperator(ccode, tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
         }
         else if (CallInst *cInstr = dyn_cast<CallInst>(instr)) {
           Function *func = cInstr->getCalledFunction();
@@ -222,11 +222,11 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
           for (int i=0; i<cInstr->getNumArgOperands(); i++)
             args.push_back(cInstr->getArgOperand(i));
           if (func->getReturnType()->isVoidTy()) {
-            ccode += backend->generateVoidCall(functionName, args);
+            backend->generateVoidCall(ccode, functionName, args);
           }
           else {
             std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-            ccode += backend->generateCall(functionName, tmpVar, args);
+            backend->generateCall(ccode, functionName, tmpVar, args);
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
              || functionName == "_get_bool" || functionName == "_get_intptr") {
@@ -237,12 +237,12 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-          ccode += backend->generateComparison(tmpVar, cmpInstr->getOperand(0),
+          backend->generateComparison(ccode, tmpVar, cmpInstr->getOperand(0),
             cmpInstr->getOperand(1), cmpInstr->getPredicate());
         }
         else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-          ccode +=  backend->generateIntegerExtension(tmpVar, extInstr->getOperand(0));
+           backend->generateIntegerExtension(ccode, tmpVar, extInstr->getOperand(0));
         }
         else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
           if (brInstr->isUnconditional()) {
@@ -251,17 +251,17 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
               // create temporary variable for phi node assignment before the branch instruction
               std::string tmpVar = getOrCreateTemporaryVariable(phiInstr);
               // print assignment for the phi node variable
-              ccode += backend->generatePhiNodeAssignment(tmpVar, prevInstr);
+              backend->generatePhiNodeAssignment(ccode, tmpVar, prevInstr);
             }
             // add unconditional branch
             std::string label = backend->generateBranchLabel(&brInstr->getSuccessor(0)->front());
-            ccode += backend->generateUnconditionalBranch(label);                
+            backend->generateUnconditionalBranch(ccode, label);                
           }
           else {
             // create conditional branch
             std::string label1 = backend->generateBranchLabel(&brInstr->getSuccessor(0)->front());
             std::string label2 = backend->generateBranchLabel(&brInstr->getSuccessor(1)->front());
-            ccode += backend->generateConditionalBranch(brInstr->getCondition(), label1, label2);
+            backend->generateConditionalBranch(ccode, brInstr->getCondition(), label1, label2);
           }
         }
         else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
@@ -270,7 +270,7 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
         }
         else if (ReturnInst *retInstr = dyn_cast<ReturnInst>(instr)) {
           if (retInstr->getReturnValue() != NULL)
-            ccode += backend->generateReturn(retInstr->getReturnValue());
+            backend->generateReturn(ccode, retInstr->getReturnValue());
         }
         else
           errs() << "ERROR: unhandled instruction type: " << *instr << "\n";
@@ -288,16 +288,14 @@ std::string SimpleCCodeGenerator::createCCode(Function &func, std::vector<Instru
 
 
   // add declarations for temporary variables at the beginning of the code
-  ccode = generateVariableDeclarations() + ccode;
-
-  return ccode;
+  backend->generateVariableDeclarations(stream, tmpVariables);
+  stream << ccode.str();
 }
 
 
-std::string SimpleCCodeGenerator::createExternArray(GlobalArrayVariable &globVar) {
-  std::string output = "extern " + globVar.type + " " + globVar.name 
-      + "[" + toString(globVar.numElem) + "];\n";
-  return output;
+void SimpleCCodeGenerator::createExternArray(std::ostream& stream, GlobalArrayVariable &globVar) {
+  stream << "extern " << globVar.type << " " << globVar.name 
+      << "[" << globVar.numElem << "];\n";
 }
 
 
@@ -462,107 +460,104 @@ std::string CCodeBackend::getOperandString(Value* addr) {
 }
 
 
-std::string CCodeBackend::generateStore(Value *op1, Value *op2) {
-  return "\t"
-    +  getOperandString(op1)
-    + " = "
-    +  getOperandString(op2)
-    +  ";\n";
+void CCodeBackend::generateStore(std::ostream& stream, Value *op1, Value *op2) {
+  stream << "\t"
+    <<  getOperandString(op1)
+    << " = "
+    <<  getOperandString(op2)
+    <<  ";\n";
 }
 
-std::string CCodeBackend::generateBinaryOperator(std::string tmpVar, Value *op1, Value *op2, std::string opcode) {
-  return "\t" + tmpVar
-    +  " = "
-    +  getOperandString(op1)
-    +  " " + CCodeMaps::parseBinaryOperator(opcode) + " "
-    +  getOperandString(op2)
-    +  ";\n";
+void CCodeBackend::generateBinaryOperator(std::ostream& stream, std::string tmpVar,
+    Value *op1, Value *op2, std::string opcode) {
+  stream << "\t" << tmpVar
+    <<  " = "
+    <<  getOperandString(op1)
+    <<  " " << CCodeMaps::parseBinaryOperator(opcode) << " "
+    <<  getOperandString(op2)
+    <<  ";\n";
 }
 
-std::string CCodeBackend::generateCall(std::string funcName, std::string tmpVar, std::vector<Value*> args) {
-  std::string argString;
-  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it)
-    argString += getOperandString(*it) + ", ";
-  argString = argString.substr(0, argString.size()-2);
-  return "\t" + tmpVar
-    +  " = "
-    +  funcName
-    +  "(" + argString + ")"
-    +  ";\n";
-}
+void CCodeBackend::generateCall(std::ostream& stream, std::string funcName,
+    std::string tmpVar, std::vector<Value*> args) {
+  stream << "\t";
+  if (!tmpVar.empty())
+    stream << tmpVar << " = ";
 
-std::string CCodeBackend::generateVoidCall(std::string funcName, std::vector<Value*> args) {
-  std::string argString;
-  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it)
-    argString += getOperandString(*it) + ", ";
-  argString = argString.substr(0, argString.size()-2);
-  return "\t" + funcName
-    +  "(" + argString + ")"
-    +  ";\n";
-}
+  stream << funcName << "(";
 
-std::string CCodeBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
-    FCmpInst::Predicate comparePredicate) {
-  return "\t" + tmpVar
-    +  " = ("
-    +  getOperandString(op1)
-    +  " " + CCodeMaps::parseComparePredicate(comparePredicate) + " "
-    +  getOperandString(op2)
-    +  ");\n";
-}
-
-std::string CCodeBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
-  return "\t" + tmpVar
-    +  " = "
-    +  "(int)"
-    +  getOperandString(op)
-    +  ";\n";
-}
-
-std::string CCodeBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {
-  return "\t" + tmpVar
-    +  " = "
-    +  getOperandString(op)
-    +  ";\n";
-}
-
-std::string CCodeBackend::generateUnconditionalBranch(std::string label) {
-  return "\tgoto " + label + ";\n";
-}
-
-std::string CCodeBackend::generateConditionalBranch(Value *condition, std::string label1, std::string label2) {
-  return "\tif (" + getOperandString(condition) + ")"
-    +  " goto " + label1 + ";"
-    +  " else goto " + label2
-    + ";\n";
-}
-
-std::string CCodeBackend::generateReturn(Value *retVal) {
-  return "\treturn" + getOperandString(retVal) + "\n";
-}
-
-
-std::string SimpleCCodeGenerator::generateVariableDeclarations() {
-  std::string decl;
-  for (std::map<std::string, std::vector<std::string> >::iterator it=tmpVariables.begin(); it!=tmpVariables.end(); ++it) {
-    decl += "\t" + it->first;
-    for (std::vector<std::string>::iterator varIt = it->second.begin(); varIt != it->second.end(); ++varIt)
-      decl += " " + *varIt + ",";
-    decl = decl.substr(0, decl.size()-1) + ";\n";
+  Seperator sep(", ");
+  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it) {
+    stream << sep << getOperandString(*it);
   }
-  return decl;
+
+  stream << ");\n";
 }
 
-std::string CCodeBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
-  std::string ccode;
+void CCodeBackend::generateVoidCall(std::ostream& stream, std::string funcName, std::vector<Value*> args) {
+  generateCall(stream, funcName, "", args);
+}
+
+void CCodeBackend::generateComparison(std::ostream& stream, std::string tmpVar, Value *op1, Value *op2,
+    FCmpInst::Predicate comparePredicate) {
+  stream << "\t" << tmpVar
+    <<  " = ("
+    <<  getOperandString(op1)
+    <<  " " << CCodeMaps::parseComparePredicate(comparePredicate) << " "
+    <<  getOperandString(op2)
+    <<  ");\n";
+}
+
+void CCodeBackend::generateIntegerExtension(std::ostream& stream, std::string tmpVar, Value *op) {
+  stream << "\t" << tmpVar
+    <<  " = "
+    <<  "(int)"
+    <<  getOperandString(op)
+    <<  ";\n";
+}
+
+void CCodeBackend::generatePhiNodeAssignment(std::ostream& stream, std::string tmpVar, Value *op) {
+  stream << "\t" << tmpVar
+    <<  " = "
+    <<  getOperandString(op)
+    <<  ";\n";
+}
+
+void CCodeBackend::generateUnconditionalBranch(std::ostream& stream, std::string label) {
+  stream << "\tgoto " << label << ";\n";
+}
+
+void CCodeBackend::generateConditionalBranch(std::ostream& stream, Value *condition,
+    std::string label1, std::string label2) {
+  stream << "\tif (" << getOperandString(condition) << ")"
+    <<  " goto " << label1 << ";"
+    <<  " else goto " << label2
+    << ";\n";
+}
+
+void CCodeBackend::generateReturn(std::ostream& stream, Value *retVal) {
+  stream << "\treturn " << getOperandString(retVal) << ";\n";
+}
+
+
+void CCodeBackend::generateVariableDeclarations(std::ostream& stream,
+    const std::map<std::string, std::vector<std::string> >& tmpVariables) {
+  for (std::map<std::string, std::vector<std::string> >::const_iterator it=tmpVariables.begin();
+      it!=tmpVariables.end(); ++it) {
+    stream << "\t" << it->first << " ";
+
+    Seperator sep(", ");
+    for (std::vector<std::string>::const_iterator varIt = it->second.begin(); varIt != it->second.end(); ++varIt)
+      stream << sep << *varIt;
+
+    stream << ";\n";
+  }
+}
+
+void CCodeBackend::generateBranchTargetIfNecessary(std::ostream& stream, llvm::Instruction* instr) {
   llvm::Value* instr_as_value = instr;
   if (std::vector<std::string>* labels = getValueOrNull(branchLabels, instr_as_value)) {
     for (std::vector<std::string>::iterator it = labels->begin(); it != labels->end(); ++it)
-      ccode += *it + ":\n";
+      stream << *it << ":\n";
   }
-  return ccode;
-}
-
-std::string CCodeBackend::getOperandString(Value* addr) {
-  return generator->getOperandString(addr);
 }

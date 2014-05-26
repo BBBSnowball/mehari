@@ -18,4 +18,22 @@ inline static std::string operator+(const std::string& a, unsigned int b) {
   return stream.str();
 }
 
+class Seperator {
+	bool first;
+	std::string seperator;
+public:
+	inline Seperator(std::string seperator) : first(true), seperator(seperator) { }
+
+	inline void print(std::ostream& stream) {
+		if (first)
+			first = false;
+		else
+			stream << seperator;
+	}
+};
+inline std::ostream& operator <<(std::ostream& stream, Seperator& seperator) {
+	seperator.print(stream);
+	return stream;
+}
+
 #endif /*STRING_UTILS_H*/
