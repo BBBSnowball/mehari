@@ -13,53 +13,83 @@
 #include <sstream>
 #include <fstream>
 
+#include <boost/scoped_ptr.hpp>
+
 #include "mehari/utils/MapUtils.h"
 #include "mehari/utils/StringUtils.h"
 
 using namespace llvm;
 
+struct CCodeMaps {
+  std::map<std::string, std::string> binaryOperatorStrings;
+  std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;
+
+  CCodeMaps() {
+    // TODO: complete and check operator and compare predicate mappings
+    binaryOperatorStrings["fadd"] = "+";
+    binaryOperatorStrings["add"]  = "+";
+    binaryOperatorStrings["fsub"] = "-";
+    binaryOperatorStrings["sub"]  = "-";
+    binaryOperatorStrings["fmul"] = "*";
+    binaryOperatorStrings["mul"]  = "*";
+    binaryOperatorStrings["fdiv"] = "/";
+    binaryOperatorStrings["div"]  = "/";
+    binaryOperatorStrings["or"]   = "|";
+    binaryOperatorStrings["and"]  = "&";
+
+    // not all of these cases are implemented in the code generator
+    // isnan: at least one of the arguments is a not-a-number value
+    comparePredicateStrings[FCmpInst::FCMP_FALSE] = "false";
+    comparePredicateStrings[FCmpInst::FCMP_OEQ]   = "==";
+    comparePredicateStrings[FCmpInst::FCMP_OGT]   = ">";
+    comparePredicateStrings[FCmpInst::FCMP_OGE]   = ">=";
+    comparePredicateStrings[FCmpInst::FCMP_OLT]   = "<";
+    comparePredicateStrings[FCmpInst::FCMP_OLE]   = "<=";
+    comparePredicateStrings[FCmpInst::FCMP_ONE]   = "!=";
+    comparePredicateStrings[FCmpInst::FCMP_ORD]   = "!isnan";
+    comparePredicateStrings[FCmpInst::FCMP_UNO]   = "isnan";
+    comparePredicateStrings[FCmpInst::FCMP_UEQ]   = "isnan || ==";
+    comparePredicateStrings[FCmpInst::FCMP_UGT]   = "isnan || >";
+    comparePredicateStrings[FCmpInst::FCMP_UGE]   = "isnan || >=";
+    comparePredicateStrings[FCmpInst::FCMP_ULT]   = "isnan || <";
+    comparePredicateStrings[FCmpInst::FCMP_ULE]   = "isnan || <=";
+    comparePredicateStrings[FCmpInst::FCMP_UNE]   = "isnan || !=";
+    comparePredicateStrings[FCmpInst::FCMP_TRUE]  = "true";
+    comparePredicateStrings[FCmpInst::ICMP_EQ]    = "==";
+    comparePredicateStrings[FCmpInst::ICMP_NE]    = "!=";
+    comparePredicateStrings[FCmpInst::ICMP_UGT]   = ">";
+    comparePredicateStrings[FCmpInst::ICMP_UGE]   = ">=";
+    comparePredicateStrings[FCmpInst::ICMP_ULT]   = "<";
+    comparePredicateStrings[FCmpInst::ICMP_ULE]   = "<=";
+    comparePredicateStrings[FCmpInst::ICMP_SGT]   = ">";
+    comparePredicateStrings[FCmpInst::ICMP_SGE]   = ">=";
+    comparePredicateStrings[FCmpInst::ICMP_SLT]   = "<";
+    comparePredicateStrings[FCmpInst::ICMP_SLE]   = "<=";
+  }
+
+  static const CCodeMaps* instance() {
+    if (!_instance)
+      _instance.reset(new CCodeMaps());
+    return _instance.get();
+  }
+
+  static std::string parseBinaryOperator(std::string opcode) {
+    return getValueOrDefault(instance()->binaryOperatorStrings, opcode, "<binary operator " + opcode + ">");
+  }
+
+  static std::string parseComparePredicate(FCmpInst::Predicate predicateNumber) {
+    return getValueOrDefault(instance()->comparePredicateStrings, predicateNumber,
+      std::string("<compare predicate ") + predicateNumber + ">");
+  }
+
+private:
+  static boost::scoped_ptr<CCodeMaps> _instance;
+};
+
+boost::scoped_ptr<CCodeMaps> CCodeMaps::_instance;
+
 
 SimpleCCodeGenerator::SimpleCCodeGenerator() : tmpVarNameGenerator("t") {
-  // TODO: complete and check operator and compare predicate mappings
-  binaryOperatorStrings["fadd"] = "+";
-  binaryOperatorStrings["add"]  = "+";
-  binaryOperatorStrings["fsub"] = "-";
-  binaryOperatorStrings["sub"]  = "-";
-  binaryOperatorStrings["fmul"] = "*";
-  binaryOperatorStrings["mul"]  = "*";
-  binaryOperatorStrings["fdiv"] = "/";
-  binaryOperatorStrings["div"]  = "/";
-  binaryOperatorStrings["or"]   = "|";
-  binaryOperatorStrings["and"]  = "&";
-
-  // not all of these cases are implemented in the code generator
-  // isnan: at least one of the arguments is a not-a-number value
-  comparePredicateStrings[FCmpInst::FCMP_FALSE] = "false";
-  comparePredicateStrings[FCmpInst::FCMP_OEQ]   = "==";
-  comparePredicateStrings[FCmpInst::FCMP_OGT]   = ">";
-  comparePredicateStrings[FCmpInst::FCMP_OGE]   = ">=";
-  comparePredicateStrings[FCmpInst::FCMP_OLT]   = "<";
-  comparePredicateStrings[FCmpInst::FCMP_OLE]   = "<=";
-  comparePredicateStrings[FCmpInst::FCMP_ONE]   = "!=";
-  comparePredicateStrings[FCmpInst::FCMP_ORD]   = "!isnan";
-  comparePredicateStrings[FCmpInst::FCMP_UNO]   = "isnan";
-  comparePredicateStrings[FCmpInst::FCMP_UEQ]   = "isnan || ==";
-  comparePredicateStrings[FCmpInst::FCMP_UGT]   = "isnan || >";
-  comparePredicateStrings[FCmpInst::FCMP_UGE]   = "isnan || >=";
-  comparePredicateStrings[FCmpInst::FCMP_ULT]   = "isnan || <";
-  comparePredicateStrings[FCmpInst::FCMP_ULE]   = "isnan || <=";
-  comparePredicateStrings[FCmpInst::FCMP_UNE]   = "isnan || !=";
-  comparePredicateStrings[FCmpInst::FCMP_TRUE]  = "true";
-  comparePredicateStrings[FCmpInst::ICMP_EQ]    = "==";
-  comparePredicateStrings[FCmpInst::ICMP_NE]    = "!=";
-  comparePredicateStrings[FCmpInst::ICMP_UGT]   = ">";
-  comparePredicateStrings[FCmpInst::ICMP_UGE]   = ">=";
-  comparePredicateStrings[FCmpInst::ICMP_ULT]   = "<";
-  comparePredicateStrings[FCmpInst::ICMP_ULE]   = "<=";
-  comparePredicateStrings[FCmpInst::ICMP_SGT]   = ">";
-  comparePredicateStrings[FCmpInst::ICMP_SGE]   = ">=";
-  comparePredicateStrings[FCmpInst::ICMP_SLT]   = "<";
-  comparePredicateStrings[FCmpInst::ICMP_SLE]   = "<=";
 
   backend = new CCodeBackend(this);
 }
@@ -354,16 +384,6 @@ std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
 }
 
 
-std::string SimpleCCodeGenerator::parseBinaryOperator(std::string opcode) {
-  return getValueOrDefault(binaryOperatorStrings, opcode, "<binary operator " + opcode + ">");
-}
-
-std::string SimpleCCodeGenerator::parseComparePredicate(FCmpInst::Predicate predicateNumber) {
-  return getValueOrDefault(comparePredicateStrings, predicateNumber,
-    std::string("<compare predicate ") + predicateNumber + ">");
-}
-
-
 std::string SimpleCCodeGenerator::getOperandString(Value* addr) {
   // return operand if it is a variable and already known
   if (const std::string* str = getValueOrNull(variables, addr))
@@ -447,7 +467,7 @@ std::string CCodeBackend::generateBinaryOperator(std::string tmpVar, Value *op1,
   return "\t" + tmpVar
     +  " = "
     +  getOperandString(op1)
-    +  " " + generator->parseBinaryOperator(opcode) + " "
+    +  " " + CCodeMaps::parseBinaryOperator(opcode) + " "
     +  getOperandString(op2)
     +  ";\n";
 }
@@ -479,7 +499,7 @@ std::string CCodeBackend::generateComparison(std::string tmpVar, Value *op1, Val
   return "\t" + tmpVar
     +  " = ("
     +  getOperandString(op1)
-    +  " " + generator->parseComparePredicate(comparePredicate) + " "
+    +  " " + CCodeMaps::parseComparePredicate(comparePredicate) + " "
     +  getOperandString(op2)
     +  ");\n";
 }

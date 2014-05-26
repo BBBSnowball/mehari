@@ -29,10 +29,6 @@ public:
   std::string createCCode(Function &func, std::vector<Instruction*> &instructions);
   std::string createExternArray(GlobalArrayVariable &globVar);
 
-
-  std::string parseBinaryOperator(std::string opcode);
-  std::string parseComparePredicate(FCmpInst::Predicate predicateNumber);
-
   std::string getOperandString(Value* addr);
 
 private:
@@ -40,9 +36,6 @@ private:
   std::map<std::string, std::vector<std::string> > tmpVariables;
   std::map<std::string, std::string> dataDependencies;
   UniqueNameSource tmpVarNameGenerator;
-  
-  std::map<std::string, std::string> binaryOperatorStrings;
-  std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;
 
   CodeGeneratorBackend* backend;
 
