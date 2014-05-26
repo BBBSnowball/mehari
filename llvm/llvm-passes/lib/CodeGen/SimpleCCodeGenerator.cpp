@@ -21,21 +21,25 @@
 using namespace llvm;
 
 struct CCodeMaps {
-  std::map<std::string, std::string> binaryOperatorStrings;
+  std::map<unsigned,            std::string> binaryOperatorStrings;
   std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;
 
   CCodeMaps() {
     // TODO: complete and check operator and compare predicate mappings
-    binaryOperatorStrings["fadd"] = "+";
-    binaryOperatorStrings["add"]  = "+";
-    binaryOperatorStrings["fsub"] = "-";
-    binaryOperatorStrings["sub"]  = "-";
-    binaryOperatorStrings["fmul"] = "*";
-    binaryOperatorStrings["mul"]  = "*";
-    binaryOperatorStrings["fdiv"] = "/";
-    binaryOperatorStrings["div"]  = "/";
-    binaryOperatorStrings["or"]   = "|";
-    binaryOperatorStrings["and"]  = "&";
+    binaryOperatorStrings[Instruction::FAdd] = "+";
+    binaryOperatorStrings[Instruction::Add]  = "+";
+    binaryOperatorStrings[Instruction::FSub] = "-";
+    binaryOperatorStrings[Instruction::Sub]  = "-";
+    binaryOperatorStrings[Instruction::FMul] = "*";
+    binaryOperatorStrings[Instruction::Mul]  = "*";
+    binaryOperatorStrings[Instruction::FDiv] = "/";
+    binaryOperatorStrings[Instruction::UDiv] = "/";
+    binaryOperatorStrings[Instruction::SDiv] = "/";
+    binaryOperatorStrings[Instruction::URem] = "%";
+    binaryOperatorStrings[Instruction::SRem] = "%";
+    binaryOperatorStrings[Instruction::FRem] = "%";
+    binaryOperatorStrings[Instruction::Or]   = "|";
+    binaryOperatorStrings[Instruction::And]  = "&";
 
     // not all of these cases are implemented in the code generator
     // isnan: at least one of the arguments is a not-a-number value
@@ -73,8 +77,9 @@ struct CCodeMaps {
     return _instance.get();
   }
 
-  static std::string parseBinaryOperator(std::string opcode) {
-    return getValueOrDefault(instance()->binaryOperatorStrings, opcode, "<binary operator " + opcode + ">");
+  static std::string parseBinaryOperator(unsigned opcode) {
+    return getValueOrDefault(instance()->binaryOperatorStrings, opcode,
+      std::string("<binary operator ") + Instruction::getOpcodeName(opcode) + ">");
   }
 
   static std::string parseComparePredicate(FCmpInst::Predicate predicateNumber) {
@@ -208,10 +213,9 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
           backend->generateStore(ccode, instr->getOperand(1), instr->getOperand(0));
         }
         else if (isa<BinaryOperator>(instr)) {
-          std::string opcode = instr->getOpcodeName();
           // create new temporary variable and print C code
           std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
-          backend->generateBinaryOperator(ccode, tmpVar, instr->getOperand(0), instr->getOperand(1), opcode);
+          backend->generateBinaryOperator(ccode, tmpVar, instr->getOperand(0), instr->getOperand(1), instr->getOpcode());
         }
         else if (CallInst *cInstr = dyn_cast<CallInst>(instr)) {
           Function *func = cInstr->getCalledFunction();
@@ -469,7 +473,7 @@ void CCodeBackend::generateStore(std::ostream& stream, Value *op1, Value *op2) {
 }
 
 void CCodeBackend::generateBinaryOperator(std::ostream& stream, std::string tmpVar,
-    Value *op1, Value *op2, std::string opcode) {
+    Value *op1, Value *op2, unsigned opcode) {
   stream << "\t" << tmpVar
     <<  " = "
     <<  getOperandString(op1)

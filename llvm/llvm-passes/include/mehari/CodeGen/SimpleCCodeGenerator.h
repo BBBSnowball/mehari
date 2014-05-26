@@ -74,7 +74,7 @@ public:
   virtual void generateStore(std::ostream& stream,
     Value *op1, Value *op2) =0;
   virtual void generateBinaryOperator(std::ostream& stream,
-    std::string tmpVar, Value *op1, Value *op2, std::string opcode) =0;
+    std::string tmpVar, Value *op1, Value *op2, unsigned opcode) =0;
   virtual void generateCall(std::ostream& stream,
     std::string funcName, std::string tmpVar, std::vector<Value*> args) =0;
   virtual void generateVoidCall(std::ostream& stream,
@@ -110,7 +110,7 @@ public:
   void generateStore(std::ostream& stream,
     Value *op1, Value *op2);
   void generateBinaryOperator(std::ostream& stream,
-    std::string tmpVar, Value *op1, Value *op2, std::string opcode);
+    std::string tmpVar, Value *op1, Value *op2, unsigned opcode);
   void generateCall(std::ostream& stream,
     std::string funcName, std::string tmpVar, std::vector<Value*> args);
   void generateVoidCall(std::ostream& stream,
