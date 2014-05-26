@@ -14,11 +14,12 @@
 using namespace llvm;
 
 class CodeGeneratorBackend;
+class CCodeBackend;
 
 class SimpleCCodeGenerator {
 
 public:
-  SimpleCCodeGenerator();
+  SimpleCCodeGenerator(CodeGeneratorBackend* backend = NULL);
   ~SimpleCCodeGenerator();
 
   typedef struct {
@@ -67,7 +68,7 @@ private:
 
 class CodeGeneratorBackend {
 public:
-  virtual void reset() =0;
+  virtual void init(SimpleCCodeGenerator* generator) =0;
 
   virtual std::string generateBranchLabel(Value *target) =0;
   virtual void generateStore(std::ostream& stream,
@@ -101,9 +102,9 @@ class CCodeBackend : public CodeGeneratorBackend {
 
   SimpleCCodeGenerator* generator;
 public:
-  CCodeBackend(SimpleCCodeGenerator* generator);
+  CCodeBackend();
 
-  void reset();
+  void init(SimpleCCodeGenerator* generator);
 
   std::string generateBranchLabel(Value *target);
   void generateStore(std::ostream& stream,

@@ -89,10 +89,8 @@ private:
 boost::scoped_ptr<CCodeMaps> CCodeMaps::_instance;
 
 
-SimpleCCodeGenerator::SimpleCCodeGenerator() : tmpVarNameGenerator("t") {
-
-  backend = new CCodeBackend(this);
-}
+SimpleCCodeGenerator::SimpleCCodeGenerator(CodeGeneratorBackend* backend)
+    : tmpVarNameGenerator("t"), backend(backend ? backend : new CCodeBackend()) { }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
 
@@ -305,7 +303,7 @@ void SimpleCCodeGenerator::resetVariables() {
   dataDependencies.clear();
   tmpVarNameGenerator.reset();
 
-  backend->reset();
+  backend->init(this);
 }
 
 
@@ -408,10 +406,12 @@ std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opStrin
 }
 
 
-CCodeBackend::CCodeBackend(SimpleCCodeGenerator* generator)
-  : generator(generator), branchLabelNameGenerator("label") { }
+CCodeBackend::CCodeBackend()
+  : branchLabelNameGenerator("label") { }
 
-void CCodeBackend::reset() {
+void CCodeBackend::init(SimpleCCodeGenerator* generator) {
+  this->generator = generator;
+
   branchLabels.clear();
   branchLabelNameGenerator.reset();
 }
