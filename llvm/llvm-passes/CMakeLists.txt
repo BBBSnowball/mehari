@@ -142,3 +142,11 @@ add_dependencies(MehariAnalysisTests LibraryMehariLLVMPasses)
 install(TARGETS MehariAnalysisTests
   RUNTIME DESTINATION unittests
 )
+
+# create a symlink to the shared library
+# This adapts the name to the standard naming schema, so the linker
+# will find the library.
+add_custom_command(
+    TARGET SharedMehariLLVMPasses POST_BUILD
+    COMMAND ln -sf MehariLLVMPasses.so libMehariLLVMPasses.so
+)
