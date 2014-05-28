@@ -20,6 +20,11 @@ public:
 	PartitioningGraph();
 	~PartitioningGraph();
 
+	// overwrite copy constructor and assignment operator to create a deep copy of PartitioningGraphs
+	PartitioningGraph(const PartitioningGraph &cSource);
+	PartitioningGraph &operator=(const PartitioningGraph &cSource);
+
+
 	void create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies);
 
 
@@ -73,6 +78,8 @@ private:
 	bool isCuttingInstr(Instruction *instr);
 
 	void addInstructionsToList(std::vector<Instruction*> instructions);
+
+	void copyGraph(const Graph &orig, Graph &copy);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;

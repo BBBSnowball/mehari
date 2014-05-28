@@ -6,11 +6,34 @@
 #include "mehari/HardwareInformation.h"
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 
+
+#include <boost/graph/iteration_macros.hpp>
 #include <sstream>
 
 
 PartitioningGraph::PartitioningGraph() {}
 PartitioningGraph::~PartitioningGraph() {}
+
+
+// overwrite copy constructor and assignment operator to create a deep copy of PartitioningGraphs
+PartitioningGraph::PartitioningGraph(const PartitioningGraph &cSource) {
+	instructionList = cSource.instructionList;
+	copyGraph(cSource.pGraph, pGraph);
+	initVertex = cSource.initVertex;
+}
+
+PartitioningGraph &PartitioningGraph::operator=(const PartitioningGraph &cSource) {
+	// check for self-assignmend
+	if (this == &cSource)
+		return *this;
+	
+	// now copy the class members
+	instructionList = cSource.instructionList;
+	copyGraph(cSource.pGraph, pGraph);
+	initVertex = cSource.initVertex;
+
+	return *this;
+}
 
 
 void PartitioningGraph::create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies) {
@@ -150,6 +173,19 @@ PartitioningGraph::VertexDescriptor PartitioningGraph::getVertexForInstruction(I
 void PartitioningGraph::addInstructionsToList(std::vector<Instruction*> instructions) {
 	for (std::vector<Instruction*>::iterator it = instructions.begin(); it != instructions.end(); ++it)
 		instructionList.push_back(*it);
+}
+
+
+void PartitioningGraph::copyGraph(const Graph &orig, Graph &copy) {
+	typedef std::map<VertexDescriptor, size_t> IndexMap;
+	IndexMap mapIndex;
+	boost::associative_property_map<IndexMap> propmapIndex(mapIndex);
+	int i=0;
+	BGL_FORALL_VERTICES(v, orig, Graph) {
+		boost::put(propmapIndex, v, i++);
+	}
+	copy.clear();
+	boost::copy_graph(orig, copy, boost::vertex_index_map(propmapIndex));
 }
 
 
