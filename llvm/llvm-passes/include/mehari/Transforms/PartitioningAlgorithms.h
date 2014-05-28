@@ -66,4 +66,33 @@ private:
 };
 
 
+
+class SimulatedAnnealing : public AbstractPartitioningMethod {
+public:
+	virtual void apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+
+	typedef PartitioningGraph State;
+	typedef float Temperature;
+
+private:
+	void simulatedAnnealing(State &state, Temperature initialTemperature);
+
+	bool frozen(Temperature temp);
+	bool equilibrium(int iterationCount);
+	float acceptNewState(int deltaCost, Temperature T);
+	Temperature decreaseTemperature(Temperature T);
+
+	void randomMove(State &state);
+	int costFunction(State &state);
+	double randomNumber(void);
+
+	Temperature Tinit, Tmin;
+	int iterationMax;
+	float tempAcceptenceMultiplicator;
+	float tempDecreasingFactor;
+
+	unsigned int numOfPartitions;
+};
+
+
 #endif /*PARTITIONING_ALGORITHMS_H*/

@@ -35,7 +35,7 @@ public:
 	};
 
 	struct Communication {
-		unsigned int cost;
+		int cost;
 	};
 
 	typedef boost::adjacency_list<
@@ -51,8 +51,18 @@ public:
 	typedef Graph::edge_iterator EdgeIterator;
 	typedef Graph::edge_descriptor EdgeDescriptor;
 
+	unsigned int getVertexCount(void);
+
+	VertexDescriptor getRandomVertex(void);
+
 	VertexIterator getFirstIterator();
 	VertexIterator getEndIterator(); 
+
+	EdgeIterator getFirstEdgeIterator();
+	EdgeIterator getEndEdgeIterator();
+
+	VertexDescriptor getSourceVertex(EdgeDescriptor ed);
+	VertexDescriptor getTargetVertex(EdgeDescriptor ed);
 
 	std::string getName(VertexDescriptor vd);
 

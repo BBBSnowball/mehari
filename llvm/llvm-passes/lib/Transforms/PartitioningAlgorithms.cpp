@@ -1,11 +1,16 @@
 #include "mehari/Transforms/PartitioningAlgorithms.h"
 
+#include <math.h>	// for exp
+#include <ctime> 	// for using srand with time 
+#include <algorithm>
+
 // DEBUG
 #include "llvm/Support/raw_ostream.h"
 
 
+
 // -----------------------------------
-// RandomPartitioning
+// Random Partitioning
 // -----------------------------------
 
 void RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
@@ -20,7 +25,7 @@ void RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partition
 
 
 // -----------------------------------
-// HierarchicalClustering
+// Hierarchical Clustering
 // -----------------------------------
 
 void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
@@ -106,7 +111,7 @@ boost::tuple<float, unsigned int> HierarchicalClustering::closenessFunction(Vert
 	}
 	for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
 		pExecTime2 += partitioningGraph.getExecutionTime(*it2);
-	
+
 	unsigned int pSizeProduct = pExecTime1 * pExecTime2;
 	float closeness = float(comCost) / float(pSizeProduct);
 
@@ -201,4 +206,120 @@ void HierarchicalClustering::printGraph(void) {
 		VertexDescriptor u = boost::source(*edgeIt, clusteringGraph), v = boost::target(*edgeIt, clusteringGraph);
 		errs() << u << " -- " << v << " (closeness: " << clusteringGraph[*edgeIt].closeness << ")\n";
 	}
+}
+
+
+// -----------------------------------
+// Simulated Annealing
+// -----------------------------------
+
+void SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+	// configure algorithm
+	Tinit = 1.0;
+	Tmin = 0.1;
+	iterationMax = 1000;
+	tempAcceptenceMultiplicator = 1.0;
+	tempDecreasingFactor = 0.95;
+
+	numOfPartitions = partitionCount;
+
+	// create initial state
+	RandomPartitioning P;
+	P.apply(pGraph, partitionCount);
+
+	// run simulated annealing algorithm
+	simulatedAnnealing(pGraph, Tinit);
+}
+
+
+void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTemperature) {
+	State S = state;
+	Temperature T = initialTemperature;
+	
+	srand(time(0));
+
+	while (!frozen(T)) {
+		int itCount = 0;
+		while (!equilibrium(itCount)) {
+			State newS = S;
+			randomMove(newS);
+			int deltaCost = costFunction(newS) - costFunction(S);
+			if (acceptNewState(deltaCost, T) > randomNumber())
+				S = newS;
+			itCount++;
+		}
+		T = decreaseTemperature(T);
+	}
+	state = S;
+}
+
+
+bool SimulatedAnnealing::frozen(Temperature temp) {
+	return temp <= Tmin; // TODO: or no improvement
+}
+
+
+bool SimulatedAnnealing::equilibrium(int iterationCount) {
+	return iterationCount >= iterationMax; // TODO: or no improvement
+}
+
+
+float SimulatedAnnealing::acceptNewState(int deltaCost, Temperature T) {
+	return std::min(1.0, exp((-1)*float(deltaCost)/(tempAcceptenceMultiplicator*T)));
+}
+
+
+SimulatedAnnealing::Temperature SimulatedAnnealing::decreaseTemperature(Temperature T) {
+	return tempDecreasingFactor * T;
+}
+
+
+void SimulatedAnnealing::randomMove(State &state) {
+	// NOTE: the state is stored in a PartitioningGraph
+	PartitioningGraph::VertexDescriptor vd = state.getRandomVertex();
+	unsigned int oldPartition = state.getPartition(vd);
+	unsigned int newPartition;
+	do {
+		newPartition = rand() % numOfPartitions;
+	} while(newPartition == oldPartition);
+	state.setPartition(vd, newPartition);
+}
+
+
+int SimulatedAnnealing::costFunction(State &state) {
+	// NOTE: the state is stored in a PartitioningGraph
+
+	// first calculate the runtime for each partition
+	unsigned int runtimeForPartition[numOfPartitions];
+	for (int i=0; i<numOfPartitions; i++)
+		runtimeForPartition[i] = 0;
+	PartitioningGraph::VertexIterator vIt = state.getFirstIterator(); 
+	PartitioningGraph::VertexIterator vEnd = state.getEndIterator();
+	for (; vIt != vEnd; ++vIt) {
+		PartitioningGraph::VertexDescriptor vd = *vIt;
+		unsigned int partitionNumber = state.getPartition(vd);
+		unsigned int curRuntime = state.getExecutionTime(vd);
+		runtimeForPartition[partitionNumber] += curRuntime;
+	}
+
+	// second calculate the communication costs
+	unsigned int comCost = 0;
+	PartitioningGraph::EdgeIterator edgeIt = state.getFirstEdgeIterator();
+	PartitioningGraph::EdgeIterator edgeEnd = state.getEndEdgeIterator();
+	for (; edgeIt != edgeEnd; ++edgeIt) {
+		PartitioningGraph::VertexDescriptor u = state.getSourceVertex(*edgeIt), v = state.getTargetVertex(*edgeIt);
+		if (state.getPartition(u) != state.getPartition(v)) {
+			// this edge connects two vertices that are in different partitions -> add communication cost
+			comCost += state.getCommunicationCost(u, v);
+		}
+	}
+
+	return 2*comCost + 1*(*std::max_element(runtimeForPartition, runtimeForPartition + numOfPartitions));
+
+	// TODO: critical path costs are not implemented yet
+	// return state.getCriticalPathCost();
+}
+
+double SimulatedAnnealing::randomNumber(void) {
+	return (rand() / double(RAND_MAX));
 }

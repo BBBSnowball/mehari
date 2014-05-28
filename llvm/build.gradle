@@ -28,7 +28,9 @@ ext {
 	PARTITIONED_EXAMPLE_TEST_SCRIPT = file("$projectDir/../private/python/tests/partitioned_example_test.py")
 
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
-	PARTITIONING_METHOD = "clustering"
+
+	// valid partitioning methods: random, clustering, sa
+	PARTITIONING_METHOD = "sa"
 	PARTITIONING_COUNT = 2
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")

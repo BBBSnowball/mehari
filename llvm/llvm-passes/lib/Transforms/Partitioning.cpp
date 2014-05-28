@@ -113,6 +113,8 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new RandomPartitioning();
 		else if (PartitioningMethod == "clustering") 
 			PM = new HierarchicalClustering();
+		else if (PartitioningMethod == "sa")
+			PM = new SimulatedAnnealing();
 		PM->apply(*pGraph, partitionCount);
 		delete PM;
 

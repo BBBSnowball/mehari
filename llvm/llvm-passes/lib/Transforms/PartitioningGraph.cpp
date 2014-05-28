@@ -6,8 +6,13 @@
 #include "mehari/HardwareInformation.h"
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 
+// user RandomGenerator and random_vertex
+#include <boost/graph/random.hpp>
+#include <boost/random.hpp>
 
 #include <boost/graph/iteration_macros.hpp>
+
+#include <ctime> // for using random generator with time
 #include <sstream>
 
 
@@ -189,16 +194,41 @@ void PartitioningGraph::copyGraph(const Graph &orig, Graph &copy) {
 }
 
 
+unsigned int PartitioningGraph::getVertexCount(void) {
+	return boost::num_vertices(pGraph);
+}
+
+
+PartitioningGraph::VertexDescriptor PartitioningGraph::getRandomVertex(void) {
+	boost::mt19937 gen(time(0));
+	return boost::random_vertex(pGraph, gen);
+}
+
+
 PartitioningGraph::VertexIterator PartitioningGraph::getFirstIterator() {
-	VertexIterator vIt, vEnd;
-	boost::tie(vIt, vEnd) = boost::vertices(pGraph);
-	return vIt;
+	return boost::vertices(pGraph).first;
 }
 
 PartitioningGraph::VertexIterator PartitioningGraph::getEndIterator() {
-	VertexIterator vIt, vEnd;
-	boost::tie(vIt, vEnd) = boost::vertices(pGraph);
-	return vEnd;
+	return boost::vertices(pGraph).second;
+}
+
+
+PartitioningGraph::EdgeIterator PartitioningGraph::getFirstEdgeIterator() {
+	return boost::edges(pGraph).first;
+}
+
+PartitioningGraph::EdgeIterator PartitioningGraph::getEndEdgeIterator() {
+	return boost::edges(pGraph).second;
+}
+
+
+PartitioningGraph::VertexDescriptor PartitioningGraph::getSourceVertex(EdgeDescriptor ed) {
+	return boost::source(ed, pGraph);
+}
+
+PartitioningGraph::VertexDescriptor PartitioningGraph::getTargetVertex(EdgeDescriptor ed) {
+	return boost::target(ed, pGraph);
 }
 
 
