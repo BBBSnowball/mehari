@@ -217,9 +217,9 @@ void SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partition
 	// configure algorithm
 	Tinit = 1.0;
 	Tmin = 0.1;
-	iterationMax = 1000;
+	iterationMax = 2000;
 	tempAcceptenceMultiplicator = 1.0;
-	tempDecreasingFactor = 0.95;
+	tempDecreasingFactor = 0.9;
 
 	numOfPartitions = partitionCount;
 
@@ -288,36 +288,7 @@ void SimulatedAnnealing::randomMove(State &state) {
 
 int SimulatedAnnealing::costFunction(State &state) {
 	// NOTE: the state is stored in a PartitioningGraph
-
-	// first calculate the runtime for each partition
-	unsigned int runtimeForPartition[numOfPartitions];
-	for (int i=0; i<numOfPartitions; i++)
-		runtimeForPartition[i] = 0;
-	PartitioningGraph::VertexIterator vIt = state.getFirstIterator(); 
-	PartitioningGraph::VertexIterator vEnd = state.getEndIterator();
-	for (; vIt != vEnd; ++vIt) {
-		PartitioningGraph::VertexDescriptor vd = *vIt;
-		unsigned int partitionNumber = state.getPartition(vd);
-		unsigned int curRuntime = state.getExecutionTime(vd);
-		runtimeForPartition[partitionNumber] += curRuntime;
-	}
-
-	// second calculate the communication costs
-	unsigned int comCost = 0;
-	PartitioningGraph::EdgeIterator edgeIt = state.getFirstEdgeIterator();
-	PartitioningGraph::EdgeIterator edgeEnd = state.getEndEdgeIterator();
-	for (; edgeIt != edgeEnd; ++edgeIt) {
-		PartitioningGraph::VertexDescriptor u = state.getSourceVertex(*edgeIt), v = state.getTargetVertex(*edgeIt);
-		if (state.getPartition(u) != state.getPartition(v)) {
-			// this edge connects two vertices that are in different partitions -> add communication cost
-			comCost += state.getCommunicationCost(u, v);
-		}
-	}
-
-	return 2*comCost + 1*(*std::max_element(runtimeForPartition, runtimeForPartition + numOfPartitions));
-
-	// TODO: critical path costs are not implemented yet
-	// return state.getCriticalPathCost();
+	return state.getCriticalPathCost();
 }
 
 double SimulatedAnnealing::randomNumber(void) {
