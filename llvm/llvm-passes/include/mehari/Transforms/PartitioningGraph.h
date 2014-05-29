@@ -40,7 +40,7 @@ public:
 
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
-		boost::listS, 			// store vertex set in a std::list
+		boost::vecS, 			// store vertex set in a std::vector
 		boost::directedS, 	// the graph has got directed edges
 		ComputationUnit,		// the vertices are of type ComputationUnit
 		Communication				// the edges are of type Communication
@@ -74,6 +74,8 @@ public:
 
 	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
 	unsigned int getExecutionTime(VertexDescriptor vd);
+
+	unsigned int getCriticalPathCost(void);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 

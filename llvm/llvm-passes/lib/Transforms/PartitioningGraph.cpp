@@ -11,6 +11,7 @@
 #include <boost/random.hpp>
 
 #include <boost/graph/iteration_macros.hpp>
+#include <boost/graph/bellman_ford_shortest_paths.hpp>
 
 #include <ctime> // for using random generator with time
 #include <sstream>
@@ -282,6 +283,59 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd) {
 		instrInfo != NULL ? texe += instrInfo->getCycleCount() : texe += 1;		
 	}
 	return texe;
+}
+
+
+unsigned int PartitioningGraph::getCriticalPathCost(void) {
+	// create copy of partitioning graph that then can be modified
+	Graph tmpGraph;
+	copyGraph(pGraph, tmpGraph);
+
+	// update edge weight: 
+	// only keep communication cost if the two vertices of the are in different partitions
+	// add execution time of the target vertex to each edge weight
+	EdgeIterator eIt, eEnd;
+	boost::tie(eIt, eEnd) = boost::edges(tmpGraph);
+	for( ; eIt != eEnd; ++eIt) {
+		int edgeWeight = 0;
+		VertexDescriptor u = boost::source(*eIt, tmpGraph), v = boost::target(*eIt, tmpGraph);
+		if (tmpGraph[u].partition != tmpGraph[v].partition)
+			edgeWeight += tmpGraph[*eIt].cost;
+		edgeWeight += getExecutionTime(v);
+		tmpGraph[*eIt].cost = (-1)*edgeWeight;
+	}
+
+	
+	// run shortest path algorithm to determine critical path (because of negative edge weight)
+
+	unsigned int vertexCount = boost::num_vertices(tmpGraph);
+
+	// init predecessors and distances
+	std::vector<VertexDescriptor> predecessors(vertexCount);
+	for (int i=0; i<vertexCount; i++)
+		predecessors[i] = i;
+	std::vector<int> distances(vertexCount);
+	distances[0] = 0;
+
+	// gets the weight property
+	boost::property_map<Graph, int Communication::*>::type weight_pmap = boost::get(&Communication::cost, tmpGraph);
+
+	// call the algorithm
+	bool bellmanFordSucceeded = bellman_ford_shortest_paths(
+		tmpGraph,
+		vertexCount,
+		weight_map(weight_pmap).
+		distance_map(&distances[0]).
+		predecessor_map(&predecessors[0])
+	);
+
+	unsigned int pathCost = 0;
+	if (!bellmanFordSucceeded)
+		errs() << "ERROR: Bellman Ford could not be applied!\n";
+	else
+		pathCost = std::abs(*std::min_element(distances.begin(), distances.end()));
+	
+	return pathCost; 
 }
 
 
