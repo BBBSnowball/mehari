@@ -150,9 +150,9 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 				unsigned int newCost;
 				// TODO: find appropriate values for data and memory dependency costs
 				if (depIt->isRegdep) // register depdendency -> use of a data dependency method (e.g. mbox)
-					newCost = 5;
+					newCost = 30;
 				else // memory or control dependency -> use of a semaphore
-					newCost = 1;
+					newCost = 5;
 				if (inserted)
 					// initialize the communication cost
 					pGraph[ed].cost = newCost;
