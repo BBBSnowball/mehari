@@ -62,6 +62,9 @@ private:
 	void removeOutdatedVertices(VertexDescriptor vd1, VertexDescriptor vd2);
 	void updateCloseness(void);
 
+	void applyClusteringOnPartitioningGraph(Graph &cGraph, PartitioningGraph &pGraph);
+	bool comparePartitioningResults(PartitioningGraph &pGraph1, PartitioningGraph &pGraph2);
+
 	void printGraph(void);
 };
 

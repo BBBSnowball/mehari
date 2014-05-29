@@ -58,8 +58,9 @@ void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int parti
 		}
 	}
 
-	// finally perform clustering until the requested number of partitions is reached
-	while (boost::num_vertices(clusteringGraph) > partitionCount) {
+	// finally perform clustering and save all partitioning results that does not exceed the partitioning count
+	std::vector<PartitioningGraph> partitioningResults;
+	while (boost::num_vertices(clusteringGraph) > 1) {
 		// DEBUG: print graph for each step
 		// printGraph();
 		VertexDescriptor vd1, vd2, vdnew;
@@ -72,16 +73,19 @@ void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int parti
 		removeOutdatedVertices(vd1, vd2);
 		// update the closeness values
 		updateCloseness();
+		// save the current partitioning result if it does not exceed the partitioning count
+		if (boost::num_vertices(clusteringGraph) <= partitionCount) {
+			PartitioningGraph tmpPartitioningResult = partitioningGraph;
+			applyClusteringOnPartitioningGraph(clusteringGraph, tmpPartitioningResult);
+			partitioningResults.push_back(tmpPartitioningResult);
+		}
 	}
 
-	// save result by setting partitions
-	VertexIterator vtIt, vtEnd;
-	boost::tie(vtIt, vtEnd) = boost::vertices(clusteringGraph);
-	for (int i=0; vtIt != vtEnd; ++vtIt, i++) {
-		FunctionalUnitList flst = clusteringGraph[*vtIt].funcUnits;
-		for (FunctionalUnitList::iterator fIt = flst.begin(); fIt != flst.end(); ++fIt)
-			pGraph.setPartition(*fIt, i);
-	}
+	// determine the result with the minimum cost and save it in the original partitioning graph	
+	// TODO: currently it is not implemented in the partitioning path to handle partition counts
+	// 		 that differ from the given one -> clustering should only return #partitionCount partitions yet
+	// pGraph = *std::min_element(partitioningResults.begin(), partitioningResults.end(), comparePartitioningResults);
+	pGraph = *partitioningResults.begin();
 
 	// DEBUG: print final graph
 	printGraph();
@@ -186,6 +190,23 @@ void HierarchicalClustering::updateCloseness(void) {
 		VertexDescriptor v = boost::target(*edgeIt, clusteringGraph);
 		boost::tie(clusteringGraph[*edgeIt].closeness, clusteringGraph[*edgeIt].pSizeProduct) = closenessFunction(u, v);
 	}
+}
+
+
+void HierarchicalClustering::applyClusteringOnPartitioningGraph(Graph &cGraph, PartitioningGraph &pGraph) {
+	// save result by setting partitions
+	VertexIterator vtIt, vtEnd;
+	boost::tie(vtIt, vtEnd) = boost::vertices(cGraph);
+	for (int i=0; vtIt != vtEnd; ++vtIt, i++) {
+		FunctionalUnitList flst = cGraph[*vtIt].funcUnits;
+		for (FunctionalUnitList::iterator fIt = flst.begin(); fIt != flst.end(); ++fIt)
+			pGraph.setPartition(*fIt, i);
+	}
+}
+
+
+bool HierarchicalClustering::comparePartitioningResults(PartitioningGraph &pGraph1, PartitioningGraph &pGraph2) {
+	return pGraph1.getCriticalPathCost() < pGraph2.getCriticalPathCost();
 }
 
 
