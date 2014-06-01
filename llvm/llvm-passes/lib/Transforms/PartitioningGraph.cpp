@@ -133,14 +133,14 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	for (std::vector<Instruction*>::iterator instrIt = instructionList.begin(); instrIt != instructionList.end(); ++instrIt, ++index) {
 		// find the ComputationUnit that contains the target instruction
 		Graph::vertex_descriptor targetVertex = getVertexForInstruction(*instrIt);
-		if (targetVertex == NULL)
+		if (targetVertex == (-1))
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depIt = dependencies[index].dependencies.begin(); depIt != dependencies[index].dependencies.end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(depIt->depInstruction);
-			if (dependencyVertex == NULL)
+			if (dependencyVertex == (-1))
 				// the dependency instruction is not part of the Graph -> continue with the next instruction
 				continue;
 			if (targetVertex != dependencyVertex) {
@@ -167,7 +167,7 @@ PartitioningGraph::VertexDescriptor PartitioningGraph::getVertexForInstruction(I
 		if (std::find(instrList.begin(), instrList.end(), instruction) != instrList.end())
 			return *vertexIt;
 	}
-	return NULL;
+	return (-1);
 }
 
 
