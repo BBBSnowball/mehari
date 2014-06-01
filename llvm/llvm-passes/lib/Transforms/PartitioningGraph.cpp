@@ -147,18 +147,13 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 				Graph::edge_descriptor ed;
 				bool inserted;
 				boost::tie(ed, inserted) = boost::add_edge(dependencyVertex, targetVertex, pGraph);
-				unsigned int newCost;
+				CommunicationType newCommunication;
 				// TODO: find appropriate values for data and memory dependency costs
 				if (depIt->isRegdep) // register depdendency -> use of a data dependency method (e.g. mbox)
-					newCost = 30;
+					newCommunication = DataDependency;
 				else // memory or control dependency -> use of a semaphore
-					newCost = 5;
-				if (inserted)
-					// initialize the communication cost
-					pGraph[ed].cost = newCost;
-				else
-					// there already is an edge between the two vertices -> increment the communication cost
-					pGraph[ed].cost += newCost;
+					newCommunication = OrderDependency;
+				pGraph[ed].comOperations.push_back(newCommunication);
 			}	
 		}
 	}
@@ -258,6 +253,19 @@ std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor v
 }
 
 
+unsigned int PartitioningGraph::calcEdgeCost(EdgeDescriptor ed) {
+	unsigned int costs = 0;
+	std::string device = "Cortex-A9";
+	HardwareInformation hwInfo;
+  	DeviceInformation *devInfo = hwInfo.getDeviceInfo(device);
+  	CommunicationInformation *comInfo = devInfo->getCommunicationInfo(device);
+  	for (std::vector<CommunicationType>::iterator it = pGraph[ed].comOperations.begin(); 
+		it != pGraph[ed].comOperations.end(); ++it) 
+		costs += comInfo->getCommunicationCost(*it);
+	return costs;
+}
+
+
 unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2) {
 	bool exists1, exists2;
 	EdgeDescriptor ed1, ed2;
@@ -265,9 +273,9 @@ unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, Verte
 	boost::tie(ed2, exists2) = boost::edge(vd2, vd1, pGraph);
 	unsigned int costs = 0;
 	if (exists1)
-		costs += pGraph[ed1].cost;
+		costs += calcEdgeCost(ed1);
 	if (exists2)
-		costs += pGraph[ed2].cost;
+		costs += calcEdgeCost(ed2);
 	return costs;
 }
 
@@ -287,38 +295,52 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd) {
 
 
 unsigned int PartitioningGraph::getCriticalPathCost(void) {
-	// create copy of partitioning graph that then can be modified
-	Graph tmpGraph;
-	copyGraph(pGraph, tmpGraph);
+	// create new simple graph type for critical path analysis
+	typedef boost::adjacency_list<
+		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
+		boost::vecS, 				// store vertex set in a std::vector
+		boost::directedS, 			// the graph has got directed edges
+		boost::no_property,			// the vertices have no property
+		boost::property<boost::edge_weight_t, int>	// the edges weight is of integer type
+		> cpGraph;
 
-	// update edge weight: 
+	// new graph
+	cpGraph tmpGraph;
+
+	// copy vertices to new graph
+	for (int i=0; i<boost::num_vertices(pGraph); i++)
+		boost::add_vertex(tmpGraph);
+
+	// create edges and set edge weight of new Graph:
 	// only keep communication cost if the two vertices of the are in different partitions
 	// add execution time of the target vertex to each edge weight
 	EdgeIterator eIt, eEnd;
-	boost::tie(eIt, eEnd) = boost::edges(tmpGraph);
+	boost::tie(eIt, eEnd) = boost::edges(pGraph);
 	for( ; eIt != eEnd; ++eIt) {
+		// calculate edge weight
 		int edgeWeight = 0;
-		VertexDescriptor u = boost::source(*eIt, tmpGraph), v = boost::target(*eIt, tmpGraph);
-		if (tmpGraph[u].partition != tmpGraph[v].partition)
-			edgeWeight += tmpGraph[*eIt].cost;
+		VertexDescriptor u = boost::source(*eIt, pGraph), v = boost::target(*eIt, pGraph);
+		if (pGraph[u].partition != pGraph[v].partition)
+			edgeWeight += calcEdgeCost(*eIt);
 		edgeWeight += getExecutionTime(v);
-		tmpGraph[*eIt].cost = (-1)*edgeWeight;
+		edgeWeight *= (-1);
+		// create new edge and set edge weight in temporary graph
+		boost::add_edge(u, v, edgeWeight, tmpGraph);
 	}
 
-	
 	// run shortest path algorithm to determine critical path (because of negative edge weight)
 
 	unsigned int vertexCount = boost::num_vertices(tmpGraph);
 
 	// init predecessors and distances
-	std::vector<VertexDescriptor> predecessors(vertexCount);
+	std::vector<cpGraph::vertex_descriptor> predecessors(vertexCount);
 	for (int i=0; i<vertexCount; i++)
 		predecessors[i] = i;
 	std::vector<int> distances(vertexCount);
 	distances[0] = 0;
 
 	// gets the weight property
-	boost::property_map<Graph, int Communication::*>::type weight_pmap = boost::get(&Communication::cost, tmpGraph);
+	boost::property_map<cpGraph, boost::edge_weight_t>::type weight_pmap = get(boost::edge_weight, tmpGraph);
 
 	// call the algorithm
 	bool bellmanFordSucceeded = bellman_ford_shortest_paths(
@@ -357,7 +379,7 @@ void PartitioningGraph::printGraph(std::string &name) {
 	Graph::edge_iterator edgeIt, edgeEnd;
 	for (boost::tie(edgeIt, edgeEnd) = boost::edges(pGraph); edgeIt != edgeEnd; ++edgeIt) {
     Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
-		errs() << pGraph[u].name << " -> " << pGraph[v].name << " (cost: " << pGraph[*edgeIt].cost << ")\n";
+		errs() << pGraph[u].name << " -> " << pGraph[v].name << " (cost: " << calcEdgeCost(*edgeIt) << ")\n";
 	}
 }
 
@@ -399,7 +421,7 @@ void PartitioningGraph::printGraphviz(Function &func, std::string &name, std::st
 	Graph::edge_iterator edgeIt, edgeEnd;
 	for (boost::tie(edgeIt, edgeEnd) = boost::edges(pGraph); edgeIt != edgeEnd; ++edgeIt) {
     Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
-		dotfile << "  " << pGraph[u].name << "->" << pGraph[v].name << "[label=\"" << pGraph[*edgeIt].cost << "\"];\n";
+		dotfile << "  " << pGraph[u].name << "->" << pGraph[v].name << "[label=\"" << calcEdgeCost(*edgeIt) << "\"];\n";
 	}
 
   dotfile << "}";

@@ -4,6 +4,7 @@
 #include "llvm/IR/Function.h"
 
 #include "mehari/Analysis/InstructionDependencyAnalysis.h"
+#include "mehari/HardwareInformation.h"
 
 #include <boost/graph/adjacency_list.hpp> 
 #include <boost/graph/graphviz.hpp>
@@ -35,14 +36,14 @@ public:
 	};
 
 	struct Communication {
-		int cost;
+		std::vector<CommunicationType> comOperations;
 	};
 
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
-		boost::vecS, 			// store vertex set in a std::vector
-		boost::directedS, 	// the graph has got directed edges
-		ComputationUnit,		// the vertices are of type ComputationUnit
+		boost::vecS, 				// store vertex set in a std::vector
+		boost::directedS, 			// the graph has got directed edges
+		ComputationUnit,			// the vertices are of type ComputationUnit
 		Communication				// the edges are of type Communication
 		> Graph;
 
@@ -92,6 +93,8 @@ private:
 	void addInstructionsToList(std::vector<Instruction*> instructions);
 
 	void copyGraph(const Graph &orig, Graph &copy);
+
+	unsigned int calcEdgeCost(EdgeDescriptor ed);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;
