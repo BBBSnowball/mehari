@@ -73,10 +73,11 @@ public:
 	void setInstructions(VertexDescriptor vd, std::vector<Instruction*> &instructions);
 	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);
 
-	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
-	unsigned int getExecutionTime(VertexDescriptor vd);
+	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2, 
+		std::string &sourceDevice, std::string &targetDevice);
+	unsigned int getExecutionTime(VertexDescriptor vd, std::string &targetDevice);
 
-	unsigned int getCriticalPathCost(void);
+	unsigned int getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 
@@ -94,7 +95,7 @@ private:
 
 	void copyGraph(const Graph &orig, Graph &copy);
 
-	unsigned int calcEdgeCost(EdgeDescriptor ed);
+	unsigned int calcEdgeCost(EdgeDescriptor ed, std::string &sourceDevice, std::string &targetDevice);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;

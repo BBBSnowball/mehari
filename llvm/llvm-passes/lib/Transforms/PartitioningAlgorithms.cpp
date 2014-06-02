@@ -106,15 +106,16 @@ bool HierarchicalClustering::Edge::operator> (const Edge &e) const {
 boost::tuple<float, unsigned int> HierarchicalClustering::closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2) {
 	// NOTE: for this closeness function the so called ratio cut metric ist used
 	unsigned int comCost = 0, pExecTime1 = 0, pExecTime2 = 0;
+	std::string device = "Cortex-A9";
 	FunctionalUnitList funits1 = clusteringGraph[vd1].funcUnits;
 	FunctionalUnitList funits2 = clusteringGraph[vd2].funcUnits;
 	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1) {
-		pExecTime1 += partitioningGraph.getExecutionTime(*it1);
+		pExecTime1 += partitioningGraph.getExecutionTime(*it1, device);
 		for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
-			comCost += partitioningGraph.getCommunicationCost(*it1, *it2);
+			comCost += partitioningGraph.getCommunicationCost(*it1, *it2, device, device);
 	}
 	for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
-		pExecTime2 += partitioningGraph.getExecutionTime(*it2);
+		pExecTime2 += partitioningGraph.getExecutionTime(*it2, device);
 
 	unsigned int pSizeProduct = pExecTime1 * pExecTime2;
 	float closeness = float(comCost) / float(pSizeProduct);
@@ -206,7 +207,8 @@ void HierarchicalClustering::applyClusteringOnPartitioningGraph(Graph &cGraph, P
 
 
 bool HierarchicalClustering::comparePartitioningResults(PartitioningGraph &pGraph1, PartitioningGraph &pGraph2) {
-	return pGraph1.getCriticalPathCost() < pGraph2.getCriticalPathCost();
+	std::string device = "Cortex-A9";
+	return pGraph1.getCriticalPathCost(device, device) < pGraph2.getCriticalPathCost(device, device);
 }
 
 
@@ -309,7 +311,8 @@ void SimulatedAnnealing::randomMove(State &state) {
 
 int SimulatedAnnealing::costFunction(State &state) {
 	// NOTE: the state is stored in a PartitioningGraph
-	return state.getCriticalPathCost();
+	std::string device = "Cortex-A9";
+	return state.getCriticalPathCost(device, device);
 }
 
 double SimulatedAnnealing::randomNumber(void) {

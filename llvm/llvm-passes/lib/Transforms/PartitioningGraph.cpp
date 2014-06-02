@@ -253,12 +253,12 @@ std::vector<Instruction*> &PartitioningGraph::getInstructions(VertexDescriptor v
 }
 
 
-unsigned int PartitioningGraph::calcEdgeCost(EdgeDescriptor ed) {
+unsigned int PartitioningGraph::calcEdgeCost(EdgeDescriptor ed, 
+		std::string &sourceDevice, std::string &targetDevice) {
 	unsigned int costs = 0;
-	std::string device = "Cortex-A9";
 	HardwareInformation hwInfo;
-  	DeviceInformation *devInfo = hwInfo.getDeviceInfo(device);
-  	CommunicationInformation *comInfo = devInfo->getCommunicationInfo(device);
+  	DeviceInformation *devInfo = hwInfo.getDeviceInfo(sourceDevice);
+  	CommunicationInformation *comInfo = devInfo->getCommunicationInfo(targetDevice);
   	for (std::vector<CommunicationType>::iterator it = pGraph[ed].comOperations.begin(); 
 		it != pGraph[ed].comOperations.end(); ++it) 
 		costs += comInfo->getCommunicationCost(*it);
@@ -266,24 +266,25 @@ unsigned int PartitioningGraph::calcEdgeCost(EdgeDescriptor ed) {
 }
 
 
-unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2) {
+unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2, 
+		std::string &sourceDevice, std::string &targetDevice) {
 	bool exists1, exists2;
 	EdgeDescriptor ed1, ed2;
 	boost::tie(ed1, exists1) = boost::edge(vd1, vd2, pGraph);
 	boost::tie(ed2, exists2) = boost::edge(vd2, vd1, pGraph);
 	unsigned int costs = 0;
 	if (exists1)
-		costs += calcEdgeCost(ed1);
+		costs += calcEdgeCost(ed1, sourceDevice, targetDevice);
 	if (exists2)
-		costs += calcEdgeCost(ed2);
+		costs += calcEdgeCost(ed2, sourceDevice, targetDevice);
 	return costs;
 }
 
 
-unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd) {
+unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::string &targetDevice) {
 	// TODO: implement this function by using the HardwareInformation class
 	HardwareInformation hwInfo;
-	DeviceInformation *devInfo = hwInfo.getDeviceInfo("Cortex-A9");
+	DeviceInformation *devInfo = hwInfo.getDeviceInfo(targetDevice);
 	unsigned int texe = 0;
 	std::vector<Instruction*> instrList = getInstructions(vd);
 	for (std::vector<Instruction*>::iterator it = instrList.begin(); it != instrList.end(); ++it) {
@@ -294,7 +295,7 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd) {
 }
 
 
-unsigned int PartitioningGraph::getCriticalPathCost(void) {
+unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice) {
 	// create new simple graph type for critical path analysis
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
@@ -321,8 +322,8 @@ unsigned int PartitioningGraph::getCriticalPathCost(void) {
 		int edgeWeight = 0;
 		VertexDescriptor u = boost::source(*eIt, pGraph), v = boost::target(*eIt, pGraph);
 		if (pGraph[u].partition != pGraph[v].partition)
-			edgeWeight += calcEdgeCost(*eIt);
-		edgeWeight += getExecutionTime(v);
+			edgeWeight += calcEdgeCost(*eIt, sourceDevice, targetDevice);
+		edgeWeight += getExecutionTime(v, sourceDevice);
 		edgeWeight *= (-1);
 		// create new edge and set edge weight in temporary graph
 		boost::add_edge(u, v, edgeWeight, tmpGraph);
@@ -378,8 +379,15 @@ void PartitioningGraph::printGraph(std::string &name) {
 	errs() << "\nEDGES:\n";
 	Graph::edge_iterator edgeIt, edgeEnd;
 	for (boost::tie(edgeIt, edgeEnd) = boost::edges(pGraph); edgeIt != edgeEnd; ++edgeIt) {
-    Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
-		errs() << pGraph[u].name << " -> " << pGraph[v].name << " (cost: " << calcEdgeCost(*edgeIt) << ")\n";
+		std::string comOps = "comOps: ";
+		for (std::vector<CommunicationType>::iterator it = pGraph[*edgeIt].comOperations.begin(); 
+			it != pGraph[*edgeIt].comOperations.end(); ++it) {
+			std::ostringstream oss;
+			oss << *it;
+			comOps += oss.str() + " ";
+		}
+		Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
+		errs() << pGraph[u].name << " -> " << pGraph[v].name << " (" << comOps << ")\n";
 	}
 }
 
@@ -420,9 +428,15 @@ void PartitioningGraph::printGraphviz(Function &func, std::string &name, std::st
 
 	Graph::edge_iterator edgeIt, edgeEnd;
 	for (boost::tie(edgeIt, edgeEnd) = boost::edges(pGraph); edgeIt != edgeEnd; ++edgeIt) {
-    Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
-		dotfile << "  " << pGraph[u].name << "->" << pGraph[v].name << "[label=\"" << calcEdgeCost(*edgeIt) << "\"];\n";
+		std::string comOps = "comOps: ";
+		for (std::vector<CommunicationType>::iterator it = pGraph[*edgeIt].comOperations.begin(); 
+			it != pGraph[*edgeIt].comOperations.end(); ++it) {
+			std::ostringstream oss;
+			oss << *it;
+			comOps += oss.str() + " ";
+		}
+		Graph::vertex_descriptor u = boost::source(*edgeIt, pGraph), v = boost::target(*edgeIt, pGraph);
+		dotfile << "  " << pGraph[u].name << "->" << pGraph[v].name << "[label=\"" << comOps << "\"];\n";
 	}
-
-  dotfile << "}";
+	dotfile << "}";
 }
