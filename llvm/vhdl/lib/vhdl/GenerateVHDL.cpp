@@ -53,30 +53,6 @@ inline MyOperator& operator <<(MyOperator& op, const T& x) {
   return op;
 }
 
-
-VHDLBackend::VHDLBackend()
-  : branchLabelNameGenerator("label"),
-    tmpVarNameGenerator("t0") { }
-
-void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
-  this->generator = generator;
-  this->stream = &stream;
-
-  branchLabels.clear();
-  branchLabelNameGenerator.reset();
-  channels.clear();
-  parameters.clear();
-
-  op.reset(new MyOperator());
-  op->setName("test");
-  op->setCopyrightString("blub");
-}
-
-unsigned int getWidth(Type* type) {
-  //TODO
-  return 64;
-}
-
 typedef boost::shared_ptr<class Channel> ChannelP;
 
 struct ValueStorage {
@@ -134,6 +110,12 @@ std::ostream& operator <<(std::ostream& stream, ValueStorageP vs) {
 }
 
 
+unsigned int getWidth(Type* type) {
+  //TODO
+  return 64;
+}
+
+
 class ValueStorageFactory {
   std::map<Value*,      ValueStorageP> by_llvm_value;
   std::map<std::string, ValueStorageP> by_name;
@@ -153,7 +135,7 @@ class ValueStorageFactory {
 
   UniqueNameSource tmpVarNameGenerator;
 public:
-  ValueStorageFactory() : tmpVarNameGenerator("u") { }
+  ValueStorageFactory() : tmpVarNameGenerator("t") { }
 
   void clear() {
     by_llvm_value.clear();
@@ -210,9 +192,6 @@ public:
 private:
   ValueStorageP get2(Value* value);
 };
-
-//TODO move into class VHDLBackend
-static ValueStorageFactory vs_factory;
 
 
 class Channel {
@@ -422,7 +401,7 @@ std::string VHDLBackend::generateBranchLabel(Value *target) {
   return label;
 }
 
-ChannelP VHDLBackend::createChannel(Value* addr, const std::string& name,
+/*ChannelP VHDLBackend::createChannel(Value* addr, const std::string& name,
     ChannelDirection::Direction direction) {
   ChannelP channel = Channel::make_port(name, direction);
   channel->addTo(this->op.get());
@@ -447,11 +426,11 @@ ChannelP VHDLBackend::getChannel(Value* addr, ChannelDirection::Direction direct
     // It refers to an existing variable. As we don't save any temporary variables in the
     // generator, it must be a parameter.
     return createChannel(addr, *str, direction);
-  }*/
+  }* /
 
   /*else if (const std::string* param = getValueOrNull(parameters, addr)) {
     asdf
-  }*/
+  }* /
 
   // handle global value operands
   else if (llvm::GEPOperator *op = dyn_cast<GEPOperator>(addr)) {
@@ -476,14 +455,14 @@ ChannelP VHDLBackend::getChannel(Value* addr, ChannelDirection::Direction direct
     return Channel::make_constant(toString(value));
   }
 
-  /*// convert operand address to string
+  /* // convert operand address to string
   std::string opString = toString(addr);
   // if the value was got from another thread by the get_data function, return it
-  return generator->getDataDependencyOrDefault(opString, "## " + opString + " ##");*/
+  return generator->getDataDependencyOrDefault(opString, "## " + opString + " ##");* /
 
   //TODO
   return Channel::make_constant("## " + toString(addr) + " ##");
-}
+}*/
 
 
 ValueStorageP ValueStorageFactory::getGlobalVariable(Value* value) {
@@ -568,12 +547,29 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 }
 
 
+VHDLBackend::VHDLBackend()
+  : branchLabelNameGenerator("label"),
+    vs_factory(new ValueStorageFactory()) { }
+
+void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
+  this->generator = generator;
+  this->stream = &stream;
+
+  branchLabels.clear();
+  branchLabelNameGenerator.reset();
+  vs_factory->clear();
+
+  op.reset(new MyOperator());
+  op->setName("test");
+  op->setCopyrightString("blub");
+}
+
 void VHDLBackend::generateStore(Value *op1, Value *op2) {
   debug_print("generateStore(" << op1 << ", " << op2 << ")");
   return_if_dry_run();
 
-  ChannelP ch1 = vs_factory.get(op1)->getWriteChannel(op.get());
-  ChannelP ch2 = vs_factory.get(op2)->getReadChannel(op.get());
+  ChannelP ch1 = vs_factory->get(op1)->getWriteChannel(op.get());
+  ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
 
   ch1->connectToOutput(ch2, op.get());
 }
@@ -705,29 +701,34 @@ std::string VHDLBackend::createTemporaryVariable(Value *addr, std::string dataty
   debug_print("createTemporaryVariable(" << addr << ", " << datatype << ")");
   return_value_if_dry_run(tmpVarNameGenerator.next());
 
-  std::string newTmpVar = tmpVarNameGenerator.next();
-  channels[addr] = Channel::make_temp(op.get(), newTmpVar);
-  channels[addr]->addTo(op.get());
-  return newTmpVar;
+  ValueStorageP x = vs_factory->makeTemporaryVariable(addr);
+  debug_print(" -> " << x->name);
+  return x->name;
 }
 
 std::string VHDLBackend::getOrCreateTemporaryVariable(Value *addr) {
-  if (ChannelP* varname = getValueOrNull(channels, addr))
+  //TODO
+  assert(false);
+
+  /*if (ChannelP* varname = getValueOrNull(channels, addr))
     return (*varname)->data_signal;
   else
-    return createTemporaryVariable(addr, generator->getDatatype(addr));
+    return createTemporaryVariable(addr, generator->getDatatype(addr));*/
 }
 
 void VHDLBackend::addVariable(Value *addr, std::string name) {
   //TODO
   debug_print("addVariable(" << addr << ", " << name << ")");
   return_if_dry_run();
-  channels[addr] = Channel::make_variable(op.get(), name);
+
+  //TODO
+  assert(false);
+  //channels[addr] = Channel::make_variable(op.get(), name);
 }
 
 void VHDLBackend::addParameter(Value *addr, std::string name) {
   debug_print("addParameter(" << addr << ", " << name << ")");
-  vs_factory.makeParameter(addr, name);
+  vs_factory->makeParameter(addr, name);
 }
 
 void VHDLBackend::addVariable(Value *addr, std::string name, std::string index) {
@@ -741,12 +742,15 @@ void VHDLBackend::copyVariable(Value *source, Value *target) {
   return_if_dry_run();
   //debug_print("  " << channels[source]->data_signal);
   //channels[target] = channels[source];
-  vs_factory.set(target, vs_factory.get(source));
+  vs_factory->set(target, vs_factory->get(source));
 }
 
 void VHDLBackend::addIndexToVariable(Value *source, Value *target, std::string index) {
   //TODO direction
   debug_print("addVariable(" << source << ", " << target << ", " << index << ")");
   return_if_dry_run();
-  channels[target] = Channel::make_port(channels[source]->data_signal + "_" + index, IN);
+
+  //TODO
+  assert(false);
+  //channels[target] = Channel::make_port(channels[source]->data_signal + "_" + index, IN);
 }

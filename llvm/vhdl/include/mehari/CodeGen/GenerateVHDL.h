@@ -33,14 +33,12 @@ class Channel;
 class VHDLBackend : public CodeGeneratorBackend {
   UniqueNameSource branchLabelNameGenerator;
   std::map<Value*, std::vector<std::string> > branchLabels;
-  std::map<Value*, boost::shared_ptr<Channel> > channels;
-  UniqueNameSource tmpVarNameGenerator;
-  std::map<Value*, std::string> parameters;
 
   SimpleCCodeGenerator* generator;
   std::ostream* stream;
 
   boost::scoped_ptr<MyOperator> op;
+  boost::scoped_ptr<class ValueStorageFactory> vs_factory;
 public:
   VHDLBackend();
 
