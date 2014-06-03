@@ -28,42 +28,28 @@ public:
     unsigned int numElem;
   } GlobalArrayVariable;
 
-  void createCCode(std::ostream& stream, Function &func, std::vector<Instruction*> &instructions);
+  void createCCode(std::ostream& stream, Function &func, const std::vector<Instruction*> &instructions);
   void createExternArray(std::ostream& stream, GlobalArrayVariable &globVar);
 
-  inline std::string createCCode(Function &func, std::vector<Instruction*> &instructions) {
+  inline std::string createCCode(Function &func, const std::vector<Instruction*> &instructions) {
     std::stringstream stream;
     createCCode(stream, func, instructions);
     return stream.str();
   }
 
-  std::string getOperandString(Value* addr);
-
-  std::map<Value*, std::string>& getVariables();
   std::string getDataDependencyOrDefault(std::string opString, std::string defaultValue);
 
+  std::string getDatatype(Value *addr);
+  std::string getDatatype(Type *type);
+
 private:
-  std::map<Value*, std::string> variables;
-  std::map<std::string, std::vector<std::string> > tmpVariables;
   std::map<std::string, std::string> dataDependencies;
-  UniqueNameSource tmpVarNameGenerator;
 
   CodeGeneratorBackend* backend;
 
   void resetVariables();
 
   void extractFunctionParameters(Function &func);
-
-  void addVariable(Value *addr, std::string name);
-  void addVariable(Value *addr, std::string name, std::string index);
-  void copyVariable(Value *source, Value *target);
-  void addIndexToVariable(Value *source, Value *target, std::string index);
-
-  std::string getDatatype(Value *addr);
-  std::string getDatatype(Type *type);
-
-  std::string createTemporaryVariable(Value *addr, std::string datatype);
-  std::string getOrCreateTemporaryVariable(Value *addr);
 };
 
 class CodeGeneratorBackend {
@@ -81,14 +67,24 @@ public:
   virtual void generateUnconditionalBranch(std::string label) =0;
   virtual void generateConditionalBranch(Value *condition, std::string label1, std::string label2) =0;
   virtual void generateReturn(Value *retVal) =0;
-  virtual void generateVariableDeclarations(const std::map<std::string, std::vector<std::string> >& tmpVariables) =0;
   virtual void generateBranchTargetIfNecessary(llvm::Instruction* instr) =0;
   virtual void generateEndOfMethod();
+
+  virtual std::string createTemporaryVariable(Value *addr, std::string datatype) =0;
+  virtual std::string getOrCreateTemporaryVariable(Value *addr) =0;
+  virtual void addParameter(Value *addr, std::string name) =0;
+  virtual void addVariable(Value *addr, std::string name) =0;
+  virtual void addVariable(Value *addr, std::string name, std::string index) =0;
+  virtual void copyVariable(Value *source, Value *target) =0;
+  virtual void addIndexToVariable(Value *source, Value *target, std::string index) =0;
 };
 
 class CCodeBackend : public CodeGeneratorBackend {
   UniqueNameSource branchLabelNameGenerator;
   std::map<Value*, std::vector<std::string> > branchLabels;
+  std::map<Value*, std::string> variables;
+  std::map<std::string, std::vector<std::string> > tmpVariables;
+  UniqueNameSource tmpVarNameGenerator;
 
   std::stringstream declarations, ccode;
   std::ostream* output_stream;
@@ -110,9 +106,17 @@ public:
   void generateUnconditionalBranch(std::string label);
   void generateConditionalBranch(Value *condition, std::string label1, std::string label2);
   void generateReturn(Value *retVal);
-  void generateVariableDeclarations(const std::map<std::string, std::vector<std::string> >& tmpVariables);
+  void generateVariableDeclarations();
   void generateBranchTargetIfNecessary(llvm::Instruction* instr);
   void generateEndOfMethod();
+
+  std::string createTemporaryVariable(Value *addr, std::string datatype);
+  std::string getOrCreateTemporaryVariable(Value *addr);
+  void addParameter(Value *addr, std::string name);
+  void addVariable(Value *addr, std::string name);
+  void addVariable(Value *addr, std::string name, std::string index);
+  void copyVariable(Value *source, Value *target);
+  void addIndexToVariable(Value *source, Value *target, std::string index);
 
 private:
   std::string getOperandString(Value* addr);

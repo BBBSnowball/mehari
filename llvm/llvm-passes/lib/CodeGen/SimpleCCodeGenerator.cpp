@@ -95,12 +95,12 @@ boost::scoped_ptr<CCodeMaps> CCodeMaps::_instance;
 
 
 SimpleCCodeGenerator::SimpleCCodeGenerator(CodeGeneratorBackend* backend)
-    : tmpVarNameGenerator("t"), backend(backend ? backend : new CCodeBackend()) { }
+    : backend(backend ? backend : new CCodeBackend()) { }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
 
 
-void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std::vector<Instruction*> &instructions) {
+void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, const std::vector<Instruction*> &instructions) {
   
   enum CalcState {LOAD_VAR, GET_INDEX, LOAD_INDEX, APPLY};
   CalcState cstate;
@@ -121,7 +121,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
 
 
   // generate C code for the given instruction vector
-  for (std::vector<Instruction*>::iterator instrIt = instructions.begin();
+  for (std::vector<Instruction*>::const_iterator instrIt = instructions.begin();
       instrIt != instructions.end(); ++instrIt) {
 
     Instruction *instr = dyn_cast<Instruction>(*instrIt);
@@ -151,12 +151,12 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
             // NOTE: the last index is the one we want to know
             for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
               index = dyn_cast<ConstantInt>(*it)->getValue().toString(10, true);
-          addVariable(instr, name, index);
+          backend->addVariable(instr, name, index);
         }
         // handle load of local variable
         else {
           // copy name of loaded value to new variable (with current instruction address)
-          copyVariable(instr->getOperand(0), instr);
+          backend->copyVariable(instr->getOperand(0), instr);
         }
 
         if (isa<GetElementPtrInst>(nextInstr))
@@ -177,7 +177,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
         }
 
         std::string index = dyn_cast<llvm::ConstantInt>(instr->getOperand(1))->getValue().toString(10, true);
-        addIndexToVariable(instr->getOperand(0), instr, index);
+        backend->addIndexToVariable(instr->getOperand(0), instr, index);
         
         if (isa<LoadInst>(nextInstr))
           cstate = LOAD_INDEX;
@@ -195,7 +195,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
         }
 
         // copy name of loaded value to new variable (with current instruction address)
-        copyVariable(instr->getOperand(0), instr);
+        backend->copyVariable(instr->getOperand(0), instr);
 
         if (isa<LoadInst>(nextInstr))
           cstate = LOAD_VAR;
@@ -213,7 +213,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
         }
         else if (isa<BinaryOperator>(instr)) {
           // create new temporary variable and print C code
-          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
+          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
           backend->generateBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), instr->getOpcode());
         }
         else if (CallInst *cInstr = dyn_cast<CallInst>(instr)) {
@@ -226,7 +226,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
             backend->generateVoidCall(functionName, args);
           }
           else {
-            std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
+            std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
             backend->generateCall(functionName, tmpVar, args);
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
@@ -237,12 +237,12 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
           }
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
+          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
           backend->generateComparison(tmpVar, cmpInstr->getOperand(0),
             cmpInstr->getOperand(1), cmpInstr->getPredicate());
         }
         else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
-          std::string tmpVar = createTemporaryVariable(instr, getDatatype(instr));
+          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
            backend->generateIntegerExtension(tmpVar, extInstr->getOperand(0));
         }
         else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
@@ -250,7 +250,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
             // handle phi nodes branch targets
             if (PHINode *phiInstr = dyn_cast<PHINode>(&brInstr->getSuccessor(0)->front())) {
               // create temporary variable for phi node assignment before the branch instruction
-              std::string tmpVar = getOrCreateTemporaryVariable(phiInstr);
+              std::string tmpVar = backend->getOrCreateTemporaryVariable(phiInstr);
               // print assignment for the phi node variable
               backend->generatePhiNodeAssignment(tmpVar, prevInstr);
             }
@@ -287,7 +287,6 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, std
 
   } // for instructions
 
-  backend->generateVariableDeclarations(tmpVariables);
   backend->generateEndOfMethod();
 }
 
@@ -299,10 +298,7 @@ void SimpleCCodeGenerator::createExternArray(std::ostream& stream, GlobalArrayVa
 
 
 void SimpleCCodeGenerator::resetVariables() {
-  variables.clear();
-  tmpVariables.clear();
   dataDependencies.clear();
-  tmpVarNameGenerator.reset();
 }
 
 
@@ -337,7 +333,7 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
     // TODO: very quick and dirty -> find a better solution for this!
     if (paramName == "status")
       paramName = "*status";
-    addVariable(instr->getOperand(1), paramName);
+    backend->addParameter(instr->getOperand(1), paramName);
 
     remainingParams--;
   }
@@ -345,23 +341,6 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   if (remainingParams != 0) {
     errs() << "WARNING: Mismatched ALLOCA and STORE instructions in function " << func << "\n";
   }
-}
-
-
-void SimpleCCodeGenerator::addVariable(Value *addr, std::string name) {
-  variables[addr] = name;
-}
-
-void SimpleCCodeGenerator::addVariable(Value *addr, std::string name, std::string index) {
-  variables[addr] = (index.empty() ? name : name + "[" + index + "]");
-}
-
-void SimpleCCodeGenerator::copyVariable(Value *source, Value *target) {
-  variables[target] = variables[source];
-}
-
-void SimpleCCodeGenerator::addIndexToVariable(Value *source, Value *target, std::string index) {
-  variables[target] = variables[source] + "[" + index + "]";
 }
 
 std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
@@ -381,25 +360,6 @@ std::string SimpleCCodeGenerator::getDatatype(Type *type) {
     return "<unsupported datatype>";
 }
 
-
-std::string SimpleCCodeGenerator::createTemporaryVariable(Value *addr, std::string datatype) {
-  std::string newTmpVar = tmpVarNameGenerator.next();
-  variables[addr] = newTmpVar;
-  tmpVariables[datatype].push_back(newTmpVar);
-  return newTmpVar;
-}
-
-std::string SimpleCCodeGenerator::getOrCreateTemporaryVariable(Value *addr) {
-  if (const std::string* varname = getValueOrNull(variables, addr))
-    return *varname;
-  else
-    return createTemporaryVariable(addr, getDatatype(addr));
-}
-
-std::map<Value*, std::string>& SimpleCCodeGenerator::getVariables() {
-  return variables;
-}
-
 std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opString, std::string defaultValue) {
   return getValueOrDefault(dataDependencies, opString, defaultValue);
 }
@@ -409,7 +369,8 @@ void CodeGeneratorBackend::generateEndOfMethod() { }
 
 
 CCodeBackend::CCodeBackend()
-  : branchLabelNameGenerator("label") { }
+  : branchLabelNameGenerator("label"),
+    tmpVarNameGenerator("t") { }
 
 void CCodeBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;
@@ -419,6 +380,9 @@ void CCodeBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
 
   branchLabels.clear();
   branchLabelNameGenerator.reset();
+  variables.clear();
+  tmpVariables.clear();
+  tmpVarNameGenerator.reset();
 }
 
 std::string CCodeBackend::generateBranchLabel(Value *target) {
@@ -430,7 +394,7 @@ std::string CCodeBackend::generateBranchLabel(Value *target) {
 
 std::string CCodeBackend::getOperandString(Value* addr) {
   // return operand if it is a variable and already known
-  if (const std::string* str = getValueOrNull(generator->getVariables(), addr))
+  if (const std::string* str = getValueOrNull(variables, addr))
     return *str;
 
   // handle global value operands
@@ -444,7 +408,7 @@ std::string CCodeBackend::getOperandString(Value* addr) {
         indices = "[" + dyn_cast<ConstantInt>(*it)->getValue().toString(10, true) + "]";
     std::string name = op->getPointerOperand()->getName();
     std::string operand = name + indices;
-    generator->getVariables()[addr] = operand;
+    variables[addr] = operand;
     return operand;
   }
 
@@ -545,7 +509,7 @@ void CCodeBackend::generateReturn(Value *retVal) {
 }
 
 
-void CCodeBackend::generateVariableDeclarations(const std::map<std::string, std::vector<std::string> >& tmpVariables) {
+void CCodeBackend::generateVariableDeclarations() {
   for (std::map<std::string, std::vector<std::string> >::const_iterator it=tmpVariables.begin();
       it!=tmpVariables.end(); ++it) {
     declarations << "\t" << it->first << " ";
@@ -568,5 +532,40 @@ void CCodeBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
 
 void CCodeBackend::generateEndOfMethod() {
   // add declarations for temporary variables at the beginning of the code
+  generateVariableDeclarations();
   *output_stream << declarations.str() << ccode.str();
+}
+
+std::string CCodeBackend::createTemporaryVariable(Value *addr, std::string datatype) {
+  std::string newTmpVar = tmpVarNameGenerator.next();
+  variables[addr] = newTmpVar;
+  tmpVariables[datatype].push_back(newTmpVar);
+  return newTmpVar;
+}
+
+std::string CCodeBackend::getOrCreateTemporaryVariable(Value *addr) {
+  if (const std::string* varname = getValueOrNull(variables, addr))
+    return *varname;
+  else
+    return createTemporaryVariable(addr, generator->getDatatype(addr));
+}
+
+void CCodeBackend::addVariable(Value *addr, std::string name) {
+  variables[addr] = name;
+}
+
+void CCodeBackend::addParameter(Value *addr, std::string name) {
+  addVariable(addr, name);
+}
+
+void CCodeBackend::addVariable(Value *addr, std::string name, std::string index) {
+  variables[addr] = (index.empty() ? name : name + "[" + index + "]");
+}
+
+void CCodeBackend::copyVariable(Value *source, Value *target) {
+  variables[target] = variables[source];
+}
+
+void CCodeBackend::addIndexToVariable(Value *source, Value *target, std::string index) {
+  variables[target] = variables[source] + "[" + index + "]";
 }
