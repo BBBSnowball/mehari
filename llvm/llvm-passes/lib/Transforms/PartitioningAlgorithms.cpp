@@ -13,7 +13,7 @@
 // Random Partitioning
 // -----------------------------------
 
-void RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
 	srand(42);
 	PartitioningGraph::VertexIterator vIt = pGraph.getFirstIterator(); 
 	PartitioningGraph::VertexIterator vEnd = pGraph.getEndIterator();
@@ -21,6 +21,7 @@ void RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partition
 		PartitioningGraph::VertexDescriptor vd = *vIt;
 		pGraph.setPartition(vd, rand()%partitionCount);
 	}
+	return partitionCount;
 }
 
 
@@ -28,7 +29,7 @@ void RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partition
 // Hierarchical Clustering
 // -----------------------------------
 
-void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
 	partitioningGraph = pGraph;
 	// first create a vertex in clustering graph for each of the functional units in the partitioning graph
 	PartitioningGraph::VertexIterator pvIt;
@@ -61,8 +62,6 @@ void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int parti
 	// finally perform clustering and save all partitioning results that does not exceed the partitioning count
 	std::vector<PartitioningGraph> partitioningResults;
 	while (boost::num_vertices(clusteringGraph) > 1) {
-		// DEBUG: print graph for each step
-		// printGraph();
 		VertexDescriptor vd1, vd2, vdnew;
 		// find best pair of vertices given by closeness
 		boost::tie(vd1, vd2) = getPairMaxCloseness();
@@ -76,19 +75,18 @@ void HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int parti
 		// save the current partitioning result if it does not exceed the partitioning count
 		if (boost::num_vertices(clusteringGraph) <= partitionCount) {
 			PartitioningGraph tmpPartitioningResult = partitioningGraph;
-			applyClusteringOnPartitioningGraph(clusteringGraph, tmpPartitioningResult);
+			applyClusteringOnPartitioningGraph(tmpPartitioningResult);
 			partitioningResults.push_back(tmpPartitioningResult);
 		}
 	}
 
-	// determine the result with the minimum cost and save it in the original partitioning graph	
-	// TODO: currently it is not implemented in the partitioning path to handle partition counts
-	// 		 that differ from the given one -> clustering should only return #partitionCount partitions yet
-	// pGraph = *std::min_element(partitioningResults.begin(), partitioningResults.end(), comparePartitioningResults);
-	pGraph = *partitioningResults.begin();
+	// determine the result with the minimum cost and save it in the original partitioning graph
+	// also set the new partition count
+	unsigned int newPartitionCount;
+	boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCount);
 
-	// DEBUG: print final graph
-	printGraph();
+
+	return newPartitionCount;
 }
 
 
@@ -194,21 +192,33 @@ void HierarchicalClustering::updateCloseness(void) {
 }
 
 
-void HierarchicalClustering::applyClusteringOnPartitioningGraph(Graph &cGraph, PartitioningGraph &pGraph) {
+void HierarchicalClustering::applyClusteringOnPartitioningGraph(PartitioningGraph &pGraph) {
 	// save result by setting partitions
 	VertexIterator vtIt, vtEnd;
-	boost::tie(vtIt, vtEnd) = boost::vertices(cGraph);
+	boost::tie(vtIt, vtEnd) = boost::vertices(clusteringGraph);
 	for (int i=0; vtIt != vtEnd; ++vtIt, i++) {
-		FunctionalUnitList flst = cGraph[*vtIt].funcUnits;
+		FunctionalUnitList flst = clusteringGraph[*vtIt].funcUnits;
 		for (FunctionalUnitList::iterator fIt = flst.begin(); fIt != flst.end(); ++fIt)
 			pGraph.setPartition(*fIt, i);
 	}
 }
 
 
-bool HierarchicalClustering::comparePartitioningResults(PartitioningGraph &pGraph1, PartitioningGraph &pGraph2) {
+boost::tuple<PartitioningGraph, unsigned int> HierarchicalClustering::getFinalResult(
+		std::vector<PartitioningGraph> &partitioningResults, unsigned int maxPartitionCount) {
 	std::string device = "Cortex-A9";
-	return pGraph1.getCriticalPathCost(device, device) < pGraph2.getCriticalPathCost(device, device);
+
+	// determine partitioning result with minimum cost
+	std::vector<PartitioningGraph>::iterator pGraphIt = partitioningResults.begin();
+	std::vector<PartitioningGraph>::iterator finalGraphIt = pGraphIt;
+	for ( ; pGraphIt != partitioningResults.end(); ++pGraphIt)
+		if (pGraphIt->getCriticalPathCost(device, device) <= finalGraphIt->getCriticalPathCost(device, device))
+			finalGraphIt = pGraphIt;
+
+	// calculate new partition count
+	unsigned int newPartitionCount = maxPartitionCount - (finalGraphIt - partitioningResults.begin());
+
+	return boost::make_tuple(*finalGraphIt, newPartitionCount);
 }
 
 
@@ -236,7 +246,7 @@ void HierarchicalClustering::printGraph(void) {
 // Simulated Annealing
 // -----------------------------------
 
-void SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
 	// configure algorithm
 	Tinit = 1.0;
 	Tmin = 0.1;
@@ -252,6 +262,8 @@ void SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partition
 
 	// run simulated annealing algorithm
 	simulatedAnnealing(pGraph, Tinit);
+
+	return partitionCount;
 }
 
 

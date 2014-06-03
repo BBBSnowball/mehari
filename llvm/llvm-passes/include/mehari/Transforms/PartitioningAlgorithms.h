@@ -11,21 +11,21 @@
 
 class AbstractPartitioningMethod {
 public:
-	virtual void apply(PartitioningGraph &pGraph, unsigned int partitionCount) = 0;
+	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount) = 0;
 };
 
 
 
 class RandomPartitioning : public AbstractPartitioningMethod {
 public:
-	virtual void apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
 };
 
 
 
 class HierarchicalClustering : public AbstractPartitioningMethod {
 public:
-	virtual void apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
 
 private:
 	typedef std::vector<PartitioningGraph::VertexDescriptor> FunctionalUnitList;
@@ -62,8 +62,9 @@ private:
 	void removeOutdatedVertices(VertexDescriptor vd1, VertexDescriptor vd2);
 	void updateCloseness(void);
 
-	void applyClusteringOnPartitioningGraph(Graph &cGraph, PartitioningGraph &pGraph);
-	bool comparePartitioningResults(PartitioningGraph &pGraph1, PartitioningGraph &pGraph2);
+	void applyClusteringOnPartitioningGraph(PartitioningGraph &pGraph);
+	boost::tuple<PartitioningGraph, unsigned int> getFinalResult(
+		std::vector<PartitioningGraph> &partitioningResults, unsigned int maxPartitionCount);
 
 	void printGraph(void);
 };
@@ -72,7 +73,7 @@ private:
 
 class SimulatedAnnealing : public AbstractPartitioningMethod {
 public:
-	virtual void apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
 
 	typedef PartitioningGraph State;
 	typedef float Temperature;

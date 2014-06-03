@@ -78,6 +78,7 @@ bool Partitioning::runOnModule(Module &M) {
 	// create partitioning for each target function
 	std::map<std::string, Function*> partitioningFunctions;
 	std::map<std::string, PartitioningGraph*> partitioningGraphs;
+	std::map<std::string, unsigned int> partitioningNumbers;
 
 	// init maximum numbers
 	semNumberMax = 0;
@@ -115,7 +116,7 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new HierarchicalClustering();
 		else if (PartitioningMethod == "sa")
 			PM = new SimulatedAnnealing();
-		PM->apply(*pGraph, partitionCount);
+		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
 		delete PM;
 
 		// handle data and control dependencies between partitions
@@ -131,7 +132,7 @@ bool Partitioning::runOnModule(Module &M) {
 	}
 
 	// print partitioning results into template
-	savePartitioning(partitioningFunctions, partitioningGraphs);
+	savePartitioning(partitioningFunctions, partitioningGraphs, partitioningNumbers);
 
 	return false;
 }
@@ -311,7 +312,8 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 }
 
 
-void Partitioning::savePartitioning(std::map<std::string, Function*> &functions, std::map<std::string, PartitioningGraph*> &graphs) {
+void Partitioning::savePartitioning(std::map<std::string, Function*> &functions, 
+	std::map<std::string, PartitioningGraph*> &graphs, std::map<std::string, unsigned int> partitioningNumbers) {
 	// set template and output files
 	std::string mehariTemplate = TemplateDir + "/mehari.tpl";
 	std::string threadDeclTemplate = TemplateDir + "/thread_declaration.tpl";
