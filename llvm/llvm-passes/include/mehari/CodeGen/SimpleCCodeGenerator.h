@@ -39,9 +39,6 @@ public:
 
   std::string getDataDependencyOrDefault(std::string opString, std::string defaultValue);
 
-  std::string getDatatype(Value *addr);
-  std::string getDatatype(Type *type);
-
 private:
   std::map<std::string, std::string> dataDependencies;
 
@@ -70,7 +67,7 @@ public:
   virtual void generateBranchTargetIfNecessary(llvm::Instruction* instr) =0;
   virtual void generateEndOfMethod();
 
-  virtual std::string createTemporaryVariable(Value *addr, std::string datatype) =0;
+  virtual std::string createTemporaryVariable(Value *addr) =0;
   virtual std::string getOrCreateTemporaryVariable(Value *addr) =0;
   virtual void addParameter(Value *addr, std::string name) =0;
   virtual void addVariable(Value *addr, std::string name) =0;
@@ -110,7 +107,7 @@ public:
   void generateBranchTargetIfNecessary(llvm::Instruction* instr);
   void generateEndOfMethod();
 
-  std::string createTemporaryVariable(Value *addr, std::string datatype);
+  std::string createTemporaryVariable(Value *addr);
   std::string getOrCreateTemporaryVariable(Value *addr);
   void addParameter(Value *addr, std::string name);
   void addVariable(Value *addr, std::string name);
@@ -120,6 +117,9 @@ public:
 
 private:
   std::string getOperandString(Value* addr);
+
+  std::string getDatatype(Value *addr);
+  std::string getDatatype(Type *type);
 };
 
 #endif /*SIMPLE_CCODE_GENERATOR_H*/

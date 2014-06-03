@@ -213,7 +213,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
         }
         else if (isa<BinaryOperator>(instr)) {
           // create new temporary variable and print C code
-          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
+          std::string tmpVar = backend->createTemporaryVariable(instr);
           backend->generateBinaryOperator(tmpVar, instr->getOperand(0), instr->getOperand(1), instr->getOpcode());
         }
         else if (CallInst *cInstr = dyn_cast<CallInst>(instr)) {
@@ -226,7 +226,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
             backend->generateVoidCall(functionName, args);
           }
           else {
-            std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
+            std::string tmpVar = backend->createTemporaryVariable(instr);
             backend->generateCall(functionName, tmpVar, args);
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
@@ -237,13 +237,13 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
           }
         }
         else if (CmpInst *cmpInstr = dyn_cast<CmpInst>(instr)) {
-          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
+          std::string tmpVar = backend->createTemporaryVariable(instr);
           backend->generateComparison(tmpVar, cmpInstr->getOperand(0),
             cmpInstr->getOperand(1), cmpInstr->getPredicate());
         }
         else if (ZExtInst *extInstr = dyn_cast<ZExtInst>(instr)) {
-          std::string tmpVar = backend->createTemporaryVariable(instr, getDatatype(instr));
-           backend->generateIntegerExtension(tmpVar, extInstr->getOperand(0));
+          std::string tmpVar = backend->createTemporaryVariable(instr);
+          backend->generateIntegerExtension(tmpVar, extInstr->getOperand(0));
         }
         else if (BranchInst *brInstr = dyn_cast<BranchInst>(instr)) {
           if (brInstr->isUnconditional()) {
@@ -341,23 +341,6 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   if (remainingParams != 0) {
     errs() << "WARNING: Mismatched ALLOCA and STORE instructions in function " << func << "\n";
   }
-}
-
-std::string SimpleCCodeGenerator::getDatatype(Value *addr) {
-  return getDatatype(addr->getType());
-}
-
-std::string SimpleCCodeGenerator::getDatatype(Type *type) {
-  if (type->isPointerTy())
-    return getDatatype(type->getPointerElementType()) + " *";
-  else if (type->isIntegerTy())
-    return "int";
-  else if (type->isFloatingPointTy())
-    return "double";
-  else if (type->isVoidTy())
-    return "void";
-  else
-    return "<unsupported datatype>";
 }
 
 std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opString, std::string defaultValue) {
@@ -536,7 +519,8 @@ void CCodeBackend::generateEndOfMethod() {
   *output_stream << declarations.str() << ccode.str();
 }
 
-std::string CCodeBackend::createTemporaryVariable(Value *addr, std::string datatype) {
+std::string CCodeBackend::createTemporaryVariable(Value *addr) {
+  std::string datatype = getDatatype(addr);
   std::string newTmpVar = tmpVarNameGenerator.next();
   variables[addr] = newTmpVar;
   tmpVariables[datatype].push_back(newTmpVar);
@@ -547,7 +531,7 @@ std::string CCodeBackend::getOrCreateTemporaryVariable(Value *addr) {
   if (const std::string* varname = getValueOrNull(variables, addr))
     return *varname;
   else
-    return createTemporaryVariable(addr, generator->getDatatype(addr));
+    return createTemporaryVariable(addr);
 }
 
 void CCodeBackend::addVariable(Value *addr, std::string name) {
@@ -568,4 +552,21 @@ void CCodeBackend::copyVariable(Value *source, Value *target) {
 
 void CCodeBackend::addIndexToVariable(Value *source, Value *target, std::string index) {
   variables[target] = variables[source] + "[" + index + "]";
+}
+
+std::string CCodeBackend::getDatatype(Value *addr) {
+  return getDatatype(addr->getType());
+}
+
+std::string CCodeBackend::getDatatype(Type *type) {
+  if (type->isPointerTy())
+    return getDatatype(type->getPointerElementType()) + " *";
+  else if (type->isIntegerTy())
+    return "int";
+  else if (type->isFloatingPointTy())
+    return "double";
+  else if (type->isVoidTy())
+    return "void";
+  else
+    return "<unsupported datatype>";
 }

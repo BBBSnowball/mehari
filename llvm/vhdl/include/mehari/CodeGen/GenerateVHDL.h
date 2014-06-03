@@ -60,7 +60,7 @@ public:
 
   void generateEndOfMethod();
 
-  std::string createTemporaryVariable(Value *addr, std::string datatype);
+  std::string createTemporaryVariable(Value *addr);
   std::string getOrCreateTemporaryVariable(Value *addr);
   void addParameter(Value *addr, std::string name);
   void addVariable(Value *addr, std::string name);

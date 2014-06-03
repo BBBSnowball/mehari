@@ -715,8 +715,8 @@ void VHDLBackend::generateEndOfMethod() {
   op->outputVHDL(*stream);
 }
 
-std::string VHDLBackend::createTemporaryVariable(Value *addr, std::string datatype) {
-  debug_print("createTemporaryVariable(" << addr << ", " << datatype << ")");
+std::string VHDLBackend::createTemporaryVariable(Value *addr) {
+  debug_print("createTemporaryVariable(" << addr << ")");
   return_value_if_dry_run(tmpVarNameGenerator.next());
 
   ValueStorageP x = vs_factory->makeTemporaryVariable(addr);
