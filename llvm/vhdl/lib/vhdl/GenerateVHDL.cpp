@@ -190,6 +190,13 @@ public:
     return x;
   }
 
+  ValueStorageP getOrCreateTemporaryVariable(Value* value) {
+    if (ValueStorageP* var = getValueOrNull(by_llvm_value, value))
+      return *var;
+    else
+      return makeTemporaryVariable(value);
+  }
+
   ValueStorageP getGlobalVariable(Value* v);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, Value* index);
   ValueStorageP getConstant(const std::string& constant, unsigned int width);
@@ -734,13 +741,9 @@ std::string VHDLBackend::createTemporaryVariable(Value *addr) {
 }
 
 std::string VHDLBackend::getOrCreateTemporaryVariable(Value *addr) {
-  //TODO
-  assert(false);
-
-  /*if (ChannelP* varname = getValueOrNull(channels, addr))
-    return (*varname)->data_signal;
-  else
-    return createTemporaryVariable(addr, generator->getDatatype(addr));*/
+  ValueStorageP x = vs_factory->getOrCreateTemporaryVariable(addr);
+  debug_print(" -> " << x->name);
+  return x->name;
 }
 
 void VHDLBackend::addVariable(Value *addr, std::string name) {
