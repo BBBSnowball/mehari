@@ -68,7 +68,13 @@ struct ValueStorage {
 
   ValueStorage() : type(NULL) { }
 
-  unsigned int width() {
+  unsigned int width() const {
+    unsigned int w = _width();
+    assert(w != 0);
+    return w;
+  }
+
+  unsigned int _width() const {
     Type* type = this->type;
     assert(type);
 
@@ -76,9 +82,7 @@ struct ValueStorage {
     if (type->getTypeID() == Type::PointerTyID)
       type = type->getSequentialElementType();
 
-    unsigned int w = type->getPrimitiveSizeInBits();
-    assert(w != 0);
-    return w;
+    return type->getPrimitiveSizeInBits();
   }
 
 private:
@@ -112,6 +116,11 @@ std::ostream& operator <<(std::ostream& stream, const ValueStorage& vs) {
     BOOST_FOREACH(const std::string& index, vs.constant_indices) {
       stream << "[" << index << "]";
     }
+  }
+  if (vs.type) {
+    unsigned int width = vs._width();
+    if (width > 0)
+      stream << ", width = " << width;
   }
   stream << ")";
   return stream;
