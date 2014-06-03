@@ -4,7 +4,7 @@
 #include <map>
 
 template<typename KEY, typename VALUE>
-inline static const VALUE& contains(const std::map<KEY, VALUE>& map, const KEY& key) {
+inline static bool contains(const std::map<KEY, VALUE>& map, const KEY& key) {
   typename std::map<KEY, VALUE>::const_iterator found = map.find(key);
   return (found != map.end());
 }
