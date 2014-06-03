@@ -64,7 +64,22 @@ struct ValueStorage {
   Kind kind;
   std::string name;
   std::vector<std::string> constant_indices;
-  //TODO: Type* type;
+  Type* type;
+
+  ValueStorage() : type(NULL) { }
+
+  unsigned int width() {
+    Type* type = this->type;
+    assert(type);
+
+    //TODO We shouldn't need this, but LLVM sometimes gives us a pointer instead of a value.
+    if (type->getTypeID() == Type::PointerTyID)
+      type = type->getSequentialElementType();
+
+    unsigned int w = type->getPrimitiveSizeInBits();
+    assert(w != 0);
+    return w;
+  }
 
 private:
   ChannelP channel_read, channel_write;
@@ -110,12 +125,6 @@ std::ostream& operator <<(std::ostream& stream, ValueStorageP vs) {
 }
 
 
-unsigned int getWidth(Type* type) {
-  //TODO
-  return 64;
-}
-
-
 class ValueStorageFactory {
   std::map<Value*,      ValueStorageP> by_llvm_value;
   std::map<std::string, ValueStorageP> by_name;
@@ -151,6 +160,7 @@ public:
     ValueStorageP x(new ValueStorage());
     x->kind = ValueStorage::FUNCTION_PARAMETER;
     x->name = name;
+    x->type = value->getType();
 
     by_llvm_value[value] = x;
     by_name[name] = x;
@@ -164,6 +174,7 @@ public:
     ValueStorageP x(new ValueStorage());
     x->kind = ValueStorage::VARIABLE;
     x->name = tmpVarNameGenerator.next();
+    x->type = value->getType();
 
     by_llvm_value[value] = x;
 
@@ -172,7 +183,7 @@ public:
 
   ValueStorageP getGlobalVariable(Value* v);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, Value* index);
-  ValueStorageP getConstant(const std::string& constant);
+  ValueStorageP getConstant(const std::string& constant, unsigned int width);
 
   ValueStorageP get(Value* value) {
     ValueStorageP vs = by_llvm_value[value];
@@ -194,38 +205,41 @@ private:
 };
 
 
-class Channel {
-public:
+struct Channel {
   Direction direction;
   std::string constant;
 
   ::Operator* component;
   std::string data_signal, valid_signal, ready_signal;
+  unsigned int width;
 
-  static ChannelP make_constant(const std::string& constant) {
+  static ChannelP make_constant(const std::string& constant, unsigned int width) {
     ChannelP ch(new Channel());
     ch->direction = CONSTANT_OUT;
     ch->constant  = constant;
+    ch->width     = width;
     return ch;
   }
-  static ChannelP make_port(const std::string& name, Direction direction) {
+  static ChannelP make_port(const std::string& name, Direction direction, unsigned int width) {
     ChannelP ch(new Channel());
     ch->direction = direction;
+    ch->width     = width;
     ch->data_signal  = name + "_data";
     ch->valid_signal = name + "_valid";
     ch->ready_signal = name + "_ready";
     return ch;
   }
-  static ChannelP make_input(const std::string& name) {
-    return make_port(name, OUT);
+  static ChannelP make_input(const std::string& name, unsigned int width) {
+    return make_port(name, OUT, width);
   }
-  static ChannelP make_output(const std::string& name) {
-    return make_port(name, IN);
+  static ChannelP make_output(const std::string& name, unsigned int width) {
+    return make_port(name, IN, width);
   }
   static ChannelP make_component_port(
       ::Operator* component, const std::string& name, Direction direction) {
     ChannelP ch(new Channel());
     ch->direction = direction;
+    ch->width     = component->getSignalByName(name)->width();
     ch->component = component;
     ch->data_signal  = name + "_data";
     ch->valid_signal = name + "_valid";
@@ -239,15 +253,14 @@ public:
     return make_component_port(component, name, OUT);
   }
 
-  static ChannelP make_temp(::Operator* op, const std::string& name) {
-    return make_variable(op, name);
+  static ChannelP make_temp(::Operator* op, const std::string& name, unsigned int width) {
+    return make_variable(op, name, width);
   }
 
-  static ChannelP make_variable(::Operator* op, const std::string& name) {
-    int width = 64; //TODO
-
+  static ChannelP make_variable(::Operator* op, const std::string& name, unsigned int width) {
     ChannelP ch(new Channel());
     ch->direction = INOUT;
+    ch->width     = width;
     ch->data_signal  = op->declare(name + "_data", width, true);
     ch->valid_signal = op->declare(name + "_valid");
     ch->ready_signal = op->declare(name + "_ready");
@@ -257,11 +270,11 @@ public:
   void addTo(::Operator* op) {
     std::cout << "addTo: " << data_signal << std::endl;
     if (direction == IN) {
-      op->addFPOutput(data_signal, 11, 53);
+      op->addOutput(data_signal, width);
       op->addOutput(valid_signal);
       op->addInput(ready_signal);
     } else {
-      op->addFPInput(data_signal, 11, 53);
+      op->addInput(data_signal, width);
       op->addInput(valid_signal);
       op->addOutput(ready_signal);
     }
@@ -291,6 +304,8 @@ public:
   }
 
   void connectToOutput(Channel* ch, MyOperator* op) {
+    assert(width == ch->width);
+
     if (direction & IN) {
       if (ch->direction == CONSTANT_OUT) {
         if (!component) {
@@ -354,11 +369,11 @@ ChannelP ValueStorage::getReadChannel(MyOperator* op) {
   if (!channel_read) {
     switch (kind) {
       case FUNCTION_PARAMETER:
-        channel_read = Channel::make_input(name + "_in");
+        channel_read = Channel::make_input(name + "_in", width());
         channel_read->addTo(op);
         break;
       case VARIABLE:
-        channel_read = Channel::make_variable(op, name);
+        channel_read = Channel::make_variable(op, name, width());
         channel_write = channel_read;
         break;
       default:
@@ -376,11 +391,11 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
   if (!channel_write) {
     switch (kind) {
       case FUNCTION_PARAMETER:
-        channel_write = Channel::make_output(name + "_out");
+        channel_write = Channel::make_output(name + "_out", width());
         channel_write->addTo(op);
         break;
       case VARIABLE:
-        channel_read = Channel::make_variable(op, name);
+        channel_read = Channel::make_variable(op, name, width());
         channel_write = channel_read;
         break;
       default:
@@ -474,6 +489,7 @@ ValueStorageP ValueStorageFactory::getGlobalVariable(Value* value) {
     ValueStorageP x(new ValueStorage());
     x->kind = ValueStorage::VARIABLE;
     x->name = name;
+    x->type = value->getType();
 
     by_llvm_value[value] = x;
     by_name[name] = x;
@@ -491,6 +507,8 @@ ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, Value* ind
     pointee = ValueStorageP(new ValueStorage());
     pointee->kind = ptr->kind;
     pointee->name = ptr->name + "_" + str_index;
+    assert(ptr->type);
+    pointee->type = ptr->type->getSequentialElementType();
 
     by_index[ValueAndIndex(ptr, str_index)] = pointee;
   }
@@ -508,9 +526,9 @@ void ValueStorage::initWithChannels(ChannelP channel_read, ChannelP channel_writ
   this->channel_write = channel_write;
 }
 
-ValueStorageP ValueStorageFactory::getConstant(const std::string& constant) {
+ValueStorageP ValueStorageFactory::getConstant(const std::string& constant, unsigned int width) {
   ValueStorageP x(new ValueStorage());
-  ChannelP read_channel = Channel::make_constant(constant);
+  ChannelP read_channel = Channel::make_constant(constant, width);
   x->initWithChannels(read_channel, ChannelP((Channel*)NULL));
   return x;
 }
@@ -535,12 +553,12 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 
   // handle constant integers
   else if (ConstantInt *ci = dyn_cast<ConstantInt>(value))
-    return getConstant(ci->getValue().toString(10, true));
+    return getConstant(ci->getValue().toString(10, true), value->getType()->getPrimitiveSizeInBits());
 
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(value)) {
-    double value = cf->getValueAPF().convertToDouble();
-    return getConstant(toString(value));
+    double dvalue = cf->getValueAPF().convertToDouble();
+    return getConstant(toString(dvalue), value->getType()->getPrimitiveSizeInBits());
   } else {
     assert(false);
   }

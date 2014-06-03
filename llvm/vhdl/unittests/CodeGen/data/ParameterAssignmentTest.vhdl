@@ -7,13 +7,13 @@ library work;
 
 entity test is
    port ( 
-         a_out_data : out  std_logic_vector(11+53-1 downto 0);
+         a_out_data : out  std_logic_vector(31 downto 0);
          a_out_valid : out std_logic;
          a_out_ready : in std_logic;
-         b_out_data : out  std_logic_vector(11+53-1 downto 0);
+         b_out_data : out  std_logic_vector(31 downto 0);
          b_out_valid : out std_logic;
          b_out_ready : in std_logic;
-         a_in_data : in  std_logic_vector(11+53-1 downto 0);
+         a_in_data : in  std_logic_vector(31 downto 0);
          a_in_valid : in std_logic;
          a_in_ready : out std_logic
    );
