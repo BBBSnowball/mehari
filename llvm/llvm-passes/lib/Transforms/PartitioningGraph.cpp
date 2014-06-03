@@ -15,6 +15,7 @@
 
 #include <ctime> // for using random generator with time
 #include <sstream>
+#include <set>
 
 
 PartitioningGraph::PartitioningGraph() {}
@@ -327,6 +328,37 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, s
 		edgeWeight *= (-1);
 		// create new edge and set edge weight in temporary graph
 		boost::add_edge(u, v, edgeWeight, tmpGraph);
+	}
+
+	// if we calculate the critical path for a processor execution, we need to schedule the operations
+	// if we use a FPGA we can run everything in parallel, so we do not need a scheduling
+	// we can create a schedule for a partition that is executed on the processor
+	// by connecting every consecutive vertices (determined by vertex number) of the same partition
+
+	// TODO: use a parameter to get the partitions and also the device that is used by the partition
+	// 		 to only apply this modification for processor partitions
+	// collect the used partitions 
+	if (true) {
+		std::set<unsigned int> partitions;
+		for (int i=0; i<boost::num_vertices(pGraph); i++)
+			partitions.insert(pGraph[i].partition);
+		// create a schedule for each partition
+		for (std::set<unsigned int>::iterator it = partitions.begin(); it != partitions.end(); ++it) {
+			int currentVertex = (-1);
+			for (int i=boost::num_vertices(pGraph)-1; i>=0; i--) {
+				// check the current partition
+				if (pGraph[i].partition == *it) {
+					if (currentVertex >= 0) {
+						// add an edge with the edge cost of the execution time of the target vertex 
+						// if there is no edge yet
+						bool exists = boost::edge(i, currentVertex, tmpGraph).second;
+						if (!exists) 
+							boost::add_edge(i, currentVertex, (-1)*getExecutionTime(currentVertex, sourceDevice), tmpGraph);
+					}
+					currentVertex = i;
+				}
+			}
+		}
 	}
 
 	// run shortest path algorithm to determine critical path (because of negative edge weight)
