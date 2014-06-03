@@ -88,6 +88,8 @@ add_llvm_library(LibraryMehariLLVMPasses
   ${MEHARI_UTILS_SOURCES})
 target_link_libraries(LibraryMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
 set_target_properties(LibraryMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
+# enable -fPIC, so we can link it into a shared library
+set_target_properties(LibraryMehariLLVMPasses PROPERTIES COMPILE_FLAGS "-fPIC")
 
 # install both libraries
 install(TARGETS SharedMehariLLVMPasses LibraryMehariLLVMPasses
