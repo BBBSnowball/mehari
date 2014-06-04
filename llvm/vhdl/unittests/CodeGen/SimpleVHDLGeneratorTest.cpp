@@ -140,6 +140,7 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
 TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
   // int t0 = a + 2;
   // b = t0;
+
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
     "entry:\n"
@@ -161,6 +162,7 @@ TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
   // a[1] = 1;
   // t0 = a[1] + 2;
   // b[0] = t0;
+
   ParseAssembly(
     "define void @test(double* %a, double* %b) #0 {\n"
     "entry:\n"
@@ -184,7 +186,13 @@ TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
+TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
+  // double t0;
+  // a[0] = 1.5;
+  // a[1] = b[0];
+  // t0 = a[0] + 2;
+  // b[2] = t0;
+
   ParseAssembly(
     "@a = common global [5 x double] zeroinitializer, align 16\n"
     "@b = common global [5 x double] zeroinitializer, align 16\n"
@@ -198,17 +206,11 @@ TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
     "  store double %add, double* getelementptr inbounds ([5 x double]* @b, i32 0, i64 2), align 8\n"
     "  ret void\n"
     "}\n");
-  std::string ExpectedResult = 
-    "\tdouble t0;\n"
-    "\ta[0] = 1.5;\n"
-    "\ta[1] = b[0];\n"
-    "\tt0 = a[0] + 2;\n"
-    "\tb[2] = t0;\n";
-  CheckResult(ExpectedResult);
+  CheckResultFromFile("GlobalArrayCalculationTest.vhdl");
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
+/*TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
   ParseAssembly(
     "declare i32 @func(i32) #1\n"
     "define void @test(i32 %a) #0 {\n"

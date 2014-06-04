@@ -59,6 +59,7 @@ struct ValueStorage {
   enum Kind {
     FUNCTION_PARAMETER,
     VARIABLE,
+    GLOBAL_VARIABLE,
     CHANNEL
   };
   Kind kind;
@@ -75,14 +76,19 @@ struct ValueStorage {
   }
 
   unsigned int _width() const {
+    return elementType()->getPrimitiveSizeInBits();
+  }
+
+  Type* elementType() const {
+    //TODO We sometimes have one level of pointers too many, so we remove it here.
+    //     However, we should rather fix the problem that causes this.
     Type* type = this->type;
     assert(type);
 
-    //TODO We shouldn't need this, but LLVM sometimes gives us a pointer instead of a value.
-    if (type->getTypeID() == Type::PointerTyID)
+    if (isa<SequentialType>(type))
       type = type->getSequentialElementType();
 
-    return type->getPrimitiveSizeInBits();
+    return type;
   }
 
 private:
@@ -107,6 +113,8 @@ std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind) {
       return stream << "FUNCTION_PARAMETER";
     case ValueStorage::VARIABLE:
       return stream << "VARIABLE";
+    case ValueStorage::GLOBAL_VARIABLE:
+      return stream << "GLOBAL_VARIABLE";
     case ValueStorage::CHANNEL:
       return stream << "CHANNEL";
     default:
@@ -211,6 +219,7 @@ public:
   }
 
   ValueStorageP getGlobalVariable(Value* v);
+  ValueStorageP getGlobalVariable(const std::string& name, Type* type);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, Value* index);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, std::string str_index);
   ValueStorageP getConstant(const std::string& constant, unsigned int width);
@@ -403,6 +412,7 @@ ChannelP ValueStorage::getReadChannel(MyOperator* op) {
   if (!channel_read) {
     switch (kind) {
       case FUNCTION_PARAMETER:
+      case GLOBAL_VARIABLE:
         channel_read = Channel::make_input(name + "_in", width());
         channel_read->addTo(op);
         break;
@@ -425,6 +435,7 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
   if (!channel_write) {
     switch (kind) {
       case FUNCTION_PARAMETER:
+      case GLOBAL_VARIABLE:
         channel_write = Channel::make_output(name + "_out", width());
         channel_write->addTo(op);
         break;
@@ -453,16 +464,21 @@ std::string VHDLBackend::generateBranchLabel(Value *target) {
 
 ValueStorageP ValueStorageFactory::getGlobalVariable(Value* value) {
   std::string name = value->getName().data();
+  if (!contains(by_name, name))
+    assert(!contains(by_llvm_value, value));
+  ValueStorageP x = getGlobalVariable(name, value->getType());
+  by_llvm_value[value] = x;
+  return x;
+}
+
+ValueStorageP ValueStorageFactory::getGlobalVariable(const std::string& name, Type* type) {
   ValueStorageP x = by_name[name];
   if (!x) {
-    assert(!contains(by_llvm_value, value));
-
     x = ValueStorageP(new ValueStorage());
-    x->kind = ValueStorage::VARIABLE;
+    x->kind = ValueStorage::GLOBAL_VARIABLE;
     x->name = name;
-    x->type = value->getType();
+    x->type = type;
 
-    by_llvm_value[value] = x;
     by_name[name] = x;
   }
   return x;
@@ -518,10 +534,13 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 
     ValueStorageP x = getGlobalVariable(op->getPointerOperand());
 
-    if (op->hasIndices())
+    if (op->hasIndices()) {
       // NOTE: the last index is the one we want to know
+      Value* index;
       for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
-        x = getAtConstIndex(x, *it);
+        index = *it;
+      x = getAtConstIndex(x, index);
+    }
     
     return x;
   }
@@ -792,13 +811,11 @@ std::string VHDLBackend::getOrCreateTemporaryVariable(Value *addr) {
 }
 
 void VHDLBackend::addVariable(Value *addr, std::string name) {
-  //TODO
   debug_print("addVariable(" << addr << ", " << name << ")");
   return_if_dry_run();
 
-  //TODO
-  assert(false);
-  //channels[addr] = Channel::make_variable(op.get(), name);
+  ValueStorageP variable = vs_factory->getGlobalVariable(name, addr->getType());
+  vs_factory->set(addr, variable);
 }
 
 void VHDLBackend::addParameter(Value *addr, std::string name) {
@@ -809,7 +826,19 @@ void VHDLBackend::addParameter(Value *addr, std::string name) {
 void VHDLBackend::addVariable(Value *addr, std::string name, std::string index) {
   debug_print("addVariable(" << addr << ", " << name << ", " << index << ")");
   return_if_dry_run();
-  addVariable(addr, (index.empty() ? name : name + "[" + index + "]"));
+
+  if (index.empty()) {
+    addVariable(addr, name);
+    return;
+  }
+
+  // We load the value via an index, so the type of the variable must
+  // be a pointer to the resulting type (which is the type of addr).
+  Type* ptr_type = PointerType::get(addr->getType(), 0);
+
+  ValueStorageP variable = vs_factory->getGlobalVariable(name, ptr_type);
+  variable = vs_factory->getAtConstIndex(variable, index);
+  vs_factory->set(addr, variable);
 }
 
 void VHDLBackend::copyVariable(Value *source, Value *target) {
