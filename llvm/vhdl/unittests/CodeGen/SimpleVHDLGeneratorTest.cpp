@@ -125,7 +125,9 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
+TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
+  // int t0 = a + 2;
+  // b = t0;
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
     "entry:\n"
@@ -138,15 +140,11 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
     "  store i32 %add, i32* %b.addr, align 4\n"
     "  ret void\n"
     "}\n");
-  std::string ExpectedResult = 
-    "\tint t0;\n"
-    "\tt0 = a + 2;\n"
-    "\tb = t0;\n";
-  CheckResult(ExpectedResult);
+  CheckResultFromFile("ParameterCalculationTest.vhdl");
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
+/*TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
   ParseAssembly(
     "define void @test(double* %a, double* %b) #0 {\n"
     "entry:\n"

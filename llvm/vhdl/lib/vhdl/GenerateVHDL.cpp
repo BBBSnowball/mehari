@@ -186,6 +186,7 @@ public:
     x->type = value->getType();
 
     by_llvm_value[value] = x;
+    by_name[x->name] = x;
 
     return x;
   }
@@ -195,6 +196,13 @@ public:
       return *var;
     else
       return makeTemporaryVariable(value);
+  }
+
+  ValueStorageP getTemporaryVariable(const std::string& name) {
+    if (ValueStorageP* var = getValueOrNull(by_name, name))
+      return *var;
+    else
+      assert(false);
   }
 
   ValueStorageP getGlobalVariable(Value* v);
@@ -255,11 +263,11 @@ struct Channel {
       ::Operator* component, const std::string& name, Direction direction) {
     ChannelP ch(new Channel());
     ch->direction = direction;
-    ch->width     = component->getSignalByName(name)->width();
     ch->component = component;
     ch->data_signal  = name + "_data";
     ch->valid_signal = name + "_valid";
     ch->ready_signal = name + "_ready";
+    ch->width = component->getSignalByName(ch->data_signal)->width();
     return ch;
   }
   static ChannelP make_component_input(::Operator* component, const std::string& name) {
@@ -298,6 +306,7 @@ struct Channel {
 
   void generateSignal(MyOperator* op) {
     if (component && direction != CONSTANT_OUT) {
+      //TODO we have to use the instance name instead of the component name
       std::string
         data_signal_new  = component->getName() + "_" + data_signal,
         valid_signal_new = component->getName() + "_" + valid_signal,
@@ -345,10 +354,13 @@ struct Channel {
         if (component && !ch->component) {
           op->inPortMap (component, data_signal,  ch->data_signal);
           op->inPortMap (component, valid_signal, ch->valid_signal);
-          op->outPortMap(component, ready_signal, ch->ready_signal);
+          op->outPortMap(component, ready_signal, ch->ready_signal + "_");
+          *op << ch->ready_signal << " <= " << ch->ready_signal << "_" << ";\n";
         } else if (!component && ch->component) {
-          op->outPortMap(ch->component, ch->data_signal,  data_signal);
-          op->outPortMap(ch->component, ch->valid_signal, valid_signal);
+          op->outPortMap(ch->component, ch->data_signal,  data_signal + "_");
+          *op << data_signal << " <= " << data_signal << "_" << ";\n";
+          op->outPortMap(ch->component, ch->valid_signal, valid_signal + "_");
+          *op << valid_signal << " <= " << valid_signal << "_" << ";\n";
           op->inPortMap (ch->component, ch->ready_signal, ready_signal);
         } else if (!component && !ch->component) {
           *op << data_signal  << " <= " << ch->data_signal << ";\n";
@@ -596,6 +608,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   op.reset(new MyOperator());
   op->setName("test");
   op->setCopyrightString("blub");
+  op->addPort("Clk",1,1,1,0,0,0,0,0,0,0,0);
 }
 
 void VHDLBackend::generateStore(Value *op1, Value *op2) {
@@ -608,17 +621,98 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   ch1->connectToOutput(ch2, op.get());
 }
 
+struct OperatorInfo {
+  ::Operator* op;
+  std::string input1, input2, output;
+};
+
+OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
+  //TODO use width
+  std::string name;
+  switch (opcode) {
+  case Instruction::FAdd:
+    name = "fpadd";
+    break;
+  case Instruction::Add:
+    name = "add";
+    break;
+  case Instruction::FSub:
+    name = "fpsub";
+    break;
+  case Instruction::Sub:
+    name = "sub";
+    break;
+  case Instruction::FMul:
+    name = "fpmul";
+    break;
+  case Instruction::Mul:
+    name = "mul";
+    break;
+  case Instruction::FDiv:
+    name = "fpdiv";
+    break;
+  case Instruction::UDiv:
+    name = "udiv";
+    break;
+  case Instruction::SDiv:
+    name = "sdiv";
+    break;
+  case Instruction::URem:
+    name = "urem";
+    break;
+  case Instruction::SRem:
+    name = "srem";
+    break;
+  case Instruction::FRem:
+    name = "frem";
+    break;
+  case Instruction::Or:
+    name = "or_";
+    break;
+  case Instruction::And:
+    name = "and_";
+    break;
+  default:
+    assert(false);
+  }
+
+  //TODO load from PivPav
+  ::Operator* op = new ::Operator();
+  op->setName(name);
+  op->addPort  ("Clk",1,1,1,0,0,0,0,0,0,0,0);
+  op->addInput ("a_data", width);
+  op->addInput ("b_data", width);
+  op->addOutput("result_data", width);
+  op->addInput ("a_valid");
+  op->addInput ("b_valid");
+  op->addOutput("result_valid");
+  op->addOutput("a_ready");
+  op->addOutput("b_ready");
+  op->addInput ("result_ready");
+
+  OperatorInfo op_info = { op, "a", "b", "result" };
+  return op_info;
+}
+
 void VHDLBackend::generateBinaryOperator(std::string tmpVar,
     Value *op1, Value *op2, unsigned opcode) {
-  debug_print("generateBinaryOperator(" << tmpVar << ", " << op1 << ", " << op2 << ", " << opcode << ")");
+  debug_print("generateBinaryOperator(" << tmpVar << ", " << op1 << ", " << op2 << ", "
+    << Instruction::getOpcodeName(opcode) << ")");
   return_if_dry_run();
 
-  /*stream << "\t" << tmpVar
-    <<  " = "
-    <<  getOperandString(op1)
-    <<  " " << "+" /*CCodeMaps::parseBinaryOperator(opcode)* / << " "
-    <<  getOperandString(op2)
-    <<  ";\n";*/
+  ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+
+  OperatorInfo op_info = getBinaryOperator(opcode, tmp->width());
+
+  ChannelP input1 = Channel::make_component_input (op_info.op, op_info.input1);
+  ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2);
+  ChannelP output = Channel::make_component_output(op_info.op, op_info.output);
+
+  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get());
+  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get());
+  output->connectToInput (tmp->getWriteChannel(op.get()), op.get());
+
+  *this->op << this->op->instance(op_info.op, tmpVar);
 }
 
 void VHDLBackend::generateCall(std::string funcName,
