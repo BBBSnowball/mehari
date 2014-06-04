@@ -93,6 +93,11 @@ public:
   ChannelP getWriteChannel(MyOperator* op);
 
   void initWithChannels(ChannelP channel_read, ChannelP channel_write);
+
+  // Call this, if you write a value to channel_write.
+  void replaceBy(ChannelP channel_read) {
+    this->channel_read = channel_read;
+  }
 };
 typedef boost::shared_ptr<ValueStorage> ValueStorageP;
 
@@ -561,6 +566,8 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
 
   ch1->connectToOutput(ch2, op.get());
+
+  vs_factory->get(op1)->replaceBy(ch2);
 }
 
 struct OperatorInfo {

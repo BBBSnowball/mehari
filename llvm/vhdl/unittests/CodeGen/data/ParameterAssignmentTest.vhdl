@@ -13,10 +13,7 @@ entity test is
          a_out_ready : in std_logic;
          b_out_data : out  std_logic_vector(31 downto 0);
          b_out_valid : out std_logic;
-         b_out_ready : in std_logic;
-         a_in_data : in  std_logic_vector(31 downto 0);
-         a_in_valid : in std_logic;
-         a_in_ready : out std_logic
+         b_out_ready : in std_logic
    );
 end entity;
 
@@ -24,8 +21,7 @@ architecture arch of test is
 begin
    a_out_data <= 1;
    a_out_valid <= '1';
-   b_out_data <= a_in_data;
-   b_out_valid <= a_in_valid;
-   a_in_ready <= b_out_ready;
+   b_out_data <= 1;
+   b_out_valid <= '1';
 end architecture;
 
