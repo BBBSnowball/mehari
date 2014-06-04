@@ -70,6 +70,11 @@ protected:
       errs() << "### Generated Result:\n" << CodeGenResult << "\n";
     }
 
+    if (ExpectedResult != CodeGenResult) {
+      writeFile("expected", ExpectedResult);
+      writeFile("actual",   CodeGenResult);
+    }
+
     // compare results
     EXPECT_EQ(ExpectedResult, CodeGenResult);
   }
@@ -91,6 +96,13 @@ protected:
     }
 
     throw(errno);
+  }
+
+  void writeFile(const std::string& filename, const std::string& contents) {
+    std::ofstream file;
+    file.open(filename.c_str(), std::ios::out);
+    file << contents;
+    file.close();
   }
 
   void CheckResultFromFile(const std::string& filename, bool printResults = false) {
