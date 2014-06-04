@@ -457,7 +457,7 @@ ValueStorageP ValueStorageFactory::getGlobalVariable(Value* value) {
   if (!x) {
     assert(!contains(by_llvm_value, value));
 
-    ValueStorageP x(new ValueStorage());
+    x = ValueStorageP(new ValueStorage());
     x->kind = ValueStorage::VARIABLE;
     x->name = name;
     x->type = value->getType();
