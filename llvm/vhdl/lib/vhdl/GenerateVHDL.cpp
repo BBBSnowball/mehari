@@ -661,6 +661,8 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get());
   output->connectToInput (tmp->getWriteChannel(op.get()), op.get());
 
+  this->op->inPortMap(op_info.op, "Clk", "Clk");
+
   *this->op << this->op->instance(op_info.op, tmpVar);
 }
 

@@ -44,7 +44,8 @@ begin
    t0_data <= t0_data_;
    t0_valid <= t0_valid_;
    t0: add
-      port map ( a_data => a_in_data,
+      port map ( Clk => Clk,
+                 a_data => a_in_data,
                  a_ready => a_in_ready_,
                  a_valid => a_in_valid,
                  b_data => 2,

@@ -44,7 +44,8 @@ begin
    t0_data <= t0_data_;
    t0_valid <= t0_valid_;
    t0: fpadd
-      port map ( a_data => 1,
+      port map ( Clk => Clk,
+                 a_data => 1,
                  a_valid => '1',
                  b_data => 2,
                  b_valid => '1',
