@@ -186,13 +186,23 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
+TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithReturnTest) {
   ParseC(
     "int func(int);"
     "void test(int a) {"
     "  a = func(a);"
     "}");
-  CheckResultFromFile("FunctionCallTest.vhdl");
+  CheckResultFromFile("FunctionCallWithReturnTest.vhdl");
+}
+
+
+TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
+  ParseC(
+    "void func(int, int);"
+    "void test(int a) {"
+    "  func(a, 2);"
+    "}");
+  CheckResultFromFile("FunctionCallWithoutReturnTest.vhdl");
 }
 
 
