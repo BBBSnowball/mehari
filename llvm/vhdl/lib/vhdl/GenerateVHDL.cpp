@@ -334,8 +334,8 @@ struct Channel {
     if (direction & IN) {
       if (ch->direction == CONSTANT_OUT) {
         if (!component) {
-          *op << data_signal << " <= " << ch->constant << ";\n";
-          *op << valid_signal << " <= '1';\n";
+          *op << "   " << data_signal << " <= " << ch->constant << ";\n";
+          *op << "   " << valid_signal << " <= '1';\n";
           // ignore ready_signal
         } else {
           op->inPortMapCst(component, data_signal, ch->constant);
@@ -355,17 +355,17 @@ struct Channel {
           op->inPortMap (component, data_signal,  ch->data_signal);
           op->inPortMap (component, valid_signal, ch->valid_signal);
           op->outPortMap(component, ready_signal, ch->ready_signal + "_");
-          *op << ch->ready_signal << " <= " << ch->ready_signal << "_" << ";\n";
+          *op << "   " << ch->ready_signal << " <= " << ch->ready_signal << "_" << ";\n";
         } else if (!component && ch->component) {
           op->outPortMap(ch->component, ch->data_signal,  data_signal + "_");
-          *op << data_signal << " <= " << data_signal << "_" << ";\n";
+          *op << "   " << data_signal << " <= " << data_signal << "_" << ";\n";
           op->outPortMap(ch->component, ch->valid_signal, valid_signal + "_");
-          *op << valid_signal << " <= " << valid_signal << "_" << ";\n";
+          *op << "   " << valid_signal << " <= " << valid_signal << "_" << ";\n";
           op->inPortMap (ch->component, ch->ready_signal, ready_signal);
         } else if (!component && !ch->component) {
-          *op << data_signal  << " <= " << ch->data_signal << ";\n";
-          *op << valid_signal << " <= " << ch->valid_signal << ";\n";
-          *op << ch->ready_signal << " <= " << ready_signal << ";\n";
+          *op << "   " << data_signal  << " <= " << ch->data_signal << ";\n";
+          *op << "   " << valid_signal << " <= " << ch->valid_signal << ";\n";
+          *op << "   " << ch->ready_signal << " <= " << ready_signal << ";\n";
         } else {
           assert(false);
         }

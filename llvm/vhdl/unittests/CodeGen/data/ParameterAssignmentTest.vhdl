@@ -22,10 +22,10 @@ end entity;
 
 architecture arch of test is
 begin
-a_out_data <= 1;
-a_out_valid <= '1';
-b_out_data <= a_in_data;
-b_out_valid <= a_in_valid;
-a_in_ready <= b_out_ready;
+   a_out_data <= 1;
+   a_out_valid <= '1';
+   b_out_data <= a_in_data;
+   b_out_valid <= a_in_valid;
+   a_in_ready <= b_out_ready;
 end architecture;
 

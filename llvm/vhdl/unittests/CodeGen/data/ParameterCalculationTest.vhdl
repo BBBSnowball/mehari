@@ -40,9 +40,9 @@ signal t0_ready : std_logic;
 signal t0_data_ :  std_logic_vector(31 downto 0);
 signal t0_valid_ : std_logic;
 begin
-a_in_ready <= a_in_ready_;
-t0_data <= t0_data_;
-t0_valid <= t0_valid_;
+   a_in_ready <= a_in_ready_;
+   t0_data <= t0_data_;
+   t0_valid <= t0_valid_;
    t0: add
       port map ( a_data => a_in_data,
                  a_ready => a_in_ready_,
@@ -52,8 +52,8 @@ t0_valid <= t0_valid_;
                  result_data => t0_data_,
                  result_ready => t0_ready,
                  result_valid => t0_valid_);
-b_out_data <= t0_data;
-b_out_valid <= t0_valid;
-t0_ready <= b_out_ready;
+   b_out_data <= t0_data;
+   b_out_valid <= t0_valid;
+   t0_ready <= b_out_ready;
 end architecture;
 
