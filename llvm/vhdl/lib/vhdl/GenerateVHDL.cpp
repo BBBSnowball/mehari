@@ -319,13 +319,13 @@ struct Channel {
     }
   }
 
-  void generateSignal(MyOperator* op) {
+  void generateSignal(MyOperator* op, UniqueNameSet& usedVariableNames) {
     if (component && direction != CONSTANT_OUT) {
       //TODO we have to use the instance name instead of the component name
       std::string
-        data_signal_new  = component->getName() + "_" + data_signal,
-        valid_signal_new = component->getName() + "_" + valid_signal,
-        ready_signal_new = component->getName() + "_" + ready_signal;
+        data_signal_new  = usedVariableNames.makeUnique(component->getName() + "_" + data_signal),
+        valid_signal_new = usedVariableNames.makeUnique(component->getName() + "_" + valid_signal),
+        ready_signal_new = usedVariableNames.makeUnique(component->getName() + "_" + ready_signal);
       if (direction == OUT) {
         op->outPortMap(component, data_signal, data_signal_new);
         op->outPortMap(component, data_signal, data_signal_new);
@@ -343,7 +343,18 @@ struct Channel {
     }
   }
 
-  void connectToOutput(Channel* ch, MyOperator* op) {
+private:
+  static void outPortMap(MyOperator* op, ::Operator* component, const std::string& port, const std::string& signal,
+      UniqueNameSet& usedVariableNames) {
+    // The signal already exists, but op->outPortMap(...) insists on creating it,
+    // so we use a temporary signal.
+    std::string tmp_signal = usedVariableNames.makeUnique(signal + "_");
+    op->outPortMap(component, port, tmp_signal);
+    *op << "   " << signal << " <= " << tmp_signal << ";\n";
+  }
+
+public:
+  void connectToOutput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
     assert(width == ch->width);
 
     if (direction & IN) {
@@ -361,7 +372,7 @@ struct Channel {
         if (component && ch->component) {
           // both are component ports -> generate a signal to connect them
           // We generate the signal for the output port because it can be reused.
-          ch->generateSignal(op);
+          ch->generateSignal(op, usedVariableNames);
 
           assert(!ch->component);
         }
@@ -369,13 +380,11 @@ struct Channel {
         if (component && !ch->component) {
           op->inPortMap (component, data_signal,  ch->data_signal);
           op->inPortMap (component, valid_signal, ch->valid_signal);
-          op->outPortMap(component, ready_signal, ch->ready_signal + "_");
-          *op << "   " << ch->ready_signal << " <= " << ch->ready_signal << "_" << ";\n";
+
+          outPortMap(op, component, ready_signal, ch->ready_signal, usedVariableNames);
         } else if (!component && ch->component) {
-          op->outPortMap(ch->component, ch->data_signal,  data_signal + "_");
-          *op << "   " << data_signal << " <= " << data_signal << "_" << ";\n";
-          op->outPortMap(ch->component, ch->valid_signal, valid_signal + "_");
-          *op << "   " << valid_signal << " <= " << valid_signal << "_" << ";\n";
+          outPortMap(op, ch->component, ch->data_signal,  data_signal,  usedVariableNames);
+          outPortMap(op, ch->component, ch->valid_signal, valid_signal, usedVariableNames);
           op->inPortMap (ch->component, ch->ready_signal, ready_signal);
         } else if (!component && !ch->component) {
           *op << "   " << data_signal  << " <= " << ch->data_signal << ";\n";
@@ -395,16 +404,16 @@ struct Channel {
     }
   }
 
-  void connectToOutput(ChannelP ch, MyOperator* op) {
-    connectToOutput(ch.get(), op);
+  void connectToOutput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
+    connectToOutput(ch.get(), op, usedVariableNames);
   }
 
-  void connectToInput(Channel* ch, MyOperator* op) {
-    ch->connectToOutput(this, op);
+  void connectToInput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
+    ch->connectToOutput(this, op, usedVariableNames);
   }
 
-  void connectToInput(ChannelP ch, MyOperator* op) {
-    connectToInput(ch.get(), op);
+  void connectToInput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
+    connectToInput(ch.get(), op, usedVariableNames);
   }
 };
 
@@ -571,6 +580,8 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   branchLabels.clear();
   branchLabelNameGenerator.reset();
   vs_factory->clear();
+  instanceNameGenerator.reset();
+  usedVariableNames.reset();
 
   op.reset(new MyOperator());
   op->setName("test");
@@ -585,7 +596,7 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   ChannelP ch1 = vs_factory->get(op1)->getWriteChannel(op.get());
   ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
 
-  ch1->connectToOutput(ch2, op.get());
+  ch1->connectToOutput(ch2, op.get(), usedVariableNames);
 
   vs_factory->get(op1)->replaceBy(ch2);
 }
@@ -677,9 +688,9 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2);
   ChannelP output = Channel::make_component_output(op_info.op, op_info.output);
 
-  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get());
-  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get());
-  output->connectToInput (tmp->getWriteChannel(op.get()), op.get());
+  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames);
+  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames);
+  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames);
 
   this->op->inPortMap(op_info.op, "Clk", "Clk");
 
@@ -736,13 +747,13 @@ void VHDLBackend::generateCall(std::string funcName,
   BOOST_FOREACH(Value* arg, args) {
     const std::string& argname = argnames[i++];
     ChannelP argchannel = Channel::make_component_input(func, argname);
-    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get());
+    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get(), usedVariableNames);
   }
 
   if (!tmpVar.empty()) {
     ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
     ChannelP result = Channel::make_component_output(func, "result");
-    result->connectToInput(tmp->getWriteChannel(op.get()), op.get());
+    result->connectToInput(tmp->getWriteChannel(op.get()), op.get(), usedVariableNames);
   } else {
     //TODO: make sure that we wait for the done signal to become '1'
   }
@@ -849,12 +860,18 @@ std::string VHDLBackend::createTemporaryVariable(Value *addr) {
 
   ValueStorageP x = vs_factory->makeTemporaryVariable(addr);
   debug_print(" -> " << x->name);
+
+  usedVariableNames.addUsedName(x->name);
+
   return x->name;
 }
 
 std::string VHDLBackend::getOrCreateTemporaryVariable(Value *addr) {
   ValueStorageP x = vs_factory->getOrCreateTemporaryVariable(addr);
   debug_print(" -> " << x->name);
+
+  usedVariableNames.addUsedName(x->name);
+
   return x->name;
 }
 
@@ -862,12 +879,18 @@ void VHDLBackend::addVariable(Value *addr, std::string name) {
   debug_print("addVariable(" << addr << ", " << name << ")");
   return_if_dry_run();
 
+  usedVariableNames.addUsedName(name);
+
   ValueStorageP variable = vs_factory->getGlobalVariable(name, addr->getType());
   vs_factory->set(addr, variable);
 }
 
 void VHDLBackend::addParameter(Value *addr, std::string name) {
   debug_print("addParameter(" << addr << ", " << name << ")");
+  return_if_dry_run();
+
+  usedVariableNames.addUsedName(name);
+
   vs_factory->makeParameter(addr, name);
 }
 

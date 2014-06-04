@@ -206,6 +206,16 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
 }
 
 
+TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
+  ParseC(
+    "void func(int, int);"
+    "void test(int a) {"
+    "  a = a+a;"
+    "}");
+  CheckResultFromFile("UseParameterMoreThanOnce.vhdl");
+}
+
+
 /*TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
