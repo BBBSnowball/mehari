@@ -122,6 +122,13 @@ add_custom_command(TARGET MehariVHDLTests POST_BUILD
       "${CMAKE_BINARY_DIR}/CodeGen_data"
 )
 
+# create symlink to clang
+add_custom_command(TARGET MehariVHDLTests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+      "${CMAKE_BINARY_DIR}/../llvm/bin/clang"
+      "${CMAKE_BINARY_DIR}/clang"
+)
+
 # install unittest
 install(TARGETS MehariVHDLTests
   RUNTIME DESTINATION unittests

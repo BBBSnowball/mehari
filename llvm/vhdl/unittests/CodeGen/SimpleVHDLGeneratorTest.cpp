@@ -17,6 +17,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 
 
 using namespace llvm;
@@ -45,6 +46,29 @@ protected:
     F = M->getFunction("test");
     if (F == NULL)
       report_fatal_error("Test must have a function named @test");
+  }
+
+
+  void ParseC(const char *Code) {
+    char prefix[] = "ccode.XXXXXXXX";
+    mktemp(prefix);
+
+    std::string codefile = std::string(prefix) + ".c";
+    writeFile(codefile, Code);
+
+    std::string command = "./clang -S -emit-llvm '" + codefile + "'";
+    int result = system(command.c_str());
+    EXPECT_EQ(result, 0);
+    if (result != 0)
+      throw std::runtime_error("clang returned a non-zero status.");
+
+    std::string assemblyfile = std::string(prefix) + ".ll";
+    std::string assembly = readFile(assemblyfile);
+
+    remove(codefile.c_str());
+    remove(assemblyfile.c_str());
+
+    ParseAssembly(assembly.c_str());
   }
 
 
@@ -81,9 +105,12 @@ protected:
 
   std::string fromFile(const std::string& filename) {
     std::string full_filename = "CodeGen_data/" + filename;
+    return readFile(full_filename);
+  }
 
+  std::string readFile(const std::string& filename) {
     std::ifstream file;
-    file.open(full_filename.c_str(), std::ios::in | std::ios::binary);
+    file.open(filename.c_str(), std::ios::in | std::ios::binary);
 
     if (file) {
       std::string contents;
@@ -119,98 +146,51 @@ private:
 
 
 TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
-  // a = 1;
-  // b = a;
-  ParseAssembly(
-    "define void @test(i32 %a, i32 %b) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca i32, align 4\n"
-    "  %b.addr = alloca i32, align 4\n"
-    "  store i32 %a, i32* %a.addr, align 4\n"
-    "  store i32 %b, i32* %b.addr, align 4\n"
-    "  store i32 1, i32* %a.addr, align 4\n"
-    "  %0 = load i32* %a.addr, align 4\n"
-    "  store i32 %0, i32* %b.addr, align 4\n"
-    "  ret void\n"
-    "}\n");
+  ParseC(
+    "void test(int a, int b) {"
+    "  a = 1;"
+    "  b = a;"
+    "}");
   CheckResultFromFile("ParameterAssignmentTest.vhdl");
 }
 
 
 TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
-  // int t0 = a + 2;
-  // b = t0;
-
-  ParseAssembly(
-    "define void @test(i32 %a, i32 %b) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca i32, align 4\n"
-    "  %b.addr = alloca i32, align 4\n"
-    "  store i32 %a, i32* %a.addr, align 4\n"
-    "  store i32 %b, i32* %b.addr, align 4\n"
-    "  %0 = load i32* %a.addr, align 4\n"
-    "  %add = add nsw i32 %0, 2\n"
-    "  store i32 %add, i32* %b.addr, align 4\n"
-    "  ret void\n"
-    "}\n");
+  ParseC(
+    "void test(int a, int b) {"
+    "  b = a + 2;"
+    "}");
   CheckResultFromFile("ParameterCalculationTest.vhdl");
 }
 
 
 TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
-  // double t0;
-  // a[1] = 1;
-  // t0 = a[1] + 2;
-  // b[0] = t0;
-
-  ParseAssembly(
-    "define void @test(double* %a, double* %b) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca double*, align 8\n"
-    "  %b.addr = alloca double*, align 8\n"
-    "  store double* %a, double** %a.addr, align 8\n"
-    "  store double* %b, double** %b.addr, align 8\n"
-    "  %0 = load double** %a.addr, align 8\n"
-    "  %arrayidx = getelementptr inbounds double* %0, i64 1\n"
-    "  store double 1.000000e+00, double* %arrayidx, align 8\n"
-    "  %1 = load double** %a.addr, align 8\n"
-    "  %arrayidx1 = getelementptr inbounds double* %1, i64 1\n"
-    "  %2 = load double* %arrayidx1, align 8\n"
-    "  %add = fadd double %2, 2.000000e+00\n"
-    "  %3 = load double** %b.addr, align 8\n"
-    "  %arrayidx2 = getelementptr inbounds double* %3, i64 0\n"
-    "  store double %add, double* %arrayidx2, align 8\n"
-    "  ret void\n"
-    "}\n");
+  ParseC(
+    "void test(double* a, double* b) {"
+    "  a[1] = 1;"
+    "  b[0] = a[1] + 2;"
+    "}");
   CheckResultFromFile("ArrayParameterCalculationTest.vhdl");
 }
 
 
 TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
-  // double t0;
-  // a[0] = 1.5;
-  // a[1] = b[0];
-  // t0 = a[0] + 2;
-  // b[2] = t0;
-
-  ParseAssembly(
-    "@a = common global [5 x double] zeroinitializer, align 16\n"
-    "@b = common global [5 x double] zeroinitializer, align 16\n"
-    "define void @test() #0 {\n"
-    "entry:\n"
-    "  store double 1.500000e+00, double* getelementptr inbounds ([5 x double]* @a, i32 0, i64 0), align 8\n"
-    "  %0 = load double* getelementptr inbounds ([5 x double]* @b, i32 0, i64 0), align 8\n"
-    "  store double %0, double* getelementptr inbounds ([5 x double]* @a, i32 0, i64 1), align 8\n"
-    "  %1 = load double* getelementptr inbounds ([5 x double]* @a, i32 0, i64 0), align 8\n"
-    "  %add = fadd double %1, 2.000000e+00\n"
-    "  store double %add, double* getelementptr inbounds ([5 x double]* @b, i32 0, i64 2), align 8\n"
-    "  ret void\n"
-    "}\n");
+  ParseC(
+    "double a[5], b[5];"
+    "void test() {"
+    "  a[0] = 1.5;"
+    "  a[1] = b[0];"
+    "  b[2] = a[0] + 2;"
+    "}");
   CheckResultFromFile("GlobalArrayCalculationTest.vhdl");
 }
 
 
 /*TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
+  // int t0;
+  // t0 = func(a);
+  // a = t0;
+
   ParseAssembly(
     "declare i32 @func(i32) #1\n"
     "define void @test(i32 %a) #0 {\n"
@@ -222,11 +202,7 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
     "  store i32 %call, i32* %a.addr, align 4\n"
     "  ret void\n"
     "}\n");
-  std::string ExpectedResult = 
-    "\tint t0;\n"
-    "\tt0 = func(a);\n"
-    "\ta = t0;\n";
-  CheckResult(ExpectedResult);
+  CheckResultFromFile("FunctionCallTest.vhdl");
 }
 
 
