@@ -34,6 +34,8 @@ class VHDLBackend : public CodeGeneratorBackend {
   UniqueNameSource branchLabelNameGenerator;
   std::map<Value*, std::vector<std::string> > branchLabels;
 
+  UniqueNameSource instanceNameGenerator;
+
   SimpleCCodeGenerator* generator;
   std::ostream* stream;
 

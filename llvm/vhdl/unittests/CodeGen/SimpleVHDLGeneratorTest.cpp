@@ -186,27 +186,17 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
-  // int t0;
-  // t0 = func(a);
-  // a = t0;
-
-  ParseAssembly(
-    "declare i32 @func(i32) #1\n"
-    "define void @test(i32 %a) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca i32, align 4\n"
-    "  store i32 %a, i32* %a.addr, align 4\n"
-    "  %0 = load i32* %a.addr, align 4\n"
-    "  %call = call i32 @func(i32 %0)\n"
-    "  store i32 %call, i32* %a.addr, align 4\n"
-    "  ret void\n"
-    "}\n");
+TEST_F(SimpleVHDLGeneratorTest, FunctionCallTest) {
+  ParseC(
+    "int func(int);"
+    "void test(int a) {"
+    "  a = func(a);"
+    "}");
   CheckResultFromFile("FunctionCallTest.vhdl");
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
+/*TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
     "entry:\n"

@@ -561,6 +561,7 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 
 VHDLBackend::VHDLBackend()
   : branchLabelNameGenerator("label"),
+    instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()) { }
 
 void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
@@ -685,29 +686,76 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   *this->op << this->op->instance(op_info.op, tmpVar);
 }
 
+Type* getElementType(Type* type) {
+  while (isa<SequentialType>(type))
+    type = type->getSequentialElementType();
+
+  return type;
+}
+
+unsigned int getWidthOfElementType(Type* type) {
+  int w = getElementType(type)->getPrimitiveSizeInBits();
+  assert(w != 0);
+  return w;
+}
+
 void VHDLBackend::generateCall(std::string funcName,
     std::string tmpVar, std::vector<Value*> args) {
   debug_print("generateCall(" << funcName << ", " << tmpVar << ", args)");
   return_if_dry_run();
 
-  /*stream << "\t";
-  if (!tmpVar.empty())
-    stream << tmpVar << " = ";
+  // create an operator for this function
+  ::Operator* func = new ::Operator();
+  func->setName(funcName);
+  func->addPort  ("Clk",1,1,1,0,0,0,0,0,0,0,0);
 
-  stream << funcName << "(";
+  std::vector<std::string> argnames;
+  int i = 0;
+  BOOST_FOREACH(Value* arg, args) {
+    std::stringstream argname_stream;
+    argname_stream << "arg" << (i++);
+    std::string argname = argname_stream.str();
+    argnames.push_back(argname);
 
-  Seperator sep(", ");
-  for (std::vector<Value*>::iterator it = args.begin(); it != args.end(); ++it) {
-    stream << sep << getOperandString(*it);
+    func->addInput (argname + "_data", getWidthOfElementType(arg->getType()));
+    func->addInput (argname + "_valid");
+    func->addOutput(argname + "_ready");
+  }
+  if (!tmpVar.empty()) {
+    ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+    func->addOutput("result_data", getWidthOfElementType(tmp->type));
+    func->addOutput("result_valid");
+    func->addInput ("result_ready");
+  } else {
+    func->addOutput("done");
   }
 
-  stream << ");\n";*/
+  this->op->inPortMap(func, "Clk", "Clk");
+
+  i = 0;
+  BOOST_FOREACH(Value* arg, args) {
+    const std::string& argname = argnames[i++];
+    ChannelP argchannel = Channel::make_component_input(func, argname);
+    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get());
+  }
+
+  if (!tmpVar.empty()) {
+    ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+    ChannelP result = Channel::make_component_output(func, "result");
+    result->connectToInput(tmp->getWriteChannel(op.get()), op.get());
+  } else {
+    //TODO: make sure that we wait for the done signal to become '1'
+  }
+
+  std::string instance_name = (!tmpVar.empty() ? tmpVar : instanceNameGenerator.next());
+  *this->op << this->op->instance(func, instance_name);
 }
 
 void VHDLBackend::generateVoidCall(std::string funcName, std::vector<Value*> args) {
   debug_print("generateVoidCall(" << funcName << ", args)");
   return_if_dry_run();
-  //generateCall(stream, funcName, "", args);
+  
+  generateCall(funcName, "", args);
 }
 
 void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
