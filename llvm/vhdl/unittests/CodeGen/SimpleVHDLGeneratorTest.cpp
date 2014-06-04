@@ -156,7 +156,11 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
+TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
+  // double t0;
+  // a[1] = 1;
+  // t0 = a[1] + 2;
+  // b[0] = t0;
   ParseAssembly(
     "define void @test(double* %a, double* %b) #0 {\n"
     "entry:\n"
@@ -176,16 +180,11 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
     "  store double %add, double* %arrayidx2, align 8\n"
     "  ret void\n"
     "}\n");
-  std::string ExpectedResult = 
-    "\tdouble t0;\n"
-    "\ta[1] = 1;\n"
-    "\tt0 = a[1] + 2;\n"
-    "\tb[0] = t0;\n";
-  CheckResult(ExpectedResult);
+  CheckResultFromFile("ArrayParameterCalculationTest.vhdl");
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
+/*TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
   ParseAssembly(
     "@a = common global [5 x double] zeroinitializer, align 16\n"
     "@b = common global [5 x double] zeroinitializer, align 16\n"

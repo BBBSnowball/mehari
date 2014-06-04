@@ -207,6 +207,7 @@ public:
 
   ValueStorageP getGlobalVariable(Value* v);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, Value* index);
+  ValueStorageP getAtConstIndex(ValueStorageP ptr, std::string str_index);
   ValueStorageP getConstant(const std::string& constant, unsigned int width);
 
   ValueStorageP get(Value* value) {
@@ -444,69 +445,6 @@ std::string VHDLBackend::generateBranchLabel(Value *target) {
   return label;
 }
 
-/*ChannelP VHDLBackend::createChannel(Value* addr, const std::string& name,
-    ChannelDirection::Direction direction) {
-  ChannelP channel = Channel::make_port(name, direction);
-  channel->addTo(this->op.get());
-  channels[addr] = channel;
-  return channel;
-}
-
-ChannelP VHDLBackend::getChannel(Value* addr, ChannelDirection::Direction direction) {
-  debug_print("getChannel(" << addr << ", " << direction << ")");
-
-  // return operand if it is a variable and already known
-  if (ChannelP channel = getValueOrDefault(channels, addr, ChannelP())) {
-    assert(ChannelDirection::matching_direction(channel->direction, direction));
-    return channel;
-  }
-
-  /*if (const std::string* str = getValueOrNull(variables, addr)) {
-    std::cout << "found variable " << *str << std::endl;
-    for (std::map<Value*, std::string>::iterator it=variables.begin(); it!=variables.end(); it++) {
-      std::cout << "  " << it->first << " -> " << it->second << std::endl;
-    }
-    // It refers to an existing variable. As we don't save any temporary variables in the
-    // generator, it must be a parameter.
-    return createChannel(addr, *str, direction);
-  }* /
-
-  /*else if (const std::string* param = getValueOrNull(parameters, addr)) {
-    asdf
-  }* /
-
-  // handle global value operands
-  else if (llvm::GEPOperator *op = dyn_cast<GEPOperator>(addr)) {
-    if (!op->hasAllConstantIndices())
-      errs() << "ERROR: Variable indices are not supported!\n";
-    std::stringstream name;
-    name << op->getPointerOperand()->getName().data();
-    if (op->hasIndices())
-      // NOTE: the last index is the one we want to know
-      for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
-        name << "_" << dyn_cast<ConstantInt>(*it)->getValue().toString(10, true);
-    return createChannel(addr, name.str(), direction);
-  }
-
-  // handle constant integers
-  else if (ConstantInt *ci = dyn_cast<ConstantInt>(addr))
-    return Channel::make_constant(ci->getValue().toString(10, true));
-
-  // handle constant floating point numbers
-  else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
-    double value = cf->getValueAPF().convertToDouble();
-    return Channel::make_constant(toString(value));
-  }
-
-  /* // convert operand address to string
-  std::string opString = toString(addr);
-  // if the value was got from another thread by the get_data function, return it
-  return generator->getDataDependencyOrDefault(opString, "## " + opString + " ##");* /
-
-  //TODO
-  return Channel::make_constant("## " + toString(addr) + " ##");
-}*/
-
 
 ValueStorageP ValueStorageFactory::getGlobalVariable(Value* value) {
   std::string name = value->getName().data();
@@ -529,6 +467,10 @@ ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, Value* ind
   //NOTE: This will only work for constant ints.
   std::string str_index = dyn_cast<ConstantInt>(index)->getValue().toString(10, true);
 
+  return getAtConstIndex(ptr, str_index);
+}
+
+ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, std::string str_index) {
   ValueStorageP pointee = by_index[ValueAndIndex(ptr, str_index)];
 
   if (!pointee) {
@@ -870,11 +812,10 @@ void VHDLBackend::copyVariable(Value *source, Value *target) {
 }
 
 void VHDLBackend::addIndexToVariable(Value *source, Value *target, std::string index) {
-  //TODO direction
   debug_print("addVariable(" << source << ", " << target << ", " << index << ")");
   return_if_dry_run();
 
-  //TODO
-  assert(false);
-  //channels[target] = Channel::make_port(channels[source]->data_signal + "_" + index, IN);
+  ValueStorageP vs_source = vs_factory->get(source);
+  ValueStorageP vs_source_with_index = vs_factory->getAtConstIndex(vs_source, index);
+  vs_factory->set(target, vs_source_with_index);
 }
