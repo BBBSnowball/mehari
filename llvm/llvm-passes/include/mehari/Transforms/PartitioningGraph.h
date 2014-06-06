@@ -8,6 +8,7 @@
 
 #include <boost/graph/adjacency_list.hpp> 
 #include <boost/graph/graphviz.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <vector>
 
@@ -42,7 +43,7 @@ public:
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
 		boost::vecS, 				// store vertex set in a std::vector
-		boost::directedS, 			// the graph has got directed edges
+		boost::bidirectionalS, 		// the graph has got bidirected edges (required for boost::in_edges)
 		ComputationUnit,			// the vertices are of type ComputationUnit
 		Communication				// the edges are of type Communication
 		> Graph;
@@ -77,12 +78,16 @@ public:
 		std::string &sourceDevice, std::string &targetDevice);
 	unsigned int getExecutionTime(VertexDescriptor vd, std::string &targetDevice);
 
+	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(
+		VertexDescriptor vd, std::string &sourcedevice, std::string &targetDevice);
+
 	unsigned int getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 
 	void printGraph(std::string &name);
 	void printGraphviz(Function &func, std::string &name, std::string &outputDir);
+	void printPartitions(void);
 
 private:
 

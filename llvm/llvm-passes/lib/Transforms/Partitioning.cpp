@@ -116,6 +116,8 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new HierarchicalClustering();
 		else if (PartitioningMethod == "sa")
 			PM = new SimulatedAnnealing();
+		else if (PartitioningMethod == "k-lin")
+			PM = new KernighanLin();
 		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
 		delete PM;
 

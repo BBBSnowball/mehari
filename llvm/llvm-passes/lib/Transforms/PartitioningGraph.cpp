@@ -296,6 +296,31 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::strin
 }
 
 
+boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalCommunicationCost(
+	VertexDescriptor vd, std::string &sourcedevice, std::string &targetDevice) {
+	Graph::out_edge_iterator oeIt, oeEnd;
+	Graph::in_edge_iterator ieIt, ieEnd;
+	boost::tie(oeIt, oeEnd) = boost::out_edges(vd, pGraph);
+	boost::tie(ieIt, ieEnd) = boost::in_edges(vd, pGraph);
+	unsigned int intCosts = 0, extCosts = 0;
+	for (; oeIt != oeEnd; ++oeIt) {
+		VertexDescriptor u = boost::source(*oeIt, pGraph), v = boost::target(*oeIt, pGraph);
+		if (pGraph[u].partition == pGraph[v].partition)
+			intCosts += calcEdgeCost(*oeIt, sourcedevice, sourcedevice);
+		else
+			extCosts += calcEdgeCost(*oeIt, sourcedevice, targetDevice);
+	}
+	for (; ieIt != ieEnd; ++ieIt) {
+		VertexDescriptor u = boost::source(*ieIt, pGraph), v = boost::target(*ieIt, pGraph);
+		if (pGraph[u].partition == pGraph[v].partition)
+			intCosts += calcEdgeCost(*ieIt, sourcedevice, sourcedevice);
+		else
+			extCosts += calcEdgeCost(*ieIt, sourcedevice, targetDevice);
+	}
+	return boost::make_tuple(intCosts, extCosts);
+}
+
+
 unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice) {
 	// create new simple graph type for critical path analysis
 	typedef boost::adjacency_list<
@@ -471,4 +496,21 @@ void PartitioningGraph::printGraphviz(Function &func, std::string &name, std::st
 		dotfile << "  " << pGraph[u].name << "->" << pGraph[v].name << "[label=\"" << comOps << "\"];\n";
 	}
 	dotfile << "}";
+}
+
+
+void PartitioningGraph::printPartitions(void) {
+	std::map<unsigned int, std::vector<VertexDescriptor> > partitions;
+	VertexIterator vertexIt, vertexEnd;
+	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt)
+		partitions[pGraph[*vertexIt].partition].push_back(*vertexIt);
+	std::map<unsigned int, std::vector<VertexDescriptor> >::iterator it;
+	errs() << "Partitioning Graph Partitions: \n";
+	for (it = partitions.begin(); it != partitions.end(); ++it) {
+		errs() << it->first << ": [ ";
+		for (std::vector<VertexDescriptor>::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
+			errs() << pGraph[*it2].name << " ";
+		errs() << "]\n";
+	}
+	errs() << "\n";
 }

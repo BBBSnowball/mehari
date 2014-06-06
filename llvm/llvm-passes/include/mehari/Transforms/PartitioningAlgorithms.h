@@ -99,4 +99,30 @@ private:
 };
 
 
+
+class KernighanLin : public AbstractPartitioningMethod {
+public:
+	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+
+private:
+	struct AdditionalVertexInfo {
+		int costDifference;
+		bool wasMoved;
+		AdditionalVertexInfo() : costDifference(0), wasMoved(false) {};
+	};
+
+	PartitioningGraph currentResult;
+
+	std::map<PartitioningGraph::VertexDescriptor, AdditionalVertexInfo> additionalVertexInformation;
+
+	void updateCostDifferences(void);
+	boost::tuple<PartitioningGraph::VertexDescriptor, PartitioningGraph::VertexDescriptor, unsigned int> 
+	findInterchangePair(void);
+	void applyInterchanging(PartitioningGraph::VertexDescriptor vd1, PartitioningGraph::VertexDescriptor vd2, 
+		PartitioningGraph &result);
+	void lockMovedVertices(PartitioningGraph::VertexDescriptor vd1, PartitioningGraph::VertexDescriptor vd2);
+	void unlockAllVertices(void);
+	boost::tuple<int, unsigned int> getMaxCostRecution(std::vector<int> &costReductions);
+};
+
 #endif /*PARTITIONING_ALGORITHMS_H*/
