@@ -25,6 +25,21 @@ unsigned int RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int p
 	return partitionCount;
 }
 
+void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
+	srand(42);
+	std::vector<unsigned int> vList;
+	unsigned int vertexCount = pGraph.getVertexCount();
+	for (int i=0; i<vertexCount; i++)
+		vList.push_back(i);
+	std::random_shuffle(vList.begin(), vList.end());
+	for (int i=0; i<vertexCount; i++) {
+		if (i < vertexCount/2)
+			pGraph.setPartition(vList[i], 0);
+		else
+			pGraph.setPartition(vList[i], 1);
+	}
+}
+
 
 // -----------------------------------
 // Hierarchical Clustering
@@ -338,18 +353,19 @@ double SimulatedAnnealing::randomNumber(void) {
 // -----------------------------------
 
 unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
-	// create initial state
-	PartitioningGraph currentResult = pGraph;
-	RandomPartitioning P;
-	P.apply(currentResult, partitionCount);
-
 	// NOTE: currently this algorithm is only implemented for bi-partitioning
 	// -> return a random partitioning if the partition count is not 2
 	if (partitionCount != 2) {
 		errs() << "WARNING: Kernighan Lin currently only can handle bi-partitioning tasks!\n";
-		pGraph = currentResult;
+		RandomPartitioning P;
+		P.apply(pGraph, partitionCount);
 		return partitionCount;
 	}
+
+	// create balanced initial state
+	PartitioningGraph currentResult = pGraph;
+	RandomPartitioning P;
+	P.balancedBiPartitioning(currentResult);
 
 	// perform iteration until there is no improvement
 	bool improved = false;

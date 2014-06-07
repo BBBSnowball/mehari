@@ -19,6 +19,7 @@ public:
 class RandomPartitioning : public AbstractPartitioningMethod {
 public:
 	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	void balancedBiPartitioning(PartitioningGraph &pGraph);
 };
 
 
