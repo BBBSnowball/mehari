@@ -408,6 +408,7 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partiti
 
 	// return last improved result
 	pGraph = currentResult;
+	return partitionCount;
 }
 
 
