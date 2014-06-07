@@ -339,7 +339,7 @@ double SimulatedAnnealing::randomNumber(void) {
 
 unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
 	// create initial state
-	currentResult = pGraph;
+	PartitioningGraph currentResult = pGraph;
 	RandomPartitioning P;
 	P.apply(currentResult, partitionCount);
 
@@ -351,131 +351,134 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partiti
 		return partitionCount;
 	}
 
-	// create the additional information mapping for all vertices of the partitioning graph
-	PartitioningGraph::VertexIterator vIt = currentResult.getFirstIterator(); 
-	PartitioningGraph::VertexIterator vEnd = currentResult.getEndIterator();
-	for (; vIt != vEnd; ++vIt)
-		additionalVertexInformation[*vIt] = AdditionalVertexInfo();
-
 	// perform iteration until there is no improvement
 	bool improved = false;
 	do {
-		// update the costDifference values for all vertices
-		updateCostDifferences();
-		// iterate over the vertices and interchange them
-		std::vector<PartitioningGraph> iterationResults;
-		std::vector<int> costReductions;
-		iterationResults.clear();
-		costReductions.clear();
-		for (int i=0; i<(currentResult.getVertexCount()/2); i++) {
-			// find pair that should be interchanged
-			PartitioningGraph::VertexDescriptor vd1, vd2;
-			int costReduction;
-			boost::tie(vd1, vd2, costReduction) = findInterchangePair();
-			// perform interchanging and save results
-			applyInterchanging(vd1, vd2, currentResult);
-			PartitioningGraph newResult = currentResult;
-			iterationResults.push_back(newResult);
-			costReductions.push_back(costReduction);
-			// remove the two vertices from further consideration in this pass
-			lockMovedVertices(vd1, vd2);
-			// update costDifference values for the remaining vertices
-			updateCostDifferences();
+		unsigned int iterationCount = (currentResult.getVertexCount()/2);
+		// create the additional information mapping for all vertices of the partitioning graph
+		additionalVertexInformation.clear();
+		for (int i=0; i<currentResult.getVertexCount(); i++) {
+			additionalVertexInformation.push_back(AdditionalVertexInfo());
 		}
-		// determine the iteration count that maximizes the cost recution
-		int maxCostReduction;
-		unsigned int iterationCount;
-		boost::tie(maxCostReduction, iterationCount) = getMaxCostRecution(costReductions);
+		// initialize the costDifference values for all vertices
+		createInitialCostDifferences(currentResult);
+		// save some information for each iteration
+		std::vector<boost::tuple<unsigned int, unsigned int> > interchanges;
+		int currentTotalGain = 0, maxTotalGain = std::numeric_limits<int>::min(), maxTotalGainIndex = 0;
+		// iterate over the vertices and interchange them
+		for (int i=0; i<iterationCount; i++) {
+			// find pair that should be interchanged
+			unsigned int v1, v2;
+			int gain;
+			boost::tie(v1, v2, gain) = findInterchangePair(currentResult);
+			// save the pair in the interchange list and check if it's the best result
+			interchanges.push_back(boost::make_tuple(v1, v2));
+			currentTotalGain += gain;
+			if(currentTotalGain > maxTotalGain) {
+				maxTotalGain = currentTotalGain;
+				maxTotalGainIndex = i;
+			}
+			// remove the two vertices from further consideration in this pass
+			lockMovedVertices(v1, v2);
+			// update costDifference values for the remaining vertices
+			updateCostDifferences(v1, v2, currentResult);
+		}
 		// unlock all vertices to enable them for interchanging during the next iteration
 		unlockAllVertices();
-		if (improved = (maxCostReduction > 0)) {
+		if (improved = (maxTotalGain > 0))
 			// save current result
-			currentResult = iterationResults[iterationCount];
-			pGraph = currentResult;
-		}
+			applyInterchanges(interchanges, maxTotalGainIndex, currentResult);
 	} while (improved);
+
+	// return last improved result
+	pGraph = currentResult;
 }
 
 
-void KernighanLin::updateCostDifferences(void) {
+void KernighanLin::createInitialCostDifferences(PartitioningGraph &pGraph) {
 	std::string device = "Cortex-A9";
-	std::map<PartitioningGraph::VertexDescriptor, AdditionalVertexInfo>::iterator it;
+	std::vector<AdditionalVertexInfo>::iterator it;
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
-		if (it->second.wasMoved)
-			continue;
 		unsigned int internalCosts, externalCosts;
-		boost::tie(internalCosts, externalCosts) = currentResult.getInternalExternalCommunicationCost(
-			it->first, device, device);
-		it->second.costDifference = externalCosts - internalCosts;
+		boost::tie(internalCosts, externalCosts) = pGraph.getInternalExternalCommunicationCost(
+			(it-additionalVertexInformation.begin()), device, device);
+		it->costDifference = externalCosts - internalCosts;
 	}
 }
 
 
-boost::tuple<PartitioningGraph::VertexDescriptor, PartitioningGraph::VertexDescriptor, unsigned int> 
-KernighanLin::findInterchangePair(void) {
+void KernighanLin::updateCostDifferences(unsigned int icV1, unsigned int icV2, PartitioningGraph &pGraph) {
+	std::vector<AdditionalVertexInfo>::iterator it;
 	std::string device = "Cortex-A9";
-	PartitioningGraph::VertexDescriptor vd1, vd2;
+	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
+		if (it->locked)
+			continue;
+		unsigned int v = (it-additionalVertexInformation.begin());
+		unsigned int cost1 = pGraph.getCommunicationCost(v, icV1, device, device);
+		unsigned int cost2 = pGraph.getCommunicationCost(v, icV2, device, device);
+		if (cost1 > 0 || cost2 > 0) {
+			if (pGraph.getPartition(v) == pGraph.getPartition(icV1)) {
+				it->costDifference += 2*cost1 - 2*cost2;
+			}
+			else {
+				it->costDifference += 2*cost2 - 2*cost1;
+			}
+		}
+	}
+}
+
+
+boost::tuple<unsigned int, unsigned int, unsigned int> 
+KernighanLin::findInterchangePair(PartitioningGraph &pGraph) {
+	std::string device = "Cortex-A9";
+	unsigned int v1, v2;
 	int costReduction = std::numeric_limits<int>::min();
-	std::map<PartitioningGraph::VertexDescriptor, AdditionalVertexInfo>::iterator it1, it2;
+	std::vector<AdditionalVertexInfo>::iterator it1, it2;
 	for(it1 = additionalVertexInformation.begin(); it1 != additionalVertexInformation.end(); ++it1) {
-		if (it1->second.wasMoved)
+		if (it1->locked)
 			continue;
 		for(it2 = it1; it2 != additionalVertexInformation.end(); ++it2) {
-			if (it2->second.wasMoved)
+			if (it2->locked || it1 == it2)
 				continue;
-			if (it1->first == it2->first)
-				continue;
-			if (currentResult.getPartition(it1->first) != currentResult.getPartition(it2->first)) {
+			unsigned int vNr1 = (it1-additionalVertexInformation.begin());
+			unsigned int vNr2 = (it2-additionalVertexInformation.begin());
+			if (pGraph.getPartition(vNr1) != pGraph.getPartition(vNr2)) {
 				// the current pair of nodes has different partitions -> check if we should interchange the nodes
-				int newCostReduction = it1->second.costDifference + it2->second.costDifference 
-					- 2*currentResult.getCommunicationCost(it1->first, it2->first, device, device);
+				int newCostReduction = it1->costDifference + it2->costDifference 
+					- 2*pGraph.getCommunicationCost(vNr1, vNr2, device, device);
 				if (newCostReduction > costReduction) {
 					// the current pair of nodes would result in a higher cost reduction if we interchange them
 					// -> save the current pair and set new cost reduction value
-					vd1 = it1->first;
-					vd2 = it2->first;
+					v1 = vNr1; v2 = vNr2;
 					costReduction = newCostReduction;
 				}
 			}
 		}
 	}
-	return boost::make_tuple(vd1, vd2, costReduction);
+	return boost::make_tuple(v1, v2, costReduction);
 }
 
 
-void KernighanLin::applyInterchanging(PartitioningGraph::VertexDescriptor vd1, 
-	PartitioningGraph::VertexDescriptor vd2, PartitioningGraph &result) {
-	// swap partitions
-	unsigned int tmpPartition = result.getPartition(vd1);
-	result.setPartition(vd1, result.getPartition(vd2));
-	result.setPartition(vd2, tmpPartition);
-}
-
-
-void KernighanLin::lockMovedVertices(PartitioningGraph::VertexDescriptor vd1, 
-	PartitioningGraph::VertexDescriptor vd2) {
-	additionalVertexInformation[vd1].wasMoved = true;
-	additionalVertexInformation[vd2].wasMoved = true;
+void KernighanLin::lockMovedVertices(unsigned int v1, unsigned int v2) {
+	additionalVertexInformation[v1].locked = true;
+	additionalVertexInformation[v2].locked = true;
 }
 
 
 void KernighanLin::unlockAllVertices(void) {
-	std::map<PartitioningGraph::VertexDescriptor, AdditionalVertexInfo>::iterator it;
+	std::vector<AdditionalVertexInfo>::iterator it;
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it)
-		it->second.wasMoved = false;
+		it->locked = false;
 }
 
 
-boost::tuple<int, unsigned int> KernighanLin::getMaxCostRecution(std::vector<int> &costReductions) {
-	// calculate cost reduction sum for each iteration count
-	int costRecutionSum[costReductions.size()];
-	costRecutionSum[0] = costReductions[0];
-	for (int i=1; i<costReductions.size(); i++)
-		costRecutionSum[i] = costRecutionSum[i-1] + costReductions[i];
-	// set iteration count and relating overall cost recution value
-	unsigned int iterationCount = std::distance(costRecutionSum, 
-		std::max_element(costRecutionSum,costRecutionSum+costReductions.size()));
-	int maxCostReduction = costRecutionSum[iterationCount]; 
-	
-	return boost::make_tuple(maxCostReduction, iterationCount);
+void KernighanLin::applyInterchanges(std::vector<boost::tuple<unsigned int, unsigned int> > &interchanges, 
+	unsigned int iterationCount, PartitioningGraph &result) {
+	for (int i=0; i<=iterationCount; i++) {
+		unsigned int v1, v2;
+		boost::tie(v1, v2) = interchanges[i];
+		unsigned int tmpPartition = result.getPartition(v1);
+		result.setPartition(v1, result.getPartition(v2));
+		result.setPartition(v2, tmpPartition);
+	}
 }

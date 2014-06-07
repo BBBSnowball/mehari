@@ -107,22 +107,20 @@ public:
 private:
 	struct AdditionalVertexInfo {
 		int costDifference;
-		bool wasMoved;
-		AdditionalVertexInfo() : costDifference(0), wasMoved(false) {};
+		bool locked;
+		AdditionalVertexInfo() : costDifference(0), locked(false) {};
 	};
 
-	PartitioningGraph currentResult;
+	std::vector<AdditionalVertexInfo> additionalVertexInformation;
 
-	std::map<PartitioningGraph::VertexDescriptor, AdditionalVertexInfo> additionalVertexInformation;
-
-	void updateCostDifferences(void);
-	boost::tuple<PartitioningGraph::VertexDescriptor, PartitioningGraph::VertexDescriptor, unsigned int> 
-	findInterchangePair(void);
-	void applyInterchanging(PartitioningGraph::VertexDescriptor vd1, PartitioningGraph::VertexDescriptor vd2, 
-		PartitioningGraph &result);
-	void lockMovedVertices(PartitioningGraph::VertexDescriptor vd1, PartitioningGraph::VertexDescriptor vd2);
+	void createInitialCostDifferences(PartitioningGraph &pGraph);
+	void updateCostDifferences(unsigned int icV1, unsigned int icV2, PartitioningGraph &pGraph);
+	boost::tuple<unsigned int, unsigned int, unsigned int> findInterchangePair(PartitioningGraph &pGraph);
+	void lockMovedVertices(unsigned int vd1, unsigned int vd2);
 	void unlockAllVertices(void);
 	boost::tuple<int, unsigned int> getMaxCostRecution(std::vector<int> &costReductions);
+	void applyInterchanges(std::vector<boost::tuple<unsigned int, unsigned int> > &interchanges, 
+		unsigned int iterationCount, PartitioningGraph &result);
 };
 
 #endif /*PARTITIONING_ALGORITHMS_H*/
