@@ -321,6 +321,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	std::string threadDeclTemplate = TemplateDir + "/thread_declaration.tpl";
 	std::string threadCreationTemplate = TemplateDir + "/thread_creation.tpl";
 	std::string threadImplTemplate = TemplateDir + "/thread_implementation.tpl";
+	std::string partitionCountTemplate = TemplateDir + "/partition_count_entry.tpl";
 	std::string dataDepInitTemplate = TemplateDir + "/dep_data_init.tpl";
 	std::string paramDepInitTemplate = TemplateDir + "/dep_param_init.tpl";
 	std::string outputFile = OutputDir + "/mehari.c";
@@ -358,10 +359,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 			"DATA_TYPE", *depIt);
 	}
 
-	// insert partition and thread count
-	std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitionCount))->str();
-	tWriter.setValue("PARTITION_COUNT", partitionCountStr);
-	unsigned int threadCount = functions.size()*(partitionCount-1);
+	// insert thread count
+	unsigned int threadCount = 0;
+	for (std::map<std::string, unsigned int>::iterator it = partitioningNumbers.begin(); it != partitioningNumbers.end(); ++it)
+		threadCount += (it->second - 1);
 	std::string threadCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadCount))->str();
 	tWriter.setValue("THREAD_COUNT", threadCountStr);
 
@@ -370,6 +371,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 	// write partitioning for each function
 	unsigned int functionIndex = 0;
+	unsigned int putParamStart = 0;
 	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt, functionIndex++) {
 		std::string currentFunction = funcIt->first;
 		std::string currentFunctionUppercase = boost::to_upper_copy(currentFunction);
@@ -381,8 +383,29 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		Function *func = funcIt->second;
 		PartitioningGraph *pGraph = graphs[currentFunction];
 
+		// insert partition count for this function
+		std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitioningNumbers[currentFunction]))->str();
+		tWriter.setValueInSubTemplate(partitionCountTemplate, "PARTITION_COUNT_ENTRIES", currentFunction + "_PARTITION_COUNT",
+			"FUNCTION_NAME", currentFunctionUppercase);
+		tWriter.setValueInSubTemplate(partitionCountTemplate, "PARTITION_COUNT_ENTRIES", currentFunction + "_PARTITION_COUNT",
+			"PARTITION_COUNT", partitionCountStr);
+
 		// enable the section for this function
 		tWriter.enableSection(currentFunctionUppercase + "_IMPLEMENTATION");
+
+		// add implementation to main calculation function
+		std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
+		tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
+		tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
+
+		// add initialization of parameter depdendencies
+		for (int j=putParamStart; j<putParamStart+partitioningNumbers[currentFunction]-1; j++) {
+			std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
+			tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+				"DEPENDENCY_NUMBER", depNum);
+			tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+				"FUNCTION_NAME", currentFunction);	
+		}
 
 		// collect the instructions for each partition
 		std::vector<Instruction*> instructionsForPartition[partitionCount];
@@ -399,7 +422,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		}
 
 		// generate C code for each partition of this function and write it into template
-		for (int i=0; i<partitionCount; i++) {
+		for (int i=0; i<partitioningNumbers[currentFunction]; i++) {
 			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
 			std::string functionName = currentFunction + "_" + partitionNumber;
 			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
@@ -435,22 +458,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				"FUNCTION_BODY", functionBody);
 			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 				"RETURN_SEM_INDEX", functionIndexStr);
-
-			// add implementation to main calculation function
-			unsigned int putParamStart = (partitionCount-1) * functionIndex;
-			std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
-			tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
-			tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
-
-			// add initialization of parameter depdendencies
-			for (int j=putParamStart; j<putParamStart+partitionCount-1; j++) {
-				std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
-				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
-					"DEPENDENCY_NUMBER", depNum);
-				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
-					"FUNCTION_NAME", currentFunction);	
-			}
 		}
+
+		// update parameter start index for the next function
+		putParamStart += (partitioningNumbers[currentFunction]-1);
 	}
 
 	// expand and save template
