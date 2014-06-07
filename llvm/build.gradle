@@ -29,8 +29,8 @@ ext {
 
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
 
-	// valid partitioning methods: random, clustering, sa
-	PARTITIONING_METHOD = "sa"
+	// valid partitioning methods: random, clustering, sa, k-lin
+	PARTITIONING_METHOD = "k-lin"
 	PARTITIONING_COUNT = 2
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
