@@ -97,7 +97,10 @@ boost::scoped_ptr<CCodeMaps> CCodeMaps::_instance;
 SimpleCCodeGenerator::SimpleCCodeGenerator(CodeGeneratorBackend* backend)
     : backend(backend ? backend : new CCodeBackend()) { }
 
-SimpleCCodeGenerator::~SimpleCCodeGenerator() {}
+SimpleCCodeGenerator::~SimpleCCodeGenerator() {
+  if (backend)
+    delete backend;
+}
 
 
 void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, const std::vector<Instruction*> &instructions) {
