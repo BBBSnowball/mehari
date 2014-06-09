@@ -573,6 +573,10 @@ VHDLBackend::VHDLBackend()
     instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()) { }
 
+MyOperator* VHDLBackend::getOperator() {
+  return op.get();
+}
+
 void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;
   this->stream = &stream;

@@ -45,6 +45,8 @@ class VHDLBackend : public CodeGeneratorBackend {
 public:
   VHDLBackend();
 
+  MyOperator* getOperator();
+
   void init(SimpleCCodeGenerator* generator, std::ostream& stream);
 
   std::string generateBranchLabel(Value *target);
