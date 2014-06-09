@@ -586,7 +586,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   op.reset(new MyOperator());
   op->setName("test");
   op->setCopyrightString("blub");
-  op->addPort("Clk",1,1,1,0,0,0,0,0,0,0,0);
+  op->addPort("aclk",1,1,1,0,0,0,0,0,0,0,0);
 }
 
 void VHDLBackend::generateStore(Value *op1, Value *op2) {
@@ -659,7 +659,7 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
   //TODO load from PivPav
   ::Operator* op = new ::Operator();
   op->setName(name);
-  op->addPort  ("Clk",1,1,1,0,0,0,0,0,0,0,0);
+  op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addInput ("a_data", width);
   op->addInput ("b_data", width);
   op->addOutput("result_data", width);
@@ -692,7 +692,7 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames);
   output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames);
 
-  this->op->inPortMap(op_info.op, "Clk", "Clk");
+  this->op->inPortMap(op_info.op, "aclk", "aclk");
 
   *this->op << this->op->instance(op_info.op, tmpVar);
 }
@@ -718,7 +718,7 @@ void VHDLBackend::generateCall(std::string funcName,
   // create an operator for this function
   ::Operator* func = new ::Operator();
   func->setName(funcName);
-  func->addPort  ("Clk",1,1,1,0,0,0,0,0,0,0,0);
+  func->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
 
   std::vector<std::string> argnames;
   int i = 0;
@@ -741,7 +741,7 @@ void VHDLBackend::generateCall(std::string funcName,
     func->addOutput("done");
   }
 
-  this->op->inPortMap(func, "Clk", "Clk");
+  this->op->inPortMap(func, "aclk", "aclk");
 
   i = 0;
   BOOST_FOREACH(Value* arg, args) {

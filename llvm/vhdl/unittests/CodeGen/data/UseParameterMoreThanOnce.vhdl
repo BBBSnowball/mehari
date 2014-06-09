@@ -7,7 +7,7 @@ library work;
 
 entity test is
    port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          a_in_data : in  std_logic_vector(31 downto 0);
          a_in_valid : in std_logic;
          a_in_ready : out std_logic;
@@ -20,7 +20,7 @@ end entity;
 architecture arch of test is
    component add is
       port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          a_data : in  std_logic_vector(31 downto 0);
          b_data : in  std_logic_vector(31 downto 0);
          result_data : out  std_logic_vector(31 downto 0);
@@ -46,10 +46,10 @@ begin
    t0_data <= t0_data_;
    t0_valid <= t0_valid_;
    t0: add
-      port map ( Clk => Clk,
-                 a_data => a_in_data,
+      port map ( a_data => a_in_data,
                  a_ready => a_in_ready_,
                  a_valid => a_in_valid,
+                 aclk => aclk,
                  b_data => a_in_data,
                  b_ready => a_in_ready_1,
                  b_valid => a_in_valid,

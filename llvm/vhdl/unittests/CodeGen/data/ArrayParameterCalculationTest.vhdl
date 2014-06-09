@@ -7,7 +7,7 @@ library work;
 
 entity test is
    port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          a_1_out_data : out  std_logic_vector(63 downto 0);
          a_1_out_valid : out std_logic;
          a_1_out_ready : in std_logic;
@@ -20,7 +20,7 @@ end entity;
 architecture arch of test is
    component fpadd is
       port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          a_data : in  std_logic_vector(63 downto 0);
          b_data : in  std_logic_vector(63 downto 0);
          result_data : out  std_logic_vector(63 downto 0);
@@ -44,9 +44,9 @@ begin
    t0_data <= t0_data_;
    t0_valid <= t0_valid_;
    t0: fpadd
-      port map ( Clk => Clk,
-                 a_data => 1,
+      port map ( a_data => 1,
                  a_valid => '1',
+                 aclk => aclk,
                  b_data => 2,
                  b_valid => '1',
                  result_data => t0_data_,

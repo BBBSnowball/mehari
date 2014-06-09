@@ -7,7 +7,7 @@ library work;
 
 entity test is
    port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          a_in_data : in  std_logic_vector(31 downto 0);
          a_in_valid : in std_logic;
          a_in_ready : out std_logic
@@ -17,7 +17,7 @@ end entity;
 architecture arch of test is
    component func is
       port ( 
-         Clk : in std_logic;
+         aclk : in std_logic;
          arg0_data : in  std_logic_vector(31 downto 0);
          arg0_valid : in std_logic;
          arg0_ready : out std_logic;
@@ -32,7 +32,7 @@ signal a_in_ready_ : std_logic;
 begin
    a_in_ready <= a_in_ready_;
    inst0: func
-      port map ( Clk => Clk,
+      port map ( aclk => aclk,
                  arg0_data => a_in_data,
                  arg0_ready => a_in_ready_,
                  arg0_valid => a_in_valid,
