@@ -258,7 +258,7 @@ protected:
   }
 
 
-  void CheckResult(const std::string &ExpectedResult, bool printResults = false) {
+  void CheckResult(const std::string &ExpectedResult, bool printResults = false, const std::string &ExpectedResultFile = "") {
     // create worklist containing all instructions of the function
     std::vector<Instruction*> worklist;
     for (inst_iterator I = inst_begin(*F), E = inst_end(*F); I != E; ++I)
@@ -280,12 +280,21 @@ protected:
     }
 
     if (ExpectedResult != CodeGenResult) {
-      writeFile("expected", ExpectedResult);
+      if (ExpectedResultFile.empty())
+        writeFile("expected", ExpectedResult);
+      else
+        link(ExpectedResultFile, "expected");
       writeFile("actual",   CodeGenResult);
     }
 
     // compare results
     EXPECT_EQ(ExpectedResult, CodeGenResult);
+  }
+
+  void link(const std::string& source, const std::string& target) {
+    std::string command = "ln -sf '" + source + "' '" + target + "'";
+    int result = system(command.c_str());
+    EXPECT_EQ(result, 0);
   }
 
   std::string fromFile(const std::string& filename) {
@@ -318,7 +327,7 @@ protected:
   }
 
   void CheckResultFromFile(const std::string& filename, bool printResults = false) {
-    CheckResult(fromFile(filename), printResults);
+    CheckResult(fromFile(filename), printResults, "CodeGen_data/" + filename);
   }
 
   class TestOperator* makeTestOperator(const std::string& name) {
