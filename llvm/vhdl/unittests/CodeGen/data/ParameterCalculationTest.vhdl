@@ -48,7 +48,7 @@ begin
                  a_ready => a_in_ready_,
                  a_valid => a_in_valid,
                  aclk => aclk,
-                 b_data => 2,
+                 b_data => std_logic_vector(to_unsigned(2, 32)),
                  b_valid => '1',
                  result_data => t0_data_,
                  result_ready => t0_ready,

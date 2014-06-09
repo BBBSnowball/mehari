@@ -555,8 +555,12 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
   }
 
   // handle constant integers
-  else if (ConstantInt *ci = dyn_cast<ConstantInt>(value))
-    return getConstant(ci->getValue().toString(10, true), value->getType()->getPrimitiveSizeInBits());
+  else if (ConstantInt *ci = dyn_cast<ConstantInt>(value)) {
+    std::string constant = ci->getValue().toString(10, true);
+    unsigned int width = value->getType()->getPrimitiveSizeInBits();
+    constant = "std_logic_vector(to_unsigned(" + constant + ", " + width + "))";
+    return getConstant(constant, width);
+  }
 
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(value)) {

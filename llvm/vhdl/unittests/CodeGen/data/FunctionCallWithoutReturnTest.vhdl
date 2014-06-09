@@ -36,7 +36,7 @@ begin
                  arg0_data => a_in_data,
                  arg0_ready => a_in_ready_,
                  arg0_valid => a_in_valid,
-                 arg1_data => 2,
+                 arg1_data => std_logic_vector(to_unsigned(2, 32)),
                  arg1_valid => '1');
 end architecture;
 

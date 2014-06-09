@@ -19,9 +19,9 @@ end entity;
 
 architecture arch of test is
 begin
-   a_out_data <= 1;
+   a_out_data <= std_logic_vector(to_unsigned(1, 32));
    a_out_valid <= '1';
-   b_out_data <= 1;
+   b_out_data <= std_logic_vector(to_unsigned(1, 32));
    b_out_valid <= '1';
 end architecture;
 
