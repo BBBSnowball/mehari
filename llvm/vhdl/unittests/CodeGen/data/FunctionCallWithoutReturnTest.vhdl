@@ -19,7 +19,7 @@ entity test is
 end entity;
 
 architecture arch of test is
-   component func is
+   component func2 is
       port ( 
          aclk : in std_logic;
          arg0_data : in  std_logic_vector(31 downto 0);
@@ -35,7 +35,7 @@ architecture arch of test is
 signal a_in_ready_1 : std_logic;
 begin
    a_in_ready <= a_in_ready_1;
-   inst0: func
+   inst0: func2
       port map ( aclk => aclk,
                  arg0_data => a_in_data,
                  arg0_ready => a_in_ready_1,

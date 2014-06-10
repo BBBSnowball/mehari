@@ -515,11 +515,23 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithReturnTest) {
 
 TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
   ParseC(
-    "void func(int, int);"
+    "void func2(int, int);"
     "void test(int a) {"
-    "  func(a, 2);"
+    "  func2(a, 2);"
     "}");
   CheckResultFromFile("FunctionCallWithoutReturnTest.vhdl");
+
+  TestOperator* test = makeTestOperator("FunctionCallWithoutReturnTest");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 2);
+  test->endDataInput();
+  //TODO We should check the result, but we don't even know when it is done.
+  test->endStimulusProcess();
+
+  saveTestOperator("FunctionCallWithoutReturnTest.vhdl");
 }
 
 
