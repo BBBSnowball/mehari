@@ -498,6 +498,18 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithReturnTest) {
     "  a = func(a);"
     "}");
   CheckResultFromFile("FunctionCallWithReturnTest.vhdl");
+
+  TestOperator* test = makeTestOperator("FunctionCallWithReturnTest");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 2);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("a_out", "2*3+1");
+  test->endStimulusProcess();
+
+  saveTestOperator("FunctionCallWithReturnTest.vhdl");
 }
 
 
