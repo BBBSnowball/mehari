@@ -137,6 +137,12 @@ public:
     setInput(name, s.str());
   }
 
+  void setFloatInput(const std::string& name, double value) {
+    std::stringstream s;
+    s << "to_float(real(" << value << "))";
+    setInput(name, s.str());
+  }
+
   void endDataInput() {
     vhdl << "      wait for " << aclk_period << ";\n";
 
@@ -468,6 +474,20 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
     "  b[2] = a[0] + 2;"
     "}");
   CheckResultFromFile("GlobalArrayCalculationTest.vhdl");
+
+  TestOperator* test = makeTestOperator("GlobalArrayCalculationTest");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setFloatInput("b_0_in", 1.7);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("a_0_out", "1.5");
+  //TODO: test->waitForAndCheckFloatResult("a_1_out", "1.7");
+  test->waitForAndCheckFloatResult("b_2_out", "3.5", 0);
+  test->endStimulusProcess();
+
+  saveTestOperator("GlobalArrayCalculationTest.vhdl");
 }
 
 
