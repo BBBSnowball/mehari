@@ -67,6 +67,12 @@ inline MyOperator& operator <<(MyOperator& op, const T& x) {
   return op;
 }
 
+struct OperatorInfo {
+  ::Operator* op;
+  std::string input1, input2, output;
+  std::string data_suffix, valid_suffix, ready_suffix;
+};
+
 typedef boost::shared_ptr<class Channel> ChannelP;
 
 struct ValueStorage {
@@ -289,18 +295,32 @@ struct Channel {
     return make_port(name, IN, width);
   }
   static ChannelP make_component_port(
-      ::Operator* component, const std::string& name, Direction direction) {
+      ::Operator* component, const std::string& name, Direction direction, const OperatorInfo& op_info) {
     ChannelP ch(new Channel());
     ch->direction = direction;
     ch->component = component;
-    ch->data_signal  = name + "_data";
-    ch->valid_signal = name + "_valid";
-    ch->ready_signal = name + "_ready";
+    ch->data_signal  = name + op_info.data_suffix;
+    ch->valid_signal = name + op_info.valid_suffix;
+    ch->ready_signal = name + op_info.ready_suffix;
     ch->width = component->getSignalByName(ch->data_signal)->width();
     return ch;
   }
+  static ChannelP make_component_port(
+      ::Operator* component, const std::string& name, Direction direction) {
+    OperatorInfo op_info;
+    op_info.data_suffix = "_data";
+    op_info.valid_suffix = "_valid";
+    op_info.ready_suffix = "_ready";
+    return make_component_port(component, name, direction, op_info);
+  }
+  static ChannelP make_component_input(::Operator* component, const std::string& name, const OperatorInfo& op_info) {
+    return make_component_port(component, name, IN, op_info);
+  }
   static ChannelP make_component_input(::Operator* component, const std::string& name) {
     return make_component_port(component, name, IN);
+  }
+  static ChannelP make_component_output(::Operator* component, const std::string& name, const OperatorInfo& op_info) {
+    return make_component_port(component, name, OUT, op_info);
   }
   static ChannelP make_component_output(::Operator* component, const std::string& name) {
     return make_component_port(component, name, OUT);
@@ -579,7 +599,17 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(value)) {
     double dvalue = cf->getValueAPF().convertToDouble();
-    return getConstant(toString(dvalue), value->getType()->getPrimitiveSizeInBits());
+    
+    //std::string constant = toString(dvalue);
+    // toString generates human-friendly output, e.g. "1" for 1.0,
+    // but in VHDL this is an integer not a real value.
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%f", dvalue);
+    std::string constant(buf);
+
+    unsigned int width = value->getType()->getPrimitiveSizeInBits();
+    constant = "to_float(" + constant + ")";
+    return getConstant(constant, width);
   } else {
     assert(false);
   }
@@ -623,35 +653,35 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   vs_factory->get(op1)->replaceBy(ch2);
 }
 
-struct OperatorInfo {
-  ::Operator* op;
-  std::string input1, input2, output;
-};
-
 OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
   //TODO use width
   std::string name;
+  bool is_floating_point = false;
   switch (opcode) {
   case Instruction::FAdd:
-    name = "fpadd";
+    name = "float_add";
+    is_floating_point = true;
     break;
   case Instruction::Add:
     name = "add";
     break;
   case Instruction::FSub:
     name = "fpsub";
+    is_floating_point = true;
     break;
   case Instruction::Sub:
     name = "sub";
     break;
   case Instruction::FMul:
     name = "fpmul";
+    is_floating_point = true;
     break;
   case Instruction::Mul:
     name = "mul";
     break;
   case Instruction::FDiv:
     name = "fpdiv";
+    is_floating_point = true;
     break;
   case Instruction::UDiv:
     name = "udiv";
@@ -667,6 +697,7 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
     break;
   case Instruction::FRem:
     name = "frem";
+    is_floating_point = true;
     break;
   case Instruction::Or:
     name = "or_";
@@ -678,21 +709,37 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
     assert(false);
   }
 
+  std::string input_prefix, output_prefix, data_suffix, valid_suffix, ready_suffix;
+  if (is_floating_point) {
+    input_prefix  = "s_axis_";
+    output_prefix = "m_axis_";
+    data_suffix   = "_tdata";
+    valid_suffix  = "_tvalid";
+    ready_suffix  = "_tready";
+  } else {
+    data_suffix  = "_data";
+    valid_suffix = "_valid";
+    ready_suffix = "_ready";
+  }
+
   //TODO load from PivPav
   ::Operator* op = new ::Operator();
   op->setName(name);
   op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
-  op->addInput ("a_data", width);
-  op->addInput ("b_data", width);
-  op->addOutput("result_data", width);
-  op->addInput ("a_valid");
-  op->addInput ("b_valid");
-  op->addOutput("result_valid");
-  op->addOutput("a_ready");
-  op->addOutput("b_ready");
-  op->addInput ("result_ready");
+  op->addInput (input_prefix  + "a"      + data_suffix, width);
+  op->addInput (input_prefix  + "b"      + data_suffix, width);
+  op->addOutput(output_prefix + "result" + data_suffix, width);
+  op->addInput (input_prefix  + "a"      + valid_suffix);
+  op->addInput (input_prefix  + "b"      + valid_suffix);
+  op->addOutput(output_prefix + "result" + valid_suffix);
+  op->addOutput(input_prefix  + "a"      + ready_suffix);
+  op->addOutput(input_prefix  + "b"      + ready_suffix);
+  op->addInput (output_prefix + "result" + ready_suffix);
 
-  OperatorInfo op_info = { op, "a", "b", "result" };
+  OperatorInfo op_info = { op,
+    input_prefix+"a", input_prefix+"b", output_prefix+"result",
+    data_suffix, valid_suffix, ready_suffix
+  };
   return op_info;
 }
 
@@ -706,9 +753,9 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
 
   OperatorInfo op_info = getBinaryOperator(opcode, tmp->width());
 
-  ChannelP input1 = Channel::make_component_input (op_info.op, op_info.input1);
-  ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2);
-  ChannelP output = Channel::make_component_output(op_info.op, op_info.output);
+  ChannelP input1 = Channel::make_component_input (op_info.op, op_info.input1, op_info);
+  ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2, op_info);
+  ChannelP output = Channel::make_component_output(op_info.op, op_info.output, op_info);
 
   input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames);
   input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames);

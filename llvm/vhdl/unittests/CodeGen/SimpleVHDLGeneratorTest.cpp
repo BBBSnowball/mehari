@@ -447,6 +447,15 @@ TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
     "  b[0] = a[1] + 2;"
     "}");
   CheckResultFromFile("ArrayParameterCalculationTest.vhdl");
+
+  TestOperator* test = makeTestOperator("ArrayParameterCalculationTest");
+
+  test->beginStimulusProcess();
+  test->waitForAndCheckFloatResult("b_0_out", "3.0");
+  test->waitForAndCheckFloatResult("a_1_out", "1.0", 0);
+  test->endStimulusProcess();
+
+  saveTestOperator("ArrayParameterCalculationTest.vhdl");
 }
 
 

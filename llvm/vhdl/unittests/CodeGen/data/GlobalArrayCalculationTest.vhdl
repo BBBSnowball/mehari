@@ -28,18 +28,18 @@ entity test is
 end entity;
 
 architecture arch of test is
-   component fpadd is
+   component float_add is
       port ( 
          aclk : in std_logic;
-         a_data : in  std_logic_vector(63 downto 0);
-         b_data : in  std_logic_vector(63 downto 0);
-         result_data : out  std_logic_vector(63 downto 0);
-         a_valid : in std_logic;
-         b_valid : in std_logic;
-         result_valid : out std_logic;
-         a_ready : out std_logic;
-         b_ready : out std_logic;
-         result_ready : in std_logic
+         s_axis_a_tdata : in  std_logic_vector(63 downto 0);
+         s_axis_b_tdata : in  std_logic_vector(63 downto 0);
+         m_axis_result_tdata : out  std_logic_vector(63 downto 0);
+         s_axis_a_tvalid : in std_logic;
+         s_axis_b_tvalid : in std_logic;
+         m_axis_result_tvalid : out std_logic;
+         s_axis_a_tready : out std_logic;
+         s_axis_b_tready : out std_logic;
+         m_axis_result_tready : in std_logic
    );
    end component;
 
@@ -49,22 +49,22 @@ signal t0_ready : std_logic;
 signal t0_data_1 :  std_logic_vector(63 downto 0);
 signal t0_valid_1 : std_logic;
 begin
-   a_0_out_data <= 1.5;
+   a_0_out_data <= to_float(1.500000);
    a_0_out_valid <= '1';
    a_1_out_data <= b_0_in_data;
    a_1_out_valid <= b_0_in_valid;
    b_0_in_ready <= a_1_out_ready;
    t0_data <= t0_data_1;
    t0_valid <= t0_valid_1;
-   t0: fpadd
-      port map ( a_data => 1.5,
-                 a_valid => '1',
-                 aclk => aclk,
-                 b_data => 2,
-                 b_valid => '1',
-                 result_data => t0_data_1,
-                 result_ready => t0_ready,
-                 result_valid => t0_valid_1);
+   t0: float_add
+      port map ( aclk => aclk,
+                 m_axis_result_tdata => t0_data_1,
+                 m_axis_result_tready => t0_ready,
+                 m_axis_result_tvalid => t0_valid_1,
+                 s_axis_a_tdata => to_float(1.500000),
+                 s_axis_a_tvalid => '1',
+                 s_axis_b_tdata => to_float(2.000000),
+                 s_axis_b_tvalid => '1');
    b_2_out_data <= t0_data;
    b_2_out_valid <= t0_valid;
    t0_ready <= b_2_out_ready;
