@@ -133,3 +133,9 @@ add_custom_command(TARGET MehariVHDLTests POST_BUILD
 install(TARGETS MehariVHDLTests
   RUNTIME DESTINATION unittests
 )
+
+# run tests
+add_custom_target(test
+  ./MehariVHDLTests
+  COMMAND RECONOS=${CMAKE_CURRENT_SOURCE_DIR}/../../reconos/reconos "${CMAKE_CURRENT_SOURCE_DIR}/test.sh" run-by-cmake
+  DEPENDS MehariVHDLTests)
