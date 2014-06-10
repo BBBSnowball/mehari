@@ -45,8 +45,6 @@ signal t0_ready : std_logic;
 signal t0_data_1 :  std_logic_vector(31 downto 0);
 signal t0_valid_1 : std_logic;
 begin
-   a_in_ready <= a_in_ready_1;
-   a_in_ready <= a_in_ready_2;
    t0_data <= t0_data_1;
    t0_valid <= t0_valid_1;
    t0: add
@@ -63,5 +61,6 @@ begin
    a_out_data <= t0_data;
    a_out_valid <= t0_valid;
    t0_ready <= a_out_ready;
+   a_in_ready <= a_in_ready_1 and a_in_ready_2;
 end architecture;
 

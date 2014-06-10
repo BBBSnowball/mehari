@@ -264,6 +264,30 @@ private:
 };
 
 
+struct ReadySignals : public std::map< std::string, std::set<std::string> > {
+  typedef std::pair< std::string, std::set<std::string> > item_t;
+
+  void addConsumer(const std::string& ready_signal, const std::string& consumer_ready_signal) {
+    (*this)[ready_signal].insert(consumer_ready_signal);
+  }
+
+  void outputVHDL(std::ostream& stream) {
+    BOOST_FOREACH(const item_t& item, *this) {
+      stream << "   " << item.first << " <= ";
+      if (!item.second.empty()) {
+        Seperator sep(" and ");
+        BOOST_FOREACH(const std::string& consumer, item.second) {
+          stream << sep << consumer;
+        }
+      } else {
+        stream << "'1'";
+      }
+      stream << ";\n";
+    }
+  }
+};
+
+
 struct Channel {
   Direction direction;
   std::string constant;
@@ -387,8 +411,16 @@ private:
     *op << "   " << signal << " <= " << tmp_signal << ";\n";
   }
 
+  static void outPortMapReadySignal(MyOperator* op, ::Operator* component, const std::string& port, const std::string& signal,
+      UniqueNameSet& usedVariableNames, ReadySignals& rsignals) {
+    std::string tmp_signal = usedVariableNames.makeUnique(signal + "_");
+    op->outPortMap(component, port, tmp_signal);
+
+    rsignals.addConsumer(signal, tmp_signal);
+  }
+
 public:
-  void connectToOutput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
+  void connectToOutput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames, ReadySignals& rsignals) {
     assert(width == ch->width);
 
     if (direction & IN) {
@@ -415,7 +447,7 @@ public:
           op->inPortMap (component, data_signal,  ch->data_signal);
           op->inPortMap (component, valid_signal, ch->valid_signal);
 
-          outPortMap(op, component, ready_signal, ch->ready_signal, usedVariableNames);
+          outPortMapReadySignal(op, component, ready_signal, ch->ready_signal, usedVariableNames, rsignals);
         } else if (!component && ch->component) {
           outPortMap(op, ch->component, ch->data_signal,  data_signal,  usedVariableNames);
           outPortMap(op, ch->component, ch->valid_signal, valid_signal, usedVariableNames);
@@ -438,16 +470,16 @@ public:
     }
   }
 
-  void connectToOutput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
-    connectToOutput(ch.get(), op, usedVariableNames);
+  void connectToOutput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames, ReadySignals& rsignals) {
+    connectToOutput(ch.get(), op, usedVariableNames, rsignals);
   }
 
-  void connectToInput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
-    ch->connectToOutput(this, op, usedVariableNames);
+  void connectToInput(Channel* ch, MyOperator* op, UniqueNameSet& usedVariableNames, ReadySignals& rsignals) {
+    ch->connectToOutput(this, op, usedVariableNames, rsignals);
   }
 
-  void connectToInput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames) {
-    connectToInput(ch.get(), op, usedVariableNames);
+  void connectToInput(ChannelP ch, MyOperator* op, UniqueNameSet& usedVariableNames, ReadySignals& rsignals) {
+    connectToInput(ch.get(), op, usedVariableNames, rsignals);
   }
 };
 
@@ -619,7 +651,8 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 VHDLBackend::VHDLBackend()
   : branchLabelNameGenerator("label"),
     instanceNameGenerator("inst"),
-    vs_factory(new ValueStorageFactory()) { }
+    vs_factory(new ValueStorageFactory()),
+    ready_signals(new ReadySignals()) { }
 
 MyOperator* VHDLBackend::getOperator() {
   return op.get();
@@ -634,6 +667,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   vs_factory->clear();
   instanceNameGenerator.reset();
   usedVariableNames.reset();
+  ready_signals->clear();
 
   op.reset(new MyOperator());
   op->setName("test");
@@ -648,7 +682,7 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   ChannelP ch1 = vs_factory->get(op1)->getWriteChannel(op.get());
   ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
 
-  ch1->connectToOutput(ch2, op.get(), usedVariableNames);
+  ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 
   vs_factory->get(op1)->replaceBy(ch2);
 }
@@ -757,9 +791,9 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2, op_info);
   ChannelP output = Channel::make_component_output(op_info.op, op_info.output, op_info);
 
-  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames);
-  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames);
-  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames);
+  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  output->connectToInput (tmp->getWriteChannel(op.get()),                 op.get(), usedVariableNames, *ready_signals);
 
   this->op->inPortMap(op_info.op, "aclk", "aclk");
 
@@ -816,13 +850,13 @@ void VHDLBackend::generateCall(std::string funcName,
   BOOST_FOREACH(Value* arg, args) {
     const std::string& argname = argnames[i++];
     ChannelP argchannel = Channel::make_component_input(func, argname);
-    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get(), usedVariableNames);
+    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
   }
 
   if (!tmpVar.empty()) {
     ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
     ChannelP result = Channel::make_component_output(func, "result");
-    result->connectToInput(tmp->getWriteChannel(op.get()), op.get(), usedVariableNames);
+    result->connectToInput(tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
   } else {
     //TODO: make sure that we wait for the done signal to become '1'
   }
@@ -920,6 +954,11 @@ void VHDLBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
 void VHDLBackend::generateEndOfMethod() {
   debug_print("generateEndOfMethod()");
   return_if_dry_run();
+
+  std::stringstream s;
+  ready_signals->outputVHDL(s);
+  *op << s.str();
+
   op->outputVHDL(*stream);
 }
 

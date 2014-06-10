@@ -44,6 +44,7 @@ class VHDLBackend : public CodeGeneratorBackend {
 
   boost::scoped_ptr<MyOperator> op;
   boost::scoped_ptr<class ValueStorageFactory> vs_factory;
+  boost::scoped_ptr<class ReadySignals> ready_signals;
 public:
   VHDLBackend();
 

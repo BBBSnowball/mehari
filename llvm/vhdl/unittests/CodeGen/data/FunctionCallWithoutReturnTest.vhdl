@@ -34,7 +34,6 @@ architecture arch of test is
 
 signal a_in_ready_1 : std_logic;
 begin
-   a_in_ready <= a_in_ready_1;
    inst0: func2
       port map ( aclk => aclk,
                  arg0_data => a_in_data,
@@ -42,5 +41,6 @@ begin
                  arg0_valid => a_in_valid,
                  arg1_data => std_logic_vector(to_unsigned(2, 32)),
                  arg1_valid => '1');
+   a_in_ready <= a_in_ready_1;
 end architecture;
 
