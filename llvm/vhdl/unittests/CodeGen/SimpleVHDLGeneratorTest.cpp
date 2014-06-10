@@ -90,7 +90,7 @@ public:
   void waitUntilReady(unsigned int max_clock_cycles = 10) {
     std::vector<std::string> ready_signals;
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
-      if (endsWith(sig->getName(), "_ready") || endsWith(sig->getName(), "_tready"))
+      if (sig->type() == Signal::out && (endsWith(sig->getName(), "_ready") || endsWith(sig->getName(), "_tready")))
         ready_signals.push_back(sig->getName());
     }
     assert(ready_signals.size() > 0);
@@ -375,7 +375,6 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
   TestOperator* test = makeTestOperator("ParameterAssignmentTest");
 
   test->beginStimulusProcess();
-  test->waitUntilReady();
   test->waitForAndCheckUnsignedIntegerResult("a_out", "1");
   test->waitForAndCheckUnsignedIntegerResult("b_out", "1", 0);
   test->endStimulusProcess();
