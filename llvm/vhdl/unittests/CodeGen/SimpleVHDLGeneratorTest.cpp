@@ -41,6 +41,10 @@ public:
     //TODO This should be a named constant in the generated VHDL code.
     aclk_period = "10 ns";
 
+    // We don't have a clock signal, so we tell the Operator class that
+    // it shouldn't try to find one.
+    this->setCombinatorial();
+
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
       switch (sig->type()) {
         case Signal::in:
