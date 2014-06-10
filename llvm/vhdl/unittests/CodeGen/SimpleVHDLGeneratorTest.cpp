@@ -18,6 +18,7 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
 #include <iostream>
 #include <fstream>
 #include <cstdio>
@@ -88,20 +89,35 @@ public:
   }
 
   void waitUntilReady(unsigned int max_clock_cycles = 10) {
-    std::vector<std::string> ready_signals;
+    std::vector<std::string> ready_signals_in, ready_signals_out;
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
-      if (sig->type() == Signal::out && (endsWith(sig->getName(), "_ready") || endsWith(sig->getName(), "_tready")))
-        ready_signals.push_back(sig->getName());
+      if ((endsWith(sig->getName(), "_ready") || endsWith(sig->getName(), "_tready"))) {
+        switch (sig->type()) {
+          case Signal::out:
+            ready_signals_out.push_back(sig->getName());
+            break;
+          case Signal::in:
+            ready_signals_in.push_back(sig->getName());
+            break;
+          default:
+            assert(false);
+            break;
+        }
+      }
     }
-    assert(ready_signals.size() > 0);
+    assert(!ready_signals_out.empty());
+
+    BOOST_FOREACH(const std::string& sig, ready_signals_in) {
+      vhdl << "      " << sig << " <= '1';\n";
+    }
 
     vhdl << "      wait until rising_edge(aclk)\n";
-    BOOST_FOREACH(const std::string& sig, ready_signals) {
+    BOOST_FOREACH(const std::string& sig, ready_signals_out) {
       vhdl << "         and " << sig << " = '1'\n";
     }
     vhdl << "         for " << max_clock_cycles << "*" << aclk_period << ";\n";
 
-    BOOST_FOREACH(const std::string& sig, ready_signals) {
+    BOOST_FOREACH(const std::string& sig, ready_signals_out) {
       vhdl << "      assert " << sig << " = '1' report \"uut is not ready for data (" << sig << ")\";\n";
     }
   }
@@ -115,10 +131,19 @@ public:
     vhdl << "      " << getValidSignalFor(name) << " <= '1';\n";
   }
 
+  void setUnsignedIntegerInput(const std::string& name, unsigned int value) {
+    std::stringstream s;
+    s << "std_logic_vector(to_unsigned(" << value << ", " << getDataSignalWidthFor(name) << "))";
+    setInput(name, s.str());
+  }
+
   void endDataInput() {
-    vhdl << "     wait for aclk_period;\n";
+    vhdl << "      wait for " << aclk_period << ";\n";
 
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
+      if (!sig->type() == Signal::in)
+        continue;
+
       if (endsWith(sig->getName(), "_tdata") || endsWith(sig->getName(), "_data"))
         vhdl << "      " << sig->getName() << " <= (others => '0');\n";
       else if (endsWith(sig->getName(), "_tvalid") || endsWith(sig->getName(), "_valid"))
@@ -207,6 +232,17 @@ private:
       return result;
     } else
       return pattern;
+  }
+
+  unsigned int getDataSignalWidthFor(const std::string& name) {
+    const std::string& signal_name = getDataSignalFor(name);
+
+    BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
+      if (sig->getName() == signal_name)
+        return sig->width();
+    }
+
+    assert(false);
   }
 };
 
@@ -389,6 +425,18 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
     "  b = a + 2;"
     "}");
   CheckResultFromFile("ParameterCalculationTest.vhdl");
+
+  TestOperator* test = makeTestOperator("ParameterCalculationTest");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 3);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "5");
+  test->endStimulusProcess();
+
+  saveTestOperator("ParameterCalculationTest.vhdl");
 }
 
 

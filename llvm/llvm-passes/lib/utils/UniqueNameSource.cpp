@@ -28,7 +28,7 @@ void UniqueNameSet::addUsedName(const std::string& name) {
 }
 
 std::string UniqueNameSet::makeUnique(const std::string& name) {
-	if (!isUsed(name)) {
+	if (!isUsed(name) && !name.empty() && name[name.size()-1] != '_') {
 		addUsedName(name);
 		return name;
 	}

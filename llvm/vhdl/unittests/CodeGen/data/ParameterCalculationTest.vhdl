@@ -37,26 +37,26 @@ architecture arch of test is
    );
    end component;
 
-signal a_in_ready_ : std_logic;
+signal a_in_ready_1 : std_logic;
 signal t0_data :  std_logic_vector(31 downto 0);
 signal t0_valid : std_logic;
 signal t0_ready : std_logic;
-signal t0_data_ :  std_logic_vector(31 downto 0);
-signal t0_valid_ : std_logic;
+signal t0_data_1 :  std_logic_vector(31 downto 0);
+signal t0_valid_1 : std_logic;
 begin
-   a_in_ready <= a_in_ready_;
-   t0_data <= t0_data_;
-   t0_valid <= t0_valid_;
+   a_in_ready <= a_in_ready_1;
+   t0_data <= t0_data_1;
+   t0_valid <= t0_valid_1;
    t0: add
       port map ( a_data => a_in_data,
-                 a_ready => a_in_ready_,
+                 a_ready => a_in_ready_1,
                  a_valid => a_in_valid,
                  aclk => aclk,
                  b_data => std_logic_vector(to_unsigned(2, 32)),
                  b_valid => '1',
-                 result_data => t0_data_,
+                 result_data => t0_data_1,
                  result_ready => t0_ready,
-                 result_valid => t0_valid_);
+                 result_valid => t0_valid_1);
    b_out_data <= t0_data;
    b_out_valid <= t0_valid;
    t0_ready <= b_out_ready;

@@ -40,22 +40,22 @@ architecture arch of test is
 signal t0_data :  std_logic_vector(63 downto 0);
 signal t0_valid : std_logic;
 signal t0_ready : std_logic;
-signal t0_data_ :  std_logic_vector(63 downto 0);
-signal t0_valid_ : std_logic;
+signal t0_data_1 :  std_logic_vector(63 downto 0);
+signal t0_valid_1 : std_logic;
 begin
    a_1_out_data <= 1;
    a_1_out_valid <= '1';
-   t0_data <= t0_data_;
-   t0_valid <= t0_valid_;
+   t0_data <= t0_data_1;
+   t0_valid <= t0_valid_1;
    t0: fpadd
       port map ( a_data => 1,
                  a_valid => '1',
                  aclk => aclk,
                  b_data => 2,
                  b_valid => '1',
-                 result_data => t0_data_,
+                 result_data => t0_data_1,
                  result_ready => t0_ready,
-                 result_valid => t0_valid_);
+                 result_valid => t0_valid_1);
    b_0_out_data <= t0_data;
    b_0_out_valid <= t0_valid;
    t0_ready <= b_0_out_ready;

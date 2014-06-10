@@ -12,3 +12,5 @@ vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_add.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_sub.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_mul.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_div.vhd"
+
+vhdl work "SOURCE_DIR/vhdl/add.vhdl"

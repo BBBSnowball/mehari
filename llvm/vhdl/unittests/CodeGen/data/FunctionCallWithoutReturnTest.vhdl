@@ -32,13 +32,13 @@ architecture arch of test is
    );
    end component;
 
-signal a_in_ready_ : std_logic;
+signal a_in_ready_1 : std_logic;
 begin
-   a_in_ready <= a_in_ready_;
+   a_in_ready <= a_in_ready_1;
    inst0: func
       port map ( aclk => aclk,
                  arg0_data => a_in_data,
-                 arg0_ready => a_in_ready_,
+                 arg0_ready => a_in_ready_1,
                  arg0_valid => a_in_valid,
                  arg1_data => std_logic_vector(to_unsigned(2, 32)),
                  arg1_valid => '1');
