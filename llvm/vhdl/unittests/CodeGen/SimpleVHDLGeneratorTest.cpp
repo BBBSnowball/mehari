@@ -542,6 +542,18 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
     "  a = a+a;"
     "}");
   CheckResultFromFile("UseParameterMoreThanOnce.vhdl");
+
+  TestOperator* test = makeTestOperator("UseParameterMoreThanOnce");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 3);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("a_out", "3+3");
+  test->endStimulusProcess();
+
+  saveTestOperator("UseParameterMoreThanOnce.vhdl");
 }
 
 
