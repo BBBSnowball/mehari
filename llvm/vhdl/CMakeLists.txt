@@ -110,10 +110,7 @@ add_mehari_vhdl_unittest(MehariVHDLTests
   unittests/CodeGen/SimpleVHDLGeneratorTest.cpp
   unittests/test_main.cpp
  )
-target_link_libraries(MehariVHDLTests MehariVHDLPasses ${VHDL_REQUIRED_LIBS} ${TESTS_REQUIRED_LIBS})
-
-# add dependency between targets
-add_dependencies(MehariVHDLTests LibraryMehariVHDLPasses)
+target_link_libraries(MehariVHDLTests MehariVHDLPasses LibraryMehariVHDLPasses ${VHDL_REQUIRED_LIBS} ${TESTS_REQUIRED_LIBS})
 
 # create symlink to test data
 add_custom_command(TARGET MehariVHDLTests POST_BUILD
