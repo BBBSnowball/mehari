@@ -13,6 +13,8 @@ public:
   }
 
   void licence(std::ostream& o, std::string authorsyears);
+
+  void stdLibs(std::ostream& o);
 };
 
 namespace ChannelDirection {
