@@ -25,7 +25,7 @@
 using namespace ChannelDirection;
 
 //#define DRY_RUN
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 
 
 #ifdef ENABLE_DEBUG_PRINT
@@ -321,7 +321,7 @@ struct Channel {
   }
 
   void addTo(::Operator* op) {
-    std::cout << "addTo: " << data_signal << std::endl;
+    debug_print("addTo(" << op << "), data_signal = " << data_signal);
     if (direction == IN) {
       op->addOutput(data_signal, width);
       op->addOutput(valid_signal);
