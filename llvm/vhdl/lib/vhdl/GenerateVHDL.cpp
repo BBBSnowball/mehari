@@ -522,21 +522,6 @@ void VHDLBackend::generateReturn(Value *retVal) {
 }
 
 
-void VHDLBackend::generateVariableDeclarations(const std::map<std::string, std::vector<std::string> >& tmpVariables) {
-  debug_print("generateVariableDeclarations(tmpVariables)");
-  return_if_dry_run();
-  /*for (std::map<std::string, std::vector<std::string> >::const_iterator it=tmpVariables.begin();
-      it!=tmpVariables.end(); ++it) {
-    stream << "\t" << it->first << " ";
-
-    Seperator sep(", ");
-    for (std::vector<std::string>::const_iterator varIt = it->second.begin(); varIt != it->second.end(); ++varIt)
-      stream << sep << *varIt;
-
-    stream << ";\n";
-  }*/
-}
-
 void VHDLBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
   debug_print("generateBranchTargetIfNecessary(" << instr << ")");
   return_if_dry_run();
@@ -619,8 +604,6 @@ void VHDLBackend::addVariable(Value *addr, std::string name, std::string index) 
 void VHDLBackend::copyVariable(Value *source, Value *target) {
   debug_print("copyVariable(" << source << ", " << target << ")");
   return_if_dry_run();
-  //debug_print("  " << channels[source]->data_signal);
-  //channels[target] = channels[source];
   vs_factory->set(target, vs_factory->get(source));
 }
 

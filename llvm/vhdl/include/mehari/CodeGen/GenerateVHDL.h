@@ -63,7 +63,6 @@ public:
   void generateUnconditionalBranch(std::string label);
   void generateConditionalBranch(Value *condition, std::string label1, std::string label2);
   void generateReturn(Value *retVal);
-  void generateVariableDeclarations(const std::map<std::string, std::vector<std::string> >& tmpVariables);
   void generateBranchTargetIfNecessary(llvm::Instruction* instr);
 
   void generateEndOfMethod();
