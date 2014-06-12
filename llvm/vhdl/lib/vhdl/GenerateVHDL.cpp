@@ -518,7 +518,13 @@ void VHDLBackend::generateConditionalBranch(Value *condition,
 void VHDLBackend::generateReturn(Value *retVal) {
   debug_print("generateReturn(" << retVal << ")");
   return_if_dry_run();
-  //stream << "\treturn " << getOperandString(retVal) << ";\n";
+  
+  ValueStorageP retVal_vs = vs_factory->get(retVal);
+  ChannelP ch1 = Channel::make_output("return", retVal_vs->width());
+  ch1->addTo(op.get());
+  ChannelP ch2 = retVal_vs->getReadChannel(op.get());
+
+  ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 }
 
 

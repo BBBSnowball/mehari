@@ -314,6 +314,27 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
 }
 
 
+TEST_F(SimpleVHDLGeneratorTest, ReturnValueTest) {
+  ParseC(
+    "double test(double a) {"
+    "  return a+2;"
+    "}");
+  CheckResultFromFile("ReturnValueTest.vhdl");
+
+  TestOperator* test = makeTestOperator("ReturnValueTest");
+
+  test->beginStimulusProcess();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setFloatInput("a_in", 7);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("return", "9.0");
+  test->endStimulusProcess();
+
+  saveTestOperator("ReturnValueTest.vhdl");
+}
+
+
 TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
   ParseC(
     "void func(int, int);"
