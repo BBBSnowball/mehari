@@ -101,9 +101,10 @@ protected:
     }
 
     if (ExpectedResult != CodeGenResult) {
-      if (ExpectedResultFile.empty())
+      if (ExpectedResultFile.empty()) {
+        remove("expected");
         writeFile("expected", ExpectedResult);
-      else
+      } else
         link(ExpectedResultFile, "expected");
       writeFile("actual",   CodeGenResult);
     }
