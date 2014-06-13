@@ -18,14 +18,14 @@
 
 #include <boost/foreach.hpp>
 
-#include "mehari/utils/MapUtils.h"
+#include "mehari/utils/ContainerUtils.h"
 #include "mehari/utils/StringUtils.h"
 
 
 using namespace ChannelDirection;
 
 //#define DRY_RUN
-//#define ENABLE_DEBUG_PRINT
+#define ENABLE_DEBUG_PRINT
 
 
 #ifdef ENABLE_DEBUG_PRINT
@@ -71,6 +71,7 @@ struct OperatorInfo {
   ::Operator* op;
   std::string input1, input2, output;
   std::string data_suffix, valid_suffix, ready_suffix;
+  std::string code;
 };
 
 typedef boost::shared_ptr<class Channel> ChannelP;
@@ -87,7 +88,7 @@ ChannelP ValueStorage::getReadChannel(MyOperator* op) {
         channel_read = Channel::make_input(name + "_in", width());
         channel_read->addTo(op);
         break;
-      case VARIABLE:
+      case TEMPORARY_VARIABLE:
         channel_read = Channel::make_variable(op, name, width());
         channel_write = channel_read;
         break;
@@ -110,7 +111,7 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
         channel_write = Channel::make_output(name + "_out", width());
         channel_write->addTo(op);
         break;
-      case VARIABLE:
+      case TEMPORARY_VARIABLE:
         channel_read = Channel::make_variable(op, name, width());
         channel_write = channel_read;
         break;
@@ -123,13 +124,6 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
   assert(channel_write && ChannelDirection::matching_direction(channel_write->direction, IN));
 
   return channel_write;
-}
-
-std::string VHDLBackend::generateBranchLabel(Value *target) {
-  std::string label = branchLabelNameGenerator.next();
-  branchLabels[target].push_back(label);
-  debug_print("generateBranchLabel(" << target << ") -> " << label);
-  return label;
 }
 
 
@@ -245,8 +239,7 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 
 
 VHDLBackend::VHDLBackend()
-  : branchLabelNameGenerator("label"),
-    instanceNameGenerator("inst"),
+  : instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()),
     ready_signals(new ReadySignals()) { }
 
@@ -258,8 +251,6 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;
   this->stream = &stream;
 
-  branchLabels.clear();
-  branchLabelNameGenerator.reset();
   vs_factory->clear();
   instanceNameGenerator.reset();
   usedVariableNames.reset();
@@ -275,7 +266,7 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   debug_print("generateStore(" << op1 << ", " << op2 << ")");
   return_if_dry_run();
 
-  ChannelP ch1 = vs_factory->get(op1)->getWriteChannel(op.get());
+  ChannelP ch1 = vs_factory->getForWriting(op1)->getWriteChannel(op.get());
   ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
@@ -468,16 +459,196 @@ void VHDLBackend::generateVoidCall(std::string funcName, std::vector<Value*> arg
   generateCall(funcName, "", args);
 }
 
+OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigned width) {
+  std::string name;
+  bool is_floating_point = false;
+  std::string code;
+  bool negate = false;
+  switch (comparePredicate) {
+    case FCmpInst::FCMP_FALSE:
+      "false";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_OEQ:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00010100'";
+      break;
+    case FCmpInst::FCMP_OGT:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00100100'";
+      break;
+    case FCmpInst::FCMP_OGE:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00110100'";
+      break;
+    case FCmpInst::FCMP_OLT:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00001100'";
+      break;
+    case FCmpInst::FCMP_OLE:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00011100'";
+      break;
+    case FCmpInst::FCMP_ONE:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00101100'";
+      break;
+    case FCmpInst::FCMP_ORD:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00000100'";
+      negate = true;  // not supported
+      assert(false);
+      break;
+    case FCmpInst::FCMP_UNO:
+      name = "float_cmp";
+      is_floating_point = true;
+      code = "'00000100'";
+      break;
+    case FCmpInst::FCMP_UEQ:
+      "isnan || ==";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_UGT:
+      "isnan || >";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_UGE:
+      "isnan || >=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_ULT:
+      "isnan || <";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_ULE:
+      "isnan || <=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_UNE:
+      "isnan || !=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::FCMP_TRUE:
+      "true";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_EQ:
+      "==";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_NE:
+      name = "icmp_ne";
+      break;
+    case FCmpInst::ICMP_UGT:
+      ">";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_UGE:
+      ">=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_ULT:
+      "<";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_ULE:
+      "<=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_SGT:
+      ">";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_SGE:
+      ">=";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_SLT:
+      "<";
+      assert(false);  // not supported
+      break;
+    case FCmpInst::ICMP_SLE:
+      "<=";
+      assert(false);  // not supported
+      break;
+    default:
+      assert(false);
+      break;
+  }
+
+  std::string input_prefix, output_prefix, data_suffix, valid_suffix, ready_suffix;
+  if (is_floating_point) {
+    input_prefix  = "s_axis_";
+    output_prefix = "m_axis_";
+    data_suffix   = "_tdata";
+    valid_suffix  = "_tvalid";
+    ready_suffix  = "_tready";
+  } else {
+    data_suffix  = "_data";
+    valid_suffix = "_valid";
+    ready_suffix = "_ready";
+  }
+
+  //TODO load from PivPav
+  ::Operator* op = new ::Operator();
+  op->setName(name);
+  op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
+  op->addInput (input_prefix  + "a"      + data_suffix, width);
+  op->addInput (input_prefix  + "b"      + data_suffix, width);
+  op->addOutput(output_prefix + "result" + data_suffix, 1);
+  op->addInput (input_prefix  + "a"      + valid_suffix);
+  op->addInput (input_prefix  + "b"      + valid_suffix);
+  op->addOutput(output_prefix + "result" + valid_suffix);
+  op->addOutput(input_prefix  + "a"      + ready_suffix);
+  op->addOutput(input_prefix  + "b"      + ready_suffix);
+  op->addInput (output_prefix + "result" + ready_suffix);
+
+  if (!code.empty()) {
+    op->addInput (input_prefix  + "operation" + data_suffix, 8);
+    op->addInput (input_prefix  + "operation" + valid_suffix);
+    op->addOutput(input_prefix  + "operation" + ready_suffix);
+  }
+
+  OperatorInfo op_info = { op,
+    input_prefix+"a", input_prefix+"b", output_prefix+"result",
+    data_suffix, valid_suffix, ready_suffix,
+    code
+  };
+  return op_info;
+}
+
 void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
     FCmpInst::Predicate comparePredicate) {
   debug_print("generateComparison(" << tmpVar << ", " << op1 << ", " << op2 << ")");
   return_if_dry_run();
-  /*stream << "\t" << tmpVar
-    <<  " = ("
-    <<  getOperandString(op1)
-    <<  " " << ">" /*CCodeMaps::parseComparePredicate(comparePredicate)* / << " "
-    <<  getOperandString(op2)
-    <<  ");\n";*/
+
+  ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+
+  OperatorInfo op_info = getComparisonOperator(comparePredicate, vs_factory->get(op1)->width());
+
+  ChannelP input1 = Channel::make_component_input (op_info.op, op_info.input1, op_info);
+  ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2, op_info);
+  ChannelP output = Channel::make_component_output(op_info.op, op_info.output, op_info);
+
+  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  output->connectToInput (tmp->getWriteChannel(op.get()),                 op.get(), usedVariableNames, *ready_signals);
+
+  this->op->inPortMap(op_info.op, "aclk", "aclk");
+
+  if (!op_info.code.empty()) {
+    this->op->inPortMapCst(op_info.op, "s_axis_operation_tdata", op_info.code);
+    this->op->inPortMapCst(op_info.op, "s_axis_operation_tvalid", "'1'");
+  }
+
+  *this->op << this->op->instance(op_info.op, tmpVar);
 }
 
 void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
@@ -488,6 +659,7 @@ void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
     <<  "(int)"
     <<  getOperandString(op)
     <<  ";\n";*/
+  //TODO
 }
 
 void VHDLBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {
@@ -497,23 +669,75 @@ void VHDLBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {
     <<  " = "
     <<  getOperandString(op)
     <<  ";\n";*/
+  //TODO
 }
 
-void VHDLBackend::generateUnconditionalBranch(std::string label) {
-  debug_print("generateUnconditionalBranch(" << label << ")");
+void VHDLBackend::generateUnconditionalBranch(Instruction *target) {
+  debug_print("generateUnconditionalBranch(" << target << ")");
   return_if_dry_run();
-  //stream << "\tgoto " << label << ";\n";
+  
+  vs_factory->makeUnconditionalBranch(target);
 }
 
-void VHDLBackend::generateConditionalBranch(Value *condition,
-    std::string label1, std::string label2) {
-  debug_print("generateConditionalBranch(" << condition << ", " << label1 << ", " << label2 << ")");
+void VHDLBackend::generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) {
+  debug_print("generateConditionalBranch(" << condition << ", " << targetTrue << ", " << targetFalse << ")");
   return_if_dry_run();
-  /*stream << "\tif (" << getOperandString(condition) << ")"
-    <<  " goto " << label1 << ";"
-    <<  " else goto " << label2
-    << ";\n";*/
+
+  vs_factory->makeConditionalBranch(condition, targetTrue, targetFalse);
 }
+
+void VHDLBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
+  debug_print("generateBranchTargetIfNecessary(" << instr << ")");
+  return_if_dry_run();
+  
+  vs_factory->beforeInstruction(instr, this);
+}
+
+ValueStorageP VHDLBackend::remember(ValueStorageP value) {
+  ValueStorageP remembered = vs_factory->makeAnonymousTemporaryVariable(value->type);
+  ChannelP remembered_write = remembered->getWriteChannel(op.get());
+
+  ChannelP read = value->getReadChannel(op.get());
+
+  if (read->direction == ChannelDirection::CONSTANT_OUT) {
+    *op << "   " << remembered_write->valid_signal << " <= '1';\n"
+        << "   " << remembered_write->data_signal  << " <= " << read->constant << ";\n";
+  } else {
+    //TODO initialize the values
+    *op << "   remember_" << remembered->name << " : process(aclk)\n"
+        << "   begin\n"
+        << "      if rising_edge(aclk) and " << read->valid_signal << " == '1' then\n"
+        << "         " << remembered_write->valid_signal << " <= " << read->valid_signal << ";\n"
+        << "         " << remembered_write->data_signal  << " <= " << read->data_signal  << ";\n"
+        << "      end if;\n"
+        << "   end process;\n";
+
+    ready_signals->addConsumer(read->ready_signal, "'1'");
+  }
+
+  return remembered;
+}
+
+void VHDLBackend::generatePhiNode(ValueStorageP target, Value* condition, ValueStorageP trueValue, ValueStorageP falseValue) {
+  // make sure we cannot miss the valid signal
+  ChannelP condition_rem  = remember(vs_factory->get(condition))->getReadChannel(op.get());
+  ChannelP trueValue_rem  = remember(trueValue)->getReadChannel(op.get());
+  ChannelP falseValue_rem = remember(falseValue)->getReadChannel(op.get());
+
+  ChannelP target_w = target->getWriteChannel(op.get());
+
+  *op << "   " << target_w->valid_signal << " <= " << trueValue_rem->valid_signal
+          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
+      << "      " << falseValue_rem->valid_signal
+          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
+      << "      '0';\n";
+  *op << "   " << target_w->data_signal << " <= " << trueValue_rem->data_signal
+          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
+      << "      " << falseValue_rem->valid_signal
+          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
+      << "      (others => 'X');\n";
+}
+
 
 void VHDLBackend::generateReturn(Value *retVal) {
   debug_print("generateReturn(" << retVal << ")");
@@ -527,16 +751,6 @@ void VHDLBackend::generateReturn(Value *retVal) {
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 }
 
-
-void VHDLBackend::generateBranchTargetIfNecessary(llvm::Instruction* instr) {
-  debug_print("generateBranchTargetIfNecessary(" << instr << ")");
-  return_if_dry_run();
-  /*llvm::Value* instr_as_value = instr;
-  if (std::vector<std::string>* labels = getValueOrNull(branchLabels, instr_as_value)) {
-    for (std::vector<std::string>::iterator it = labels->begin(); it != labels->end(); ++it)
-      stream << *it << ":\n";
-  }*/
-}
 
 void VHDLBackend::generateEndOfMethod() {
   debug_print("generateEndOfMethod()");

@@ -53,7 +53,6 @@ class CodeGeneratorBackend {
 public:
   virtual void init(SimpleCCodeGenerator* generator, std::ostream& stream) =0;
 
-  virtual std::string generateBranchLabel(Value *target) =0;
   virtual void generateStore(Value *op1, Value *op2) =0;
   virtual void generateBinaryOperator(std::string tmpVar, Value *op1, Value *op2, unsigned opcode) =0;
   virtual void generateCall(std::string funcName, std::string tmpVar, std::vector<Value*> args) =0;
@@ -61,8 +60,8 @@ public:
   virtual void generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate) =0;
   virtual void generateIntegerExtension(std::string tmpVar, Value *op) =0;
   virtual void generatePhiNodeAssignment(std::string tmpVar, Value *op) =0;
-  virtual void generateUnconditionalBranch(std::string label) =0;
-  virtual void generateConditionalBranch(Value *condition, std::string label1, std::string label2) =0;
+  virtual void generateUnconditionalBranch(Instruction *target) =0;
+  virtual void generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) =0;
   virtual void generateReturn(Value *retVal) =0;
   virtual void generateBranchTargetIfNecessary(llvm::Instruction* instr) =0;
   virtual void generateEndOfMethod();
@@ -102,6 +101,8 @@ public:
   void generatePhiNodeAssignment(std::string tmpVar, Value *op);
   void generateUnconditionalBranch(std::string label);
   void generateConditionalBranch(Value *condition, std::string label1, std::string label2);
+  void generateUnconditionalBranch(Instruction *target);
+  void generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse);
   void generateReturn(Value *retVal);
   void generateVariableDeclarations();
   void generateBranchTargetIfNecessary(llvm::Instruction* instr);

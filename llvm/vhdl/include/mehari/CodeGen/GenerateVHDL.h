@@ -32,10 +32,14 @@ namespace ChannelDirection {
 
 class Channel;
 
-class VHDLBackend : public CodeGeneratorBackend {
-  UniqueNameSource branchLabelNameGenerator;
-  std::map<Value*, std::vector<std::string> > branchLabels;
+typedef boost::shared_ptr<class ValueStorage> ValueStorageP;
 
+class PhiNodeSink {
+public:
+  virtual void generatePhiNode(ValueStorageP target, Value* condition, ValueStorageP trueValue, ValueStorageP falseValue) =0;
+};
+
+class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   UniqueNameSource instanceNameGenerator;
   UniqueNameSet usedVariableNames;
 
@@ -52,7 +56,6 @@ public:
 
   void init(SimpleCCodeGenerator* generator, std::ostream& stream);
 
-  std::string generateBranchLabel(Value *target);
   void generateStore(Value *op1, Value *op2);
   void generateBinaryOperator(std::string tmpVar, Value *op1, Value *op2, unsigned opcode);
   void generateCall(std::string funcName, std::string tmpVar, std::vector<Value*> args);
@@ -60,8 +63,8 @@ public:
   void generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
   void generateIntegerExtension(std::string tmpVar, Value *op);
   void generatePhiNodeAssignment(std::string tmpVar, Value *op);
-  void generateUnconditionalBranch(std::string label);
-  void generateConditionalBranch(Value *condition, std::string label1, std::string label2);
+  void generateUnconditionalBranch(Instruction *target);
+  void generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse);
   void generateReturn(Value *retVal);
   void generateBranchTargetIfNecessary(llvm::Instruction* instr);
 
@@ -78,5 +81,9 @@ public:
 private:
   boost::shared_ptr<Channel> getChannel(Value* addr, ChannelDirection::Direction direction);
   boost::shared_ptr<Channel> createChannel(Value* addr, const std::string& name, ChannelDirection::Direction direction);
+
+  void generatePhiNode(ValueStorageP target, Value* condition, ValueStorageP trueValue, ValueStorageP falseValue);
+
+  ValueStorageP remember(ValueStorageP value);
 };
 

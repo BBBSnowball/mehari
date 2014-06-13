@@ -358,7 +358,13 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
+TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
+  /*
+  void test(int a, int b) {
+    if (a)
+      b = 2;
+  }
+  */
   ParseAssembly(
     "define void @test(i32 %a, i32 %b) #0 {\n"
     "entry:\n"
@@ -388,7 +394,7 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
 }
 
 
-TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
+/*TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
   ParseAssembly(
     "define void @test(i32 %a, i32 %b, i32 %c) #0 {\n"
     "entry:\n"

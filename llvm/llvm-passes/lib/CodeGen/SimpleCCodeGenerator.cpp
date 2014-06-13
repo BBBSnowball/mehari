@@ -15,7 +15,7 @@
 
 #include <boost/scoped_ptr.hpp>
 
-#include "mehari/utils/MapUtils.h"
+#include "mehari/utils/ContainerUtils.h"
 #include "mehari/utils/StringUtils.h"
 
 using namespace llvm;
@@ -258,14 +258,13 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
               backend->generatePhiNodeAssignment(tmpVar, prevInstr);
             }
             // add unconditional branch
-            std::string label = backend->generateBranchLabel(&brInstr->getSuccessor(0)->front());
-            backend->generateUnconditionalBranch(label);                
+            backend->generateUnconditionalBranch(&brInstr->getSuccessor(0)->front());                
           }
           else {
             // create conditional branch
-            std::string label1 = backend->generateBranchLabel(&brInstr->getSuccessor(0)->front());
-            std::string label2 = backend->generateBranchLabel(&brInstr->getSuccessor(1)->front());
-            backend->generateConditionalBranch(brInstr->getCondition(), label1, label2);
+            Instruction* targetTrue  = &brInstr->getSuccessor(0)->front();
+            Instruction* targetFalse = &brInstr->getSuccessor(1)->front();
+            backend->generateConditionalBranch(brInstr->getCondition(), targetTrue, targetFalse);
           }
         }
         else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
@@ -488,6 +487,13 @@ void CCodeBackend::generateConditionalBranch(Value *condition,
     <<  " goto " << label1 << ";"
     <<  " else goto " << label2
     << ";\n";
+}
+
+void CCodeBackend::generateUnconditionalBranch(Instruction *target) {
+  generateUnconditionalBranch(generateBranchLabel(target));
+}
+void CCodeBackend::generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) {
+  generateConditionalBranch(condition, generateBranchLabel(targetTrue), generateBranchLabel(targetFalse));
 }
 
 void CCodeBackend::generateReturn(Value *retVal) {

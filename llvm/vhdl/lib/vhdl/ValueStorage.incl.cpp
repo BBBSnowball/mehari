@@ -1,8 +1,10 @@
+#include <boost/range/adaptor/map.hpp>
+#include <boost/range/algorithm/copy.hpp>
 
 struct ValueStorage {
   enum Kind {
     FUNCTION_PARAMETER,
-    VARIABLE,
+    TEMPORARY_VARIABLE,
     GLOBAL_VARIABLE,
     CHANNEL
   };
@@ -49,14 +51,13 @@ public:
     this->channel_read = channel_read;
   }
 };
-typedef boost::shared_ptr<ValueStorage> ValueStorageP;
 
 std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind) {
   switch (kind) {
     case ValueStorage::FUNCTION_PARAMETER:
       return stream << "FUNCTION_PARAMETER";
-    case ValueStorage::VARIABLE:
-      return stream << "VARIABLE";
+    case ValueStorage::TEMPORARY_VARIABLE:
+      return stream << "TEMPORARY_VARIABLE";
     case ValueStorage::GLOBAL_VARIABLE:
       return stream << "GLOBAL_VARIABLE";
     case ValueStorage::CHANNEL:
@@ -91,6 +92,29 @@ std::ostream& operator <<(std::ostream& stream, ValueStorageP vs) {
 }
 
 
+typedef boost::shared_ptr<struct IfBranch> IfBranchP;
+
+struct IfBranch {
+  Value* condition;
+  bool whichBranch;
+  IfBranchP parent;
+
+  std::map<ValueStorageP, ValueStorageP> temporaries;
+
+  IfBranch(Value* condition, bool whichBranch, IfBranchP parent)
+    : condition(condition), whichBranch(whichBranch), parent(parent) { }
+
+  ValueStorageP get(ValueStorageP vs) {
+    if (ValueStorageP* x = getValueOrNull(temporaries, vs))
+      return *x;
+    else if (parent)
+      return parent->get(vs);
+    else
+      return vs;
+  }
+};
+
+
 class ValueStorageFactory {
   std::map<Value*,      ValueStorageP> by_llvm_value;
   std::map<std::string, ValueStorageP> by_name;
@@ -109,14 +133,21 @@ class ValueStorageFactory {
   std::map<ValueAndIndex, ValueStorageP> by_index;
 
   UniqueNameSource tmpVarNameGenerator;
+
+  IfBranchP current_if_branch;
+  std::map<Instruction*, std::vector<IfBranchP> > if_branches_for_instruction;
+  bool last_instruction_was_branch;
 public:
-  ValueStorageFactory() : tmpVarNameGenerator("t") { }
+  ValueStorageFactory() : tmpVarNameGenerator("t"), last_instruction_was_branch(false) { }
 
   void clear() {
     by_llvm_value.clear();
     by_name.clear();
     by_index.clear();
     tmpVarNameGenerator.reset();
+    current_if_branch = IfBranchP((IfBranch*)NULL);
+    if_branches_for_instruction.clear();
+    last_instruction_was_branch = false;
   }
 
   ValueStorageP makeParameter(Value* value, const std::string& name) {
@@ -137,13 +168,23 @@ public:
   ValueStorageP makeTemporaryVariable(Value* value) {
     assert(!contains(by_llvm_value, value));
 
-    ValueStorageP x(new ValueStorage());
-    x->kind = ValueStorage::VARIABLE;
-    x->name = tmpVarNameGenerator.next();
-    x->type = value->getType();
+    ValueStorageP x = makeAnonymousTemporaryVariable(value);
 
     by_llvm_value[value] = x;
     by_name[x->name] = x;
+
+    return x;
+  }
+
+  ValueStorageP makeAnonymousTemporaryVariable(Value* value) {
+    return makeAnonymousTemporaryVariable(value->getType());
+  }
+
+  ValueStorageP makeAnonymousTemporaryVariable(Type* type) {
+    ValueStorageP x(new ValueStorage());
+    x->kind = ValueStorage::TEMPORARY_VARIABLE;
+    x->name = tmpVarNameGenerator.next();
+    x->type = type;
 
     return x;
   }
@@ -158,8 +199,10 @@ public:
   ValueStorageP getTemporaryVariable(const std::string& name) {
     if (ValueStorageP* var = getValueOrNull(by_name, name))
       return *var;
-    else
+    else {
+      std::cerr << "ERROR: Couldn't find the variable '" << name << "' in ValueStorageFactory " << this << "!" << std::endl;
       assert(false);
+    }
   }
 
   ValueStorageP getGlobalVariable(Value* v);
@@ -169,9 +212,9 @@ public:
   ValueStorageP getConstant(const std::string& constant, unsigned int width);
 
   ValueStorageP get(Value* value) {
-    ValueStorageP vs = by_llvm_value[value];
-    if (!vs)
-      vs = get2(value);
+    ValueStorageP vs = getWithoutIf(value);
+    if (current_if_branch)
+      vs = current_if_branch->get(vs);
     debug_print("ValueStorageFactory::get(" << value << ") -> " << vs);
     assert(vs);
     return vs;
@@ -183,6 +226,112 @@ public:
     by_llvm_value[target] = source;
   }
 
+  ValueStorageP getForWriting(Value* value) {
+    ValueStorageP vs = getWithoutIf(value);
+
+    if (!current_if_branch)
+      return vs;
+
+    if (ValueStorageP* x = getValueOrNull(current_if_branch->temporaries, vs)) {
+      // There already is a variable for this ValueStorage, which
+      // means that we are setting it twice. I think, this shouldn't
+      // happen.
+      assert(false);
+
+      return *x;
+    } else {
+      ValueStorageP vs_for_branch = makeAnonymousTemporaryVariable(value);
+      current_if_branch->temporaries[vs] = vs_for_branch;
+      return vs_for_branch;
+    }
+  }
+
+
+  void makeUnconditionalBranch(Instruction *target) {
+    addIfBranchFor(target, current_if_branch);
+    current_if_branch = IfBranchP((IfBranch*)NULL);
+    last_instruction_was_branch = true;
+  }
+
+  void makeConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) {
+    addIfBranchFor(targetTrue,  IfBranchP(new IfBranch(condition, true,  current_if_branch)));
+    addIfBranchFor(targetFalse, IfBranchP(new IfBranch(condition, false, current_if_branch)));
+    current_if_branch = IfBranchP((IfBranch*)NULL);
+    last_instruction_was_branch = true;
+  }
+
+  void beforeInstruction(llvm::Instruction* instr, PhiNodeSink* sink) {
+    if (std::vector<IfBranchP>* branches = getValueOrNull(if_branches_for_instruction, instr)) {
+      if (!last_instruction_was_branch)
+        // I think this won't happen because LLVM would generate a branch anyway.
+        branches->push_back(current_if_branch);
+
+      if (branches->size() == 1)
+        current_if_branch = branches->front();
+      else
+        combineIfBranches(*branches, instr, sink);
+    } else {
+      assert(!last_instruction_was_branch);
+    }
+
+    last_instruction_was_branch = false;
+  }
+
 private:
   ValueStorageP get2(Value* value);
+
+  ValueStorageP getWithoutIf(Value* value) {
+    ValueStorageP vs = by_llvm_value[value];
+    if (!vs)
+      vs = get2(value);
+    return vs;
+  }
+
+  void addIfBranchFor(Instruction* target, IfBranchP branch) {
+    if_branches_for_instruction[target].push_back(branch);
+  }
+
+  void combineIfBranches(std::vector<IfBranchP>& branches, llvm::Instruction* firstPhiInstruction, PhiNodeSink* sink) {
+    debug_print("combineIfBranches(...)");
+
+    // We only implement the simplest case: There is one pair of branches.
+    // In the more complex cases, we have to find pairs of branches and also combine the results.
+    assert(branches.size() == 2);
+    combineIfBranches(branches[0], branches[1], firstPhiInstruction, sink);
+  }
+
+  void combineIfBranches(IfBranchP a, IfBranchP b, llvm::Instruction* firstPhiInstruction, PhiNodeSink* sink) {
+    assert(a->condition   == b->condition);
+    assert(a->whichBranch != b->whichBranch);
+    assert(a->parent      == b->parent);
+
+    std::set<ValueStorageP> vars;
+    //vars.insert(mapKeys(a->temporaries).begin(), mapKeys(a->temporaries).end());
+    //vars.insert(mapKeys(b->temporaries).begin(), mapKeys(b->temporaries).end());
+    boost::copy(a->temporaries | boost::adaptors::map_keys, set_inserter(vars));
+    boost::copy(b->temporaries | boost::adaptors::map_keys, set_inserter(vars));
+
+    IfBranchP parent = a->parent;
+    IfBranchP trueBranch, falseBranch;
+    if (a->whichBranch) {
+      trueBranch = a;
+      falseBranch = b;
+    } else {
+      trueBranch = b;
+      falseBranch = a;
+    }
+
+    BOOST_FOREACH(ValueStorageP var, vars) {
+      ValueStorageP trueValue, falseValue, valueInParent;
+
+      valueInParent = var;
+      if (parent)
+        valueInParent = parent->get(valueInParent);
+
+      trueValue  = trueBranch->get(var);
+      falseValue = falseBranch->get(var);
+
+      sink->generatePhiNode(valueInParent, a->condition, trueValue, falseValue);
+    }
+  }
 };

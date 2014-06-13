@@ -1,7 +1,8 @@
-#ifndef MAP_UTILS_H
-#define MAP_UTILS_H
+#ifndef CONTAINER_UTILS_H
+#define CONTAINER_UTILS_H
 
 #include <map>
+#include <iterator>
 
 template<typename KEY, typename VALUE>
 inline static bool contains(const std::map<KEY, VALUE>& map, const KEY& key) {
@@ -28,4 +29,28 @@ inline static VALUE* getValueOrNull(std::map<KEY, VALUE>& map, const KEY& key) {
     return NULL;
 }
 
-#endif /*MAP_UTILS_H*/
+
+template<typename T>
+struct SetInserterItem {
+  std::set<T>* container;
+
+  SetInserterItem(std::set<T>* container) : container(container) { }
+
+  const T& operator =(const T& value) {
+    container->insert(value);
+  }
+};
+template<typename T>
+struct SetInserter : public std::iterator<std::output_iterator_tag, T, std::ptrdiff_t, T*, T&> {
+  std::set<T>* container;
+
+  SetInserter(std::set<T>& container) : container(&container) { }
+
+  SetInserter<T> operator ++() { return *this; }
+
+  SetInserterItem<T> operator *() { return SetInserterItem<T>(container); }
+};
+template<typename T>
+SetInserter<T> set_inserter(std::set<T>& container) { return SetInserter<T>(container); }
+
+#endif /*CONTAINER_UTILS_H*/
