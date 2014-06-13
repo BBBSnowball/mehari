@@ -260,6 +260,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   op->setName("test");
   op->setCopyrightString("blub");
   op->addPort("aclk",1,1,1,0,0,0,0,0,0,0,0);
+  op->addPort("reset",1,1,0,1,0,0,0,0,0,0,0);
 }
 
 void VHDLBackend::generateStore(Value *op1, Value *op2) {
@@ -703,10 +704,12 @@ ValueStorageP VHDLBackend::remember(ValueStorageP value) {
     *op << "   " << remembered_write->valid_signal << " <= '1';\n"
         << "   " << remembered_write->data_signal  << " <= " << read->constant << ";\n";
   } else {
-    //TODO initialize the values
     *op << "   remember_" << remembered->name << " : process(aclk)\n"
         << "   begin\n"
-        << "      if rising_edge(aclk) and " << read->valid_signal << " == '1' then\n"
+        << "      if reset = '1' then\n"
+        << "         " << remembered_write->valid_signal << " <= '0';\n"
+        << "         " << remembered_write->data_signal  << " <= (others => '0');\n"
+        << "      elsif rising_edge(aclk) and " << read->valid_signal << " == '1' then\n"
         << "         " << remembered_write->valid_signal << " <= " << read->valid_signal << ";\n"
         << "         " << remembered_write->data_signal  << " <= " << read->data_signal  << ";\n"
         << "      end if;\n"

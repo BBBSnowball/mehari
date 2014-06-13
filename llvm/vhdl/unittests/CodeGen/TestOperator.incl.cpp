@@ -59,7 +59,9 @@ public:
     vhdl << "   stimulus_proc: process\n";
     vhdl << "   begin\n";
     vhdl << "      -- hold reset state for 100 ns.\n";
+    vhdl << "      reset <= '1';\n";
     vhdl << "      wait for 100 ns;\n";
+    vhdl << "      reset <= '0';\n";
   }
 
   void waitUntilReady(unsigned int max_clock_cycles = 10) {

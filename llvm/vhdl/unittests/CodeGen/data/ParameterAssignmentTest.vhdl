@@ -12,6 +12,7 @@ use work.test_helpers.all;
 entity test is
    port ( 
          aclk : in std_logic;
+         reset : in std_logic;
          a_out_data : out  std_logic_vector(31 downto 0);
          a_out_valid : out std_logic;
          a_out_ready : in std_logic;
