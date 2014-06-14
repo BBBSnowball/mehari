@@ -26,7 +26,7 @@ static cl::opt<std::string> PartitioningMethod("partitioning-method",
             cl::desc("Specify the name of the partitioning method"), 
             cl::value_desc("partitioning-count"));
 static cl::opt<std::string> PartitionCount("partitioning-count", 
-            cl::desc("Specify the number ob partitions"), 
+            cl::desc("Specify the number of partitions"), 
             cl::value_desc("partitioning-count"));
 static cl::opt<std::string> OutputDir("partitioning-output-dir", 
             cl::desc("Set the output directory for partitioning results"), 
