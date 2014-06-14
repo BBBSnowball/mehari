@@ -52,7 +52,9 @@ mkdir -p "$PARTITIONING_RESULTS_DIR"
 run "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
 	-partitioning \
 	-template-dir "$TEMPLATE_DIR" \
+	-partitioning-method clustering \
 	-partitioning-functions "$PARTITIONING_TARGET_FUNCTIONS" \
 	-partitioning-count $PARTITIONING_COUNT \
 	-partitioning-output-dir "$PARTITIONING_RESULTS_DIR" \
+	-partitioning-graph-output-dir "$PARTITIONING_RESULTS_DIR" \
 	-S "$EXAMPLE_FILE.3.ll"
