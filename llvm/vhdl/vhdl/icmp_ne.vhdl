@@ -6,6 +6,7 @@
 --------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
+use IEEE.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
 entity icmp_ne is
@@ -26,12 +27,16 @@ end entity;
 architecture behavioural of icmp_ne is
 begin
   icmp_ne : process(aclk)
-    variable result : integer;
+    variable result : boolean;
   begin
     if rising_edge(aclk) then
       if a_valid = '1' and b_valid = '1' then
         result := to_integer(signed(a_data)) /= to_integer(signed(b_data));
-        result_data <= std_logic_vector(to_unsigned(result, result_data'length));
+        if result then
+          result_data <= "1";
+        else
+          result_data <= "0";
+        end if;
         result_valid <= '1';
       else
         result_data <= (others => '0');

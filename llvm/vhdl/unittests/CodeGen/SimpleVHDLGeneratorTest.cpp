@@ -381,16 +381,30 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
     "if.end:                                           ; preds = %if.then, %entry\n"
     "  ret void\n"
     "}\n");
-  std::string ExpectedResult =
-    "\tint t0;\n"
-    "\tt0 = (a != 0);\n"
-    "\tif (t0) goto label0; else goto label1;\n"
-    "label0:\n"
-    "\tb = 2;\n"
-    "\tgoto label2;\n"
-    "label1:\n"
-    "label2:\n";
-  CheckResult(ExpectedResult);
+  CheckResultFromFile("SingleIfTest.vhdl");
+
+  TestOperator* test = makeTestOperator("SingleIfTest");
+
+  test->beginStimulusProcess();
+
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 3);
+  test->setUnsignedIntegerInput("b_in", 7);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "2");
+
+  test->reset();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 0);
+  test->setUnsignedIntegerInput("b_in", 7);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "7");
+
+  test->endStimulusProcess();
+
+  saveTestOperator("SingleIfTest.vhdl");
 }
 
 

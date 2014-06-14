@@ -78,11 +78,11 @@ struct Channel {
   void addTo(::Operator* op) {
     debug_print("addTo(" << op << "), data_signal = " << data_signal);
     if (direction == IN) {
-      op->addOutput(data_signal, width);
+      op->addOutput(data_signal, width, 1, true);
       op->addOutput(valid_signal);
       op->addInput(ready_signal);
     } else {
-      op->addInput(data_signal, width);
+      op->addInput(data_signal, width, true);
       op->addInput(valid_signal);
       op->addOutput(ready_signal);
     }

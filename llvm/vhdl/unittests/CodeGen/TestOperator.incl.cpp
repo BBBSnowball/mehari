@@ -64,6 +64,12 @@ public:
     vhdl << "      reset <= '0';\n";
   }
 
+  void reset() {
+    vhdl << "      reset <= '1';\n";
+    vhdl << "      wait for " << aclk_period << ";\n";
+    vhdl << "      reset <= '0';\n";
+  }
+
   void waitUntilReady(unsigned int max_clock_cycles = 10) {
     std::vector<std::string> ready_signals_in, ready_signals_out;
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {

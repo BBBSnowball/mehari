@@ -25,7 +25,7 @@
 using namespace ChannelDirection;
 
 //#define DRY_RUN
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 
 
 #ifdef ENABLE_DEBUG_PRINT
@@ -348,9 +348,9 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
   ::Operator* op = new ::Operator();
   op->setName(name);
   op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
-  op->addInput (input_prefix  + "a"      + data_suffix, width);
-  op->addInput (input_prefix  + "b"      + data_suffix, width);
-  op->addOutput(output_prefix + "result" + data_suffix, width);
+  op->addInput (input_prefix  + "a"      + data_suffix, width, true);
+  op->addInput (input_prefix  + "b"      + data_suffix, width, true);
+  op->addOutput(output_prefix + "result" + data_suffix, width, 1, true);
   op->addInput (input_prefix  + "a"      + valid_suffix);
   op->addInput (input_prefix  + "b"      + valid_suffix);
   op->addOutput(output_prefix + "result" + valid_suffix);
@@ -419,13 +419,13 @@ void VHDLBackend::generateCall(std::string funcName,
     std::string argname = argname_stream.str();
     argnames.push_back(argname);
 
-    func->addInput (argname + "_data", getWidthOfElementType(arg->getType()));
+    func->addInput (argname + "_data", getWidthOfElementType(arg->getType()), true);
     func->addInput (argname + "_valid");
     func->addOutput(argname + "_ready");
   }
   if (!tmpVar.empty()) {
     ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
-    func->addOutput("result_data", getWidthOfElementType(tmp->type));
+    func->addOutput("result_data", getWidthOfElementType(tmp->type), 1, true);
     func->addOutput("result_valid");
     func->addInput ("result_ready");
   } else {
@@ -601,9 +601,9 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
   ::Operator* op = new ::Operator();
   op->setName(name);
   op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
-  op->addInput (input_prefix  + "a"      + data_suffix, width);
-  op->addInput (input_prefix  + "b"      + data_suffix, width);
-  op->addOutput(output_prefix + "result" + data_suffix, 1);
+  op->addInput (input_prefix  + "a"      + data_suffix, width, true);
+  op->addInput (input_prefix  + "b"      + data_suffix, width, true);
+  op->addOutput(output_prefix + "result" + data_suffix, 1, 1, true);
   op->addInput (input_prefix  + "a"      + valid_suffix);
   op->addInput (input_prefix  + "b"      + valid_suffix);
   op->addOutput(output_prefix + "result" + valid_suffix);
@@ -612,7 +612,7 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
   op->addInput (output_prefix + "result" + ready_suffix);
 
   if (!code.empty()) {
-    op->addInput (input_prefix  + "operation" + data_suffix, 8);
+    op->addInput (input_prefix  + "operation" + data_suffix, 8, true);
     op->addInput (input_prefix  + "operation" + valid_suffix);
     op->addOutput(input_prefix  + "operation" + ready_suffix);
   }
@@ -709,7 +709,7 @@ ValueStorageP VHDLBackend::remember(ValueStorageP value) {
         << "      if reset = '1' then\n"
         << "         " << remembered_write->valid_signal << " <= '0';\n"
         << "         " << remembered_write->data_signal  << " <= (others => '0');\n"
-        << "      elsif rising_edge(aclk) and " << read->valid_signal << " == '1' then\n"
+        << "      elsif rising_edge(aclk) and " << read->valid_signal << " = '1' then\n"
         << "         " << remembered_write->valid_signal << " <= " << read->valid_signal << ";\n"
         << "         " << remembered_write->data_signal  << " <= " << read->data_signal  << ";\n"
         << "      end if;\n"
@@ -730,14 +730,14 @@ void VHDLBackend::generatePhiNode(ValueStorageP target, Value* condition, ValueS
   ChannelP target_w = target->getWriteChannel(op.get());
 
   *op << "   " << target_w->valid_signal << " <= " << trueValue_rem->valid_signal
-          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
+          << " WHEN " << condition_rem->valid_signal << " = '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
       << "      " << falseValue_rem->valid_signal
-          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
+          << " WHEN " << condition_rem->valid_signal << " = '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
       << "      '0';\n";
   *op << "   " << target_w->data_signal << " <= " << trueValue_rem->data_signal
-          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
-      << "      " << falseValue_rem->valid_signal
-          << " WHEN " << condition_rem->valid_signal << " == '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
+          << " WHEN " << condition_rem->valid_signal << " = '1' and " << condition_rem->data_signal << "(0) = '1' ELSE\n"
+      << "      " << falseValue_rem->data_signal
+          << " WHEN " << condition_rem->valid_signal << " = '1' and " << condition_rem->data_signal << "(0) = '0' ELSE\n"
       << "      (others => 'X');\n";
 }
 
