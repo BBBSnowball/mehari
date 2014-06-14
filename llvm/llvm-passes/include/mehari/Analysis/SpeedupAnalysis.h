@@ -13,18 +13,18 @@ using namespace llvm;
 class SpeedupAnalysis : public FunctionPass {
 
 public:
-  static char ID;
+	static char ID;
 
-  SpeedupAnalysis();
-  ~SpeedupAnalysis();
+	SpeedupAnalysis();
+	~SpeedupAnalysis();
 
-  virtual bool runOnFunction(Function &func);
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+	virtual bool runOnFunction(Function &func);
+	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 private:
-  std::vector<std::string> targetFunctions;
-  void parseTargetFunctions();
-  
+	std::vector<std::string> targetFunctions;
+	void parseTargetFunctions();
+
 	unsigned int getInstructionCost(Instruction *instruction);
 	void buildDependencyGraph(InstructionDependencyNumbersList &dependencies);
 	void printGraphviz(std::string &name);

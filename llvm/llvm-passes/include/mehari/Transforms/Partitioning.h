@@ -29,17 +29,17 @@ private:
   unsigned int partitionCount;
 
   std::vector<std::string> dataDependencies;
+  unsigned int depNumber;
   unsigned int semNumberMax;
 
   std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;
 
   void parseTargetFunctions(void);
-  
-	void applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed);
 
   void handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies);
 
-  void savePartitioning(std::map<std::string, Function*> &functions, std::map<std::string, PartitioningGraph*> &graphs);
+  void savePartitioning(std::map<std::string, Function*> &functions, std::map<std::string, PartitioningGraph*> &graphs, 
+    std::map<std::string, unsigned int> partitioningNumbers);
 };
 
 #endif /*PARTITIONING_PASS_H*/

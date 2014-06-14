@@ -1,4 +1,5 @@
 #include "mehari/Transforms/Partitioning.h"
+#include "mehari/Transforms/PartitioningAlgorithms.h"
 
 #include "mehari/Analysis/InstructionDependencyAnalysis.h"
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
@@ -21,11 +22,17 @@
 static cl::opt<std::string> TargetFunctions("partitioning-functions", 
             cl::desc("Specify the functions the partitioning will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
+static cl::opt<std::string> PartitioningMethod("partitioning-method", 
+            cl::desc("Specify the name of the partitioning method"), 
+            cl::value_desc("partitioning-count"));
 static cl::opt<std::string> PartitionCount("partitioning-count", 
             cl::desc("Specify the number ob partitions"), 
             cl::value_desc("partitioning-count"));
 static cl::opt<std::string> OutputDir("partitioning-output-dir", 
-            cl::desc("Set the output directory for graph results"), 
+            cl::desc("Set the output directory for partitioning results"), 
+            cl::value_desc("partitioning-output-dir"));
+static cl::opt<std::string> GraphOutputDir("partitioning-graph-output-dir", 
+            cl::desc("Set the output directory for graph results"),
             cl::value_desc("partitioning-output-dir"));
 static cl::opt<std::string> TemplateDir("template-dir", 
             cl::desc("Set the directory where the code generation templates are located"), 
@@ -38,6 +45,8 @@ Partitioning::Partitioning() : ModulePass(ID) {
 	parseTargetFunctions();
 	std::stringstream ss(PartitionCount);
 	ss >> partitionCount;
+	// init dependency number to count them over all partitioned functions
+	depNumber = 0;
 }
 
 Partitioning::~Partitioning() {}
@@ -69,6 +78,7 @@ bool Partitioning::runOnModule(Module &M) {
 	// create partitioning for each target function
 	std::map<std::string, Function*> partitioningFunctions;
 	std::map<std::string, PartitioningGraph*> partitioningGraphs;
+	std::map<std::string, unsigned int> partitioningNumbers;
 
 	// init maximum numbers
 	semNumberMax = 0;
@@ -93,22 +103,30 @@ bool Partitioning::runOnModule(Module &M) {
 		// run InstructionDependencyAnalysis
 		InstructionDependencyAnalysis *IDA = &getAnalysis<InstructionDependencyAnalysis>(*func);
 		InstructionDependencyList dependencies = IDA->getDependencies(*func);
-		InstructionDependencyNumbersList dependencyNumbers = IDA->getDependencyNumbers(*func);
 
 		// create partitioning graph
 		PartitioningGraph *pGraph = new PartitioningGraph();
-		pGraph->create(worklist, dependencyNumbers);
+		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
-		applyRandomPartitioning(*pGraph, 42);
+		AbstractPartitioningMethod *PM;
+		if (PartitioningMethod == "random") 
+			PM = new RandomPartitioning();
+		else if (PartitioningMethod == "clustering") 
+			PM = new HierarchicalClustering();
+		else if (PartitioningMethod == "sa")
+			PM = new SimulatedAnnealing();
+		else if (PartitioningMethod == "k-lin")
+			PM = new KernighanLin();
+		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
+		delete PM;
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
 		handleDependencies(M, *func, *pGraph, dependencies);
 		
 		// print partitioning graph results
-		// pGraph->printGraph(functionName);
-		pGraph->printGraphviz(*func, functionName, OutputDir);
+		pGraph->printGraphviz(*func, functionName, GraphOutputDir);
 
 		// save partitioning function and graph
 		partitioningFunctions[functionName] = func;
@@ -116,7 +134,7 @@ bool Partitioning::runOnModule(Module &M) {
 	}
 
 	// print partitioning results into template
-	savePartitioning(partitioningFunctions, partitioningGraphs);
+	savePartitioning(partitioningFunctions, partitioningGraphs, partitioningNumbers);
 
 	return false;
 }
@@ -130,17 +148,6 @@ void Partitioning::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void Partitioning::parseTargetFunctions(void) {
   boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
-}
-
-
-void Partitioning::applyRandomPartitioning(PartitioningGraph &pGraph, unsigned int seed) {
-	srand(seed);
-	PartitioningGraph::VertexIterator vIt = pGraph.getFirstIterator(); 
-	PartitioningGraph::VertexIterator vEnd = pGraph.getEndIterator();
-	for (; vIt != vEnd; ++vIt) {
-		PartitioningGraph::VertexDescriptor vd = *vIt;
-		pGraph.setPartition(vd, rand()%partitionCount);
-	}
 }
 
 
@@ -159,11 +166,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 	Function *newGetBoolFunc = cast<Function>(
 		M.getOrInsertFunction("_get_bool",
 			Type::getInt1Ty(M.getContext()),
-			Type::getInt32Ty(M.getContext()),
-			(Type *)0));
-	Function *newGetIntPtrFunc = cast<Function>(
-		M.getOrInsertFunction("_get_intptr",
-			Type::getInt32PtrTy(M.getContext()),
 			Type::getInt32Ty(M.getContext()),
 			(Type *)0));
 
@@ -185,12 +187,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			Type::getInt32Ty(M.getContext()),
 			Type::getInt1Ty(M.getContext()),
 			(Type *)0));
-	Function *newPutIntPtrFunc = cast<Function>(
-		M.getOrInsertFunction("_put_intptr",
-			Type::getVoidTy(M.getContext()),
-			Type::getInt32Ty(M.getContext()),
-			Type::getInt32PtrTy(M.getContext()),
-			(Type *)0));
 
 	// create new functions to handle semaphores
 	Function *newSemWaitFunc = cast<Function>(
@@ -204,8 +200,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			Type::getInt32Ty(M.getContext()), 
 			(Type *)0));
 
-	// reset counting of data dependencies and semaphore uses
-	unsigned int depNumber = 0;
+	// reset counting semaphore uses (semaphores are reused in each partitioned function)
 	unsigned int semNumber = 0;
 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
@@ -214,7 +209,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 		Instruction *tgtinstr = depEntry.tgtInstruction;
 		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
 		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtinstr);
-		if (instrVertex == NULL)
+		if (instrVertex == (-1))
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
@@ -222,7 +217,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
-			if (depVertex == NULL)
+			if (depVertex == (-1))
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
 			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {				
@@ -251,11 +246,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						else if (instrType->isFloatingPointTy()) {
 							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
 							dataDependencies.push_back("RealT");
-						}
-						else if (instrType->isPointerTy()) {
-							newInstr = CallInst::Create(newGetIntPtrFunc, depNumberVal, "data");
-							dataDependencies.push_back("IntT*");
-						}						
+						}					
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -297,8 +288,6 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						}
 						else if (instrType->isFloatingPointTy())
 							newInstr = CallInst::Create(newPutFloatFunc, params);
-						else if (instrType->isPointerTy())
-							newInstr = CallInst::Create(newPutIntPtrFunc, params);
 						else {
 							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -325,12 +314,14 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 }
 
 
-void Partitioning::savePartitioning(std::map<std::string, Function*> &functions, std::map<std::string, PartitioningGraph*> &graphs) {
+void Partitioning::savePartitioning(std::map<std::string, Function*> &functions, 
+	std::map<std::string, PartitioningGraph*> &graphs, std::map<std::string, unsigned int> partitioningNumbers) {
 	// set template and output files
 	std::string mehariTemplate = TemplateDir + "/mehari.tpl";
 	std::string threadDeclTemplate = TemplateDir + "/thread_declaration.tpl";
 	std::string threadCreationTemplate = TemplateDir + "/thread_creation.tpl";
 	std::string threadImplTemplate = TemplateDir + "/thread_implementation.tpl";
+	std::string partitionCountTemplate = TemplateDir + "/partition_count_entry.tpl";
 	std::string dataDepInitTemplate = TemplateDir + "/dep_data_init.tpl";
 	std::string paramDepInitTemplate = TemplateDir + "/dep_param_init.tpl";
 	std::string outputFile = OutputDir + "/mehari.c";
@@ -368,10 +359,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 			"DATA_TYPE", *depIt);
 	}
 
-	// insert partition and thread count
-	std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitionCount))->str();
-	tWriter.setValue("PARTITION_COUNT", partitionCountStr);
-	unsigned int threadCount = functions.size()*(partitionCount-1);
+	// insert thread count
+	unsigned int threadCount = 0;
+	for (std::map<std::string, unsigned int>::iterator it = partitioningNumbers.begin(); it != partitioningNumbers.end(); ++it)
+		threadCount += (it->second - 1);
 	std::string threadCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadCount))->str();
 	tWriter.setValue("THREAD_COUNT", threadCountStr);
 
@@ -380,6 +371,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 	// write partitioning for each function
 	unsigned int functionIndex = 0;
+	unsigned int putParamStart = 0;
 	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt, functionIndex++) {
 		std::string currentFunction = funcIt->first;
 		std::string currentFunctionUppercase = boost::to_upper_copy(currentFunction);
@@ -391,8 +383,29 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		Function *func = funcIt->second;
 		PartitioningGraph *pGraph = graphs[currentFunction];
 
+		// insert partition count for this function
+		std::string partitionCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << partitioningNumbers[currentFunction]))->str();
+		tWriter.setValueInSubTemplate(partitionCountTemplate, "PARTITION_COUNT_ENTRIES", currentFunction + "_PARTITION_COUNT",
+			"FUNCTION_NAME", currentFunctionUppercase);
+		tWriter.setValueInSubTemplate(partitionCountTemplate, "PARTITION_COUNT_ENTRIES", currentFunction + "_PARTITION_COUNT",
+			"PARTITION_COUNT", partitionCountStr);
+
 		// enable the section for this function
 		tWriter.enableSection(currentFunctionUppercase + "_IMPLEMENTATION");
+
+		// add implementation to main calculation function
+		std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
+		tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
+		tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
+
+		// add initialization of parameter depdendencies
+		for (int j=putParamStart; j<putParamStart+partitioningNumbers[currentFunction]-1; j++) {
+			std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
+			tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+				"DEPENDENCY_NUMBER", depNum);
+			tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
+				"FUNCTION_NAME", currentFunction);	
+		}
 
 		// collect the instructions for each partition
 		std::vector<Instruction*> instructionsForPartition[partitionCount];
@@ -409,7 +422,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		}
 
 		// generate C code for each partition of this function and write it into template
-		for (int i=0; i<partitionCount; i++) {
+		for (int i=0; i<partitioningNumbers[currentFunction]; i++) {
 			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
 			std::string functionName = currentFunction + "_" + partitionNumber;
 			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
@@ -445,22 +458,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				"FUNCTION_BODY", functionBody);
 			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 				"RETURN_SEM_INDEX", functionIndexStr);
-
-			// add implementation to main calculation function
-			unsigned int putParamStart = (partitionCount-1) * functionIndex;
-			std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
-			tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
-			tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
-
-			// add initialization of parameter depdendencies
-			for (int j=putParamStart; j<putParamStart+partitionCount-1; j++) {
-				std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
-				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
-					"DEPENDENCY_NUMBER", depNum);
-				tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
-					"FUNCTION_NAME", currentFunction);	
-			}
 		}
+
+		// update parameter start index for the next function
+		putParamStart += (partitioningNumbers[currentFunction]-1);
 	}
 
 	// expand and save template

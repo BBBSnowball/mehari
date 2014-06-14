@@ -8,10 +8,16 @@
 #include <boost/graph/adjacency_list.hpp> 
 #include <boost/graph/graphviz.hpp>
 
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
+
 #include <vector>
 #include <algorithm>
 
 
+static cl::opt<std::string> TargetFunctions("graph-functions", 
+            cl::desc("Specify the functions the graph printer will be applyed on (seperated by whitespace)"), 
+            cl::value_desc("target-functions"));
 static cl::opt<std::string> OutputDir("irgraph-output-dir", 
             cl::desc("Set the output directory for graph results"), 
             cl::value_desc("irgraph-output-dir"));
@@ -19,6 +25,7 @@ static cl::opt<std::string> OutputDir("irgraph-output-dir",
 
 IRGraphPrinter::IRGraphPrinter() : FunctionPass(ID) {
   initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
+  parseTargetFunctions();
 }
 
 IRGraphPrinter::~IRGraphPrinter() {}
@@ -26,6 +33,11 @@ IRGraphPrinter::~IRGraphPrinter() {}
 
 bool IRGraphPrinter::runOnFunction(Function &func) {
   std::string functionName = func.getName().str();
+
+  // just handle those functions specified by the command line parameter
+  if (std::find(targetFunctions.begin(), targetFunctions.end(), functionName) == targetFunctions.end())
+    return false;
+
   std::string fileName = OutputDir + "/dataflow-graph-" + functionName + ".dot";
   printDataflowGraph(fileName, func);
   return false;
@@ -68,6 +80,11 @@ void IRGraphPrinter::printDataflowGraph(std::string &filename, Function &func) {
 
   std::ofstream dotfile(filename.c_str());
   boost::write_graphviz(dotfile, g, boost::make_label_writer(vertex_names));
+}
+
+
+void IRGraphPrinter::parseTargetFunctions() {
+  boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
 }
 
 

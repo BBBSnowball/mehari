@@ -4,9 +4,11 @@
 #include "llvm/IR/Function.h"
 
 #include "mehari/Analysis/InstructionDependencyAnalysis.h"
+#include "mehari/HardwareInformation.h"
 
 #include <boost/graph/adjacency_list.hpp> 
 #include <boost/graph/graphviz.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <vector>
 
@@ -20,7 +22,12 @@ public:
 	PartitioningGraph();
 	~PartitioningGraph();
 
-	void create(std::vector<Instruction*> &instructions, InstructionDependencyNumbersList &dependencies);
+	// overwrite copy constructor and assignment operator to create a deep copy of PartitioningGraphs
+	PartitioningGraph(const PartitioningGraph &cSource);
+	PartitioningGraph &operator=(const PartitioningGraph &cSource);
+
+
+	void create(std::vector<Instruction*> &instructions, InstructionDependencyList &dependencies);
 
 
 	struct ComputationUnit {
@@ -30,23 +37,36 @@ public:
 	};
 
 	struct Communication {
-		unsigned int cost;
+		std::vector<CommunicationType> comOperations;
 	};
 
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
-		boost::listS, 			// store vertex set in a std::list
-		boost::directedS, 	// the graph has got directed edges
-		ComputationUnit,		// the vertices are of type ComputationUnit
+		boost::vecS, 				// store vertex set in a std::vector
+		boost::bidirectionalS, 		// the graph has got bidirected edges (required for boost::in_edges)
+		ComputationUnit,			// the vertices are of type ComputationUnit
 		Communication				// the edges are of type Communication
 		> Graph;
 
 	typedef Graph::vertex_iterator VertexIterator;
 	typedef Graph::vertex_descriptor VertexDescriptor;
+	typedef Graph::edge_iterator EdgeIterator;
+	typedef Graph::edge_descriptor EdgeDescriptor;
+
+	unsigned int getVertexCount(void);
+
+	VertexDescriptor getRandomVertex(void);
 
 	VertexIterator getFirstIterator();
 	VertexIterator getEndIterator(); 
 
+	EdgeIterator getFirstEdgeIterator();
+	EdgeIterator getEndEdgeIterator();
+
+	VertexDescriptor getSourceVertex(EdgeDescriptor ed);
+	VertexDescriptor getTargetVertex(EdgeDescriptor ed);
+
+	std::string getName(VertexDescriptor vd);
 
 	void setPartition(VertexDescriptor vd, unsigned int partition);
 	unsigned int getPartition(VertexDescriptor vd);
@@ -54,19 +74,33 @@ public:
 	void setInstructions(VertexDescriptor vd, std::vector<Instruction*> &instructions);
 	std::vector<Instruction*> &getInstructions(VertexDescriptor vd);
 
+	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2, 
+		std::string &sourceDevice, std::string &targetDevice);
+	unsigned int getExecutionTime(VertexDescriptor vd, std::string &targetDevice);
+
+	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(
+		VertexDescriptor vd, std::string &sourcedevice, std::string &targetDevice);
+
+	unsigned int getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice);
+
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 
 	void printGraph(std::string &name);
 	void printGraphviz(Function &func, std::string &name, std::string &outputDir);
+	void printPartitions(void);
 
 private:
 
 	void createVertices(std::vector<Instruction*> &instructions);
-	void addEdges(InstructionDependencyNumbersList &dependencies);
+	void addEdges(InstructionDependencyList &dependencies);
 
 	bool isCuttingInstr(Instruction *instr);
 
 	void addInstructionsToList(std::vector<Instruction*> instructions);
+
+	void copyGraph(const Graph &orig, Graph &copy);
+
+	unsigned int calcEdgeCost(EdgeDescriptor ed, std::string &sourceDevice, std::string &targetDevice);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;

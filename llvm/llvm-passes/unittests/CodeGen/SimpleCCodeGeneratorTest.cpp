@@ -214,11 +214,11 @@ TEST_F(SimpleCCodeGeneratorTest, SingleIfTest) {
   std::string ExpectedResult =
     "\tint t0;\n"
     "\tt0 = (a != 0);\n"
-    "\tif (t0) goto label0; else goto label1;\n"
-    "label0:\n"
+    "\tif (t0) goto label1; else goto label0;\n"
+    "label1:\n"
     "\tb = 2;\n"
     "\tgoto label2;\n"
-    "label1:\n"
+    "label0:\n"
     "label2:\n";
   CheckResult(ExpectedResult);
 }
@@ -255,11 +255,11 @@ TEST_F(SimpleCCodeGeneratorTest, TernaryOperatorTest) {
     "\ta = 42;\n"
     "\tb = 1;\n"
     "\tt0 = (a > 0);\n"
-    "\tif (t0) goto label0; else goto label1;\n"
-    "label0:\n"
+    "\tif (t0) goto label1; else goto label0;\n"
+    "label1:\n"
     "\tt1 = a;\n"
     "\tgoto label2;\n"
-    "label1:\n"
+    "label0:\n"
     "\tt1 = b;\n"
     "\tgoto label3;\n"
     "label2:\n"

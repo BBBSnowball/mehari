@@ -34,7 +34,6 @@ namespace {
 HardwareInformation::HardwareInformation() {
 	devices = new std::map<std::string, DeviceInformation*>();
 
-	// TODO: check cycle timings for the Cortex-A9 instructions in datasheet
 	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9");
 	cortexA9->addInstructionInfo("ret",    0);
 	cortexA9->addInstructionInfo("br",     0);
@@ -53,7 +52,11 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("phi",    0);
 	cortexA9->addInstructionInfo("call",  25); // TODO: how to get cycle timings for call instruction?
 
-	devices->insert(std::pair<std::string, DeviceInformation*>("Cortex-A9", cortexA9));
+	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 30);
+	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 5);	
+
+	std::string deviceName = "Cortex-A9";
+	devices->insert(std::pair<std::string, DeviceInformation*>(deviceName, cortexA9));
 }
 
 
@@ -64,24 +67,30 @@ HardwareInformation::~HardwareInformation() {
 }
 
 
-DeviceInformation *HardwareInformation::getDeviceInfo(const char* deviceName) {
+DeviceInformation *HardwareInformation::getDeviceInfo(std::string deviceName) {
 	return (*devices)[deviceName];
 }
 
 
 
 // DeviceInformation
-// -------------------
+// -----------------
 DeviceInformation::DeviceInformation(std::string deviceName) {
 	name = deviceName;
 	instrInfoMap = new std::map<std::string, InstructionInformation*>();
+	comInfoMap = new std::map<std::string, CommunicationInformation*>();
 }
 
 
 DeviceInformation::~DeviceInformation() {
+	// free instruction information mapping
 	for (std::map<std::string, InstructionInformation*>::iterator it = instrInfoMap->begin(); it != instrInfoMap->end(); ++it)
   		delete it->second;
 	delete instrInfoMap;
+	// free communication information mapping
+	for (std::map<std::string, CommunicationInformation*>::iterator it = comInfoMap->begin(); it != comInfoMap->end(); ++it)
+  		delete it->second;
+  	delete comInfoMap;
 }
 
 
@@ -91,14 +100,28 @@ void DeviceInformation::addInstructionInfo(std::string opcodeName, unsigned int 
 }
 
 
-InstructionInformation *DeviceInformation::getInstructionInfo(const char* opcodeName) {
+InstructionInformation *DeviceInformation::getInstructionInfo(std::string opcodeName) {
 	return (*instrInfoMap)[opcodeName];
+}
+
+
+void DeviceInformation::addCommunicationInfo(std::string target, CommunicationType type, unsigned int cost) {
+	if (comInfoMap->find(target) == comInfoMap->end())
+		comInfoMap->insert(std::pair<std::string, CommunicationInformation*>(
+			target, new CommunicationInformation(name, target, type, cost)));
+	else
+		comInfoMap->operator[](target)->addCommunicationCost(type, cost);
+}
+
+
+CommunicationInformation *DeviceInformation::getCommunicationInfo(std::string target) {
+	return (*comInfoMap)[target];
 }
 
 
 
 // InstructionInformation
-// -------------------
+// ----------------------
 InstructionInformation::InstructionInformation(std::string name, unsigned int cycles) {
 	opcodeName = name;
 	opcode = opcodesMap[name];
@@ -111,4 +134,29 @@ InstructionInformation::~InstructionInformation() {}
 
 unsigned int InstructionInformation::getCycleCount(void) {
 	return cycleCount;
+}
+
+
+
+// CommunicationInformation
+// ------------------------
+
+CommunicationInformation::CommunicationInformation(std::string comSource, std::string comTarget, 
+	CommunicationType type, unsigned int cost) {
+	source = comSource;
+	target = comTarget;
+	costs[type] = cost;
+}
+
+
+CommunicationInformation::~CommunicationInformation() {}
+
+
+void CommunicationInformation::addCommunicationCost(CommunicationType type, unsigned int cost) {
+	costs[type] = cost;
+}
+
+
+unsigned int CommunicationInformation::getCommunicationCost(CommunicationType type) {
+	return costs[type];
 }

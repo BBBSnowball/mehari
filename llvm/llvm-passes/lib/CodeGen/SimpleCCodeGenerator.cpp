@@ -11,6 +11,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <sstream>
+#include <iomanip>
 #include <fstream>
 
 #include <boost/scoped_ptr.hpp>
@@ -404,7 +405,10 @@ std::string CCodeBackend::getOperandString(Value* addr) {
   // handle constant floating point numbers
   else if (ConstantFP *cf = dyn_cast<ConstantFP>(addr)) {
     double value = cf->getValueAPF().convertToDouble();
-    return toString(value);
+
+    std::ostringstream os;
+    os << std::setprecision(20) << value;
+    return os.str();
   }
 
   // convert operand address to string

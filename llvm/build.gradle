@@ -15,13 +15,22 @@ ext {
 	IPANEMA = file("$projectDir/../private/ipanema")
 	IPANEMA_INCLUDES_SYSLAYER = file("$IPANEMA/include/syslayer/linux")
 	IPANEMA_INCLUDES_SIM = file("$IPANEMA/include/sim")
+	IPANEMA_PYTHON_LIB_DIR = file("$projectDir/../private/python/lib")
 
 	EXAMPLE_FILE = file("$projectDir/examples/dc_motor.c")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 
+	EXAMPLE_NAME = EXAMPLE_FILE.name.lastIndexOf('.').with {it != -1 ? EXAMPLE_FILE.name[0..<it] : EXAMPLE_FILE.name}
+
 	CODEGEN_PREPARATION_SCRIPT = file("$projectDir/../private/python/scripts/prepare_example_for_code_generation.py")
 
+	PARTITIONED_EXAMPLE_BUILD_SCRIPT = file("$projectDir/../private/build_ipanema_and_example-mehari.sh")
+	PARTITIONED_EXAMPLE_TEST_SCRIPT = file("$projectDir/../private/python/tests/partitioned_example_test.py")
+
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
+
+	// valid partitioning methods: random, clustering, sa, k-lin
+	PARTITIONING_METHOD = "k-lin"
 	PARTITIONING_COUNT = 2
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
@@ -30,6 +39,13 @@ ext {
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
 	PARTITIONING_RESULTS_DIR = file("$OUTPUT_DIR/partitioning")
+
+	PARTITIONING_TARGET_NAME = "$EXAMPLE_NAME"+"_partitioned_"+"$PARTITIONING_METHOD"
+	PARTITIONING_TARGET_FILE = file("$PARTITIONING_RESULTS_DIR/$PARTITIONING_TARGET_NAME"+".c")
+
+	PRIVATE_BUILD_DIR = file("$projectDir/../private/build")
+
+	EXAMPLE_SIMULATION_CONFIG = file("$projectDir/../private/examples/example_sim_config.yaml")
 }
 
 
@@ -199,7 +215,7 @@ task prepareExample(type: Exec) {
 		OUTPUT_DIR.mkdirs()
 	}
 
-	def target_file = file("$OUTPUT_DIR/example.c")
+	def target_file = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
 
 	inputs.file EXAMPLE_FILE
 	outputs.file target_file
@@ -212,9 +228,8 @@ task prepareExample(type: Exec) {
 task createIR(type: Exec) {
 	dependsOn installLLVM, prepareExample
 
-	// TODO better solution for this
-	def tmp_source_file = file("$OUTPUT_DIR/example.c")
-	def irfile = file("$OUTPUT_DIR/example.ll")
+	def tmp_source_file = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
+	def irfile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".ll")
 
 	inputs.file tmp_source_file
 	outputs.file irfile
@@ -231,9 +246,8 @@ task createIR(type: Exec) {
 task prepareInlining(type: Exec) {
 	dependsOn installLLVMPasses, createIR
 
-	// TODO better solution for this
-	def sourcefile = file("$OUTPUT_DIR/example.ll")
-	def targetfile = file("$OUTPUT_DIR/example-prepare-inline.ll")
+	def sourcefile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".ll")
+	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-prepare-inline"+".ll")
 
 	commandLine "bash", "-c", "$LLVM_BIN/opt " +
 	"-load $LLVM_PASSES_LIB " + 
@@ -245,9 +259,8 @@ task prepareInlining(type: Exec) {
 task applyInlining(type: Exec) {
 	dependsOn prepareInlining
 
-	// TODO better solution for this
-	def sourcefile = file("$OUTPUT_DIR/example-prepare-inline.ll")
-	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
+	def sourcefile = file("$OUTPUT_DIR/$EXAMPLE_NAME-prepare-inline"+".ll")
+	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
 
 	commandLine "bash", "-c", "$LLVM_BIN/opt -always-inline -S $sourcefile > $targetfile"
 }
@@ -260,8 +273,7 @@ task speedUpAnalysis(type: Exec) {
 		OUTPUT_GRAPH_DIR.mkdirs()
 	}
 
-	// TODO better solution for this
-	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
+	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
 
 	commandLine "bash", "-c", "$LLVM_BIN/opt " +
 	"-load $LLVM_PASSES_LIB " +
@@ -280,12 +292,12 @@ task createIRGraphs(type: Exec) {
 		OUTPUT_GRAPH_DIR.mkdirs()
 	}
 
-	// TODO better solution for this
-	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
+	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
 
 	commandLine "bash", "-c", "$LLVM_BIN/opt " +
 	"-load $LLVM_PASSES_LIB " +
 	"-dfg " +
+	"-graph-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
 	"-irgraph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
 	"-S $targetfile > /dev/null"
 }
@@ -298,10 +310,9 @@ task prepareCodeGenerationResult(type: Exec) {
 		PARTITIONING_RESULTS_DIR.mkdirs()
 	}
 
-	def inputfile = file("$OUTPUT_DIR/example.c")
-	def targetfile = file("$PARTITIONING_RESULTS_DIR/example.c")
+	def inputfile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
 
-	commandLine "python", CODEGEN_PREPARATION_SCRIPT, inputfile, targetfile, PARTITIONING_TARGET_FUNCTIONS
+	commandLine "python", CODEGEN_PREPARATION_SCRIPT, inputfile, PARTITIONING_TARGET_FILE, PARTITIONING_TARGET_FUNCTIONS
 }
 
 
@@ -318,16 +329,21 @@ task copyMehariSources(type: Copy) {
 task applyPartitioning(type: Exec) {
 	dependsOn installLLVMPasses, createIR, applyInlining, prepareCodeGenerationResult, copyMehariSources
 
-	// TODO better solution for this
-	def targetfile = file("$OUTPUT_DIR/example-inline.ll")
+	doFirst {
+		OUTPUT_GRAPH_DIR.mkdirs()
+	}
+	
+	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
 
 	commandLine "bash", "-c", "$LLVM_BIN/opt " +
 	"-load $LLVM_PASSES_LIB " +
 	"-partitioning " +
 	"-template-dir \"$TEMPLATE_DIR\" " +
+	"-partitioning-method \"$PARTITIONING_METHOD\" " +
 	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
 	"-partitioning-count $PARTITIONING_COUNT " +
 	"-partitioning-output-dir \"$PARTITIONING_RESULTS_DIR\" " +
+	"-partitioning-graph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
 	"-S $targetfile > /dev/null"
 }
 
@@ -365,7 +381,27 @@ task runOptimizationPassesUnittests(type: Exec) {
 	dependsOn installLLVMPasses
 
 	workingDir file("$LLVM_PASSES_INSTALL/unittests")
-	commandLine "./MehariAnalysisTests"
+	commandLine "./MehariUnittests"
+}
+
+
+task compilePartitionedExample(type: Exec) {
+	dependsOn applyPartitioning
+	commandLine PARTITIONED_EXAMPLE_BUILD_SCRIPT, PARTITIONING_TARGET_FILE
+}
+
+
+task testPartitionedExample(type: Exec) {
+	dependsOn compilePartitionedExample, ":private:compile"
+
+	environment "PYTHONPATH", IPANEMA_PYTHON_LIB_DIR
+
+	workingDir PRIVATE_BUILD_DIR
+	commandLine "python", 
+		PARTITIONED_EXAMPLE_TEST_SCRIPT,
+		rootPath(PRIVATE_BUILD_DIR, EXAMPLE_NAME),
+		rootPath(PRIVATE_BUILD_DIR, PARTITIONING_TARGET_NAME),
+		EXAMPLE_SIMULATION_CONFIG
 }
 
 
@@ -373,4 +409,5 @@ task test() {
 	dependsOn runOptimizationPasses
 	dependsOn runOptimizationPassesUnittests
 	dependsOn createResults
+	dependsOn testPartitionedExample
 }
