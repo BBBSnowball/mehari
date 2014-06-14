@@ -370,28 +370,11 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
 
 
 TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
-  /*
-  void test(int a, int b) {
-    if (a)
-      b = 2;
-  }
-  */
-  ParseAssembly(
-    "define void @test(i32 %a, i32 %b) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca i32, align 4\n"
-    "  %b.addr = alloca i32, align 4\n"
-    "  store i32 %a, i32* %a.addr, align 4\n"
-    "  store i32 %b, i32* %b.addr, align 4\n"
-    "  %0 = load i32* %a.addr, align 4\n"
-    "  %tobool = icmp ne i32 %0, 0\n"
-    "  br i1 %tobool, label %if.then, label %if.end\n"
-    "if.then:                                          ; preds = %entry\n"
-    "  store i32 2, i32* %b.addr, align 4\n"
-    "  br label %if.end\n"
-    "if.end:                                           ; preds = %if.then, %entry\n"
-    "  ret void\n"
-    "}\n");
+  ParseC(
+    "void test(int a, int b) {"
+    "  if (a)"
+    "    b = 2;"
+    "}");
   CheckResultFromFile();
 
   TestOperator* test = makeTestOperator();
