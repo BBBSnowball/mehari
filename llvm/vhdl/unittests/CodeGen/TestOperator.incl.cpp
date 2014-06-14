@@ -58,6 +58,9 @@ public:
   void beginStimulusProcess() {
     vhdl << "   stimulus_proc: process\n";
     vhdl << "   begin\n";
+
+    initSignals();
+
     vhdl << "      -- hold reset state for 100 ns.\n";
     vhdl << "      reset <= '1';\n";
     vhdl << "      wait for 100 ns;\n";
@@ -68,6 +71,15 @@ public:
     vhdl << "      reset <= '1';\n";
     vhdl << "      wait for " << aclk_period << ";\n";
     vhdl << "      reset <= '0';\n";
+  }
+
+  void initSignals() {
+    BOOST_FOREACH(Signal* sig, *uut->getIOList()) {
+      if (sig->width() == 1 && sig->type() == Signal::in && !sig->isClk() && !sig->isRst() && !sig->isBus()) {
+        if (endsWith(sig->getName(), "valid") || endsWith(sig->getName(), "ready"))
+          vhdl << "      " << sig->getName() << " <= '0';\n";
+      }
+    }
   }
 
   void waitUntilReady(unsigned int max_clock_cycles = 10) {
