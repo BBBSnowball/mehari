@@ -13,12 +13,12 @@ entity test is
    port ( 
          aclk : in std_logic;
          reset : in std_logic;
-         a_out_data : out  std_logic_vector(31 downto 0);
-         a_out_valid : out std_logic;
-         a_out_ready : in std_logic;
          b_out_data : out  std_logic_vector(31 downto 0);
          b_out_valid : out std_logic;
          b_out_ready : in std_logic;
+         a_in_data : in  std_logic_vector(31 downto 0);
+         a_in_valid : in std_logic;
+         a_in_ready : out std_logic;
          c_out_data : out  std_logic_vector(31 downto 0);
          c_out_valid : out std_logic;
          c_out_ready : in std_logic
@@ -41,6 +41,7 @@ architecture arch of test is
    );
    end component;
 
+signal a_in_ready_1 : std_logic;
 signal t0_data :  std_logic_vector(0 downto 0);
 signal t0_valid : std_logic;
 signal t0_ready : std_logic;
@@ -59,15 +60,14 @@ signal t1_data :  std_logic_vector(31 downto 0);
 signal t1_valid : std_logic;
 signal t1_ready : std_logic;
 begin
-   a_out_data <= std_logic_vector(to_unsigned(42, 32));
-   a_out_valid <= '1';
    b_out_data <= std_logic_vector(to_unsigned(1, 32));
    b_out_valid <= '1';
    t0_data <= t0_data_1;
    t0_valid <= t0_valid_1;
    t0: icmp_sgt
-      port map ( a_data => std_logic_vector(to_unsigned(42, 32)),
-                 a_valid => '1',
+      port map ( a_data => a_in_data,
+                 a_ready => a_in_ready_1,
+                 a_valid => a_in_valid,
                  aclk => aclk,
                  b_data => std_logic_vector(to_unsigned(0, 32)),
                  b_valid => '1',
@@ -84,8 +84,16 @@ begin
          t2_data <= t0_data;
       end if;
    end process;
-   t3_valid <= '1';
-   t3_data <= std_logic_vector(to_unsigned(42, 32));
+   remember_t3 : process(aclk)
+   begin
+      if reset = '1' then
+         t3_valid <= '0';
+         t3_data <= (others => '0');
+      elsif rising_edge(aclk) and a_in_valid = '1' then
+         t3_valid <= a_in_valid;
+         t3_data <= a_in_data;
+      end if;
+   end process;
    t4_valid <= '1';
    t4_data <= std_logic_vector(to_unsigned(1, 32));
    t1_valid <= t3_valid WHEN t2_valid = '1' and t2_data(0) = '1' ELSE
@@ -97,6 +105,7 @@ begin
    c_out_data <= t1_data;
    c_out_valid <= t1_valid;
    t1_ready <= c_out_ready;
+   a_in_ready <= '1' and a_in_ready_1;
    t0_ready <= '1';
 end architecture;
 

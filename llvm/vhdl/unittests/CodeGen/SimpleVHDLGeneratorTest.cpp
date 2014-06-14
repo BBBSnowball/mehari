@@ -377,6 +377,7 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
     "}");
   CheckResultFromFile();
 
+
   TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
@@ -403,50 +404,35 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
 
 
 TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
-  ParseAssembly(
-    "define void @test(i32 %a, i32 %b, i32 %c) #0 {\n"
-    "entry:\n"
-    "  %a.addr = alloca i32, align 4\n"   "\n"
-    "  %b.addr = alloca i32, align 4\n"
-    "  %c.addr = alloca i32, align 4\n"
-    "  store i32 %a, i32* %a.addr, align 4\n"
-    "  store i32 %b, i32* %b.addr, align 4\n"
-    "  store i32 %c, i32* %c.addr, align 4\n"
-    "  store i32 42, i32* %a.addr, align 4\n"
-    "  store i32 1, i32* %b.addr, align 4\n"
-    "  %0 = load i32* %a.addr, align 4\n"
-    "  %cmp = icmp sgt i32 %0, 0\n"
-    "  br i1 %cmp, label %cond.true, label %cond.false\n"
-    "cond.true:                                        ; preds = %entry\n"
-    "  %1 = load i32* %a.addr, align 4\n"
-    "  br label %cond.end\n"
-    "cond.false:                                       ; preds = %entry\n"
-    "  %2 = load i32* %b.addr, align 4\n"
-    "  br label %cond.end\n"
-    "cond.end:                                         ; preds = %cond.false, %cond.true\n"
-    "  %cond = phi i32 [ %1, %cond.true ], [ %2, %cond.false ]\n"
-    "  store i32 %cond, i32* %c.addr, align 4\n"
-    "  ret void\n"
-    "}\n");
-  /*ParseC(
+  ParseC(
     "void test(int a, int b, int c) {"
-    "  a = 42;"
+    "  /*a = 42;*/"
     "  b = 1;"
-    "  c = (a > 0 ? a : b);");*/
-  std::string ExpectedResult =
-    "\tint t0, t1;\n"
-    "\ta = 42;\n"
-    "\tb = 1;\n"
-    "\tt0 = (a > 0);\n"
-    "\tif (t0) goto label0; else goto label1;\n"
-    "label0:\n"
-    "\tt1 = a;\n"
-    "\tgoto label2;\n"
-    "label1:\n"
-    "\tt1 = b;\n"
-    "\tgoto label3;\n"
-    "label2:\n"
-    "label3:\n"
-    "\tc = t1;\n";
+    "  c = (a > 0 ? a : b);"
+    "}");
   CheckResultFromFile();
+
+
+  TestOperator* test = makeTestOperator();
+
+  test->beginStimulusProcess();
+
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", 42);
+  test->endDataInput();
+  test->waitForAndCheckSignedIntegerResult("b_out", "1");
+  test->waitForAndCheckSignedIntegerResult("c_out", "42");
+
+  test->reset();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", -42);
+  test->endDataInput();
+  test->waitForAndCheckSignedIntegerResult("b_out", "1");
+  test->waitForAndCheckSignedIntegerResult("c_out", "1");
+
+  test->endStimulusProcess();
+
+  saveTestOperator();
 }

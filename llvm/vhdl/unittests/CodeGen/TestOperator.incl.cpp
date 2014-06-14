@@ -131,6 +131,12 @@ public:
     setInput(name, s.str());
   }
 
+  void setSignedIntegerInput(const std::string& name, int value) {
+    std::stringstream s;
+    s << "std_logic_vector(to_signed(" << value << ", " << getDataSignalWidthFor(name) << "))";
+    setInput(name, s.str());
+  }
+
   void setFloatInput(const std::string& name, double value) {
     std::stringstream s;
     s << "to_float(real(" << value << "))";
@@ -179,6 +185,11 @@ public:
   void waitForAndCheckUnsignedIntegerResult(const std::string& name, const std::string& expectedValue,
       unsigned int max_clock_cycles = 100) {
     waitForAndCheckResult(name, expectedValue, max_clock_cycles, "to_integer(unsigned($1))");
+  }
+
+  void waitForAndCheckSignedIntegerResult(const std::string& name, const std::string& expectedValue,
+      unsigned int max_clock_cycles = 100) {
+    waitForAndCheckResult(name, expectedValue, max_clock_cycles, "to_integer(signed($1))");
   }
 
   void endStimulusProcess() {
