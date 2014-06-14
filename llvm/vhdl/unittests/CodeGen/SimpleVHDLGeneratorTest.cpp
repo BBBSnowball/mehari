@@ -395,7 +395,7 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
   test->setUnsignedIntegerInput("a_in", 0);
   test->setUnsignedIntegerInput("b_in", 7);
   test->endDataInput();
-  test->waitForAndCheckUnsignedIntegerResult("b_out", "8");
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "7");
 
   test->endStimulusProcess();
 
