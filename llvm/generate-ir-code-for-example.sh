@@ -32,19 +32,24 @@ PARTITIONING_RESULTS_DIR="$OUTPUT_DIR/partitioning"
 
 TMP="$(mktemp -t "$(basename "$EXAMPLE_FILE" .c)".XXXXXXX.c)"
 
+run() {
+	echo "$@" >&2
+	"$@"
+}
+
 sed '/^\s*if\s*(\s*!\s*(\*status.*$/ d' "$EXAMPLE_FILE" > "$TMP"
 
-"$LLVM_BIN/clang" $CFLAGS_FOR_EXAMPLE -S -emit-llvm $IPANEMA_INCLUDES "$TMP" -o "$EXAMPLE_FILE.1.ll"
+run "$LLVM_BIN/clang" $CFLAGS_FOR_EXAMPLE -S -emit-llvm $IPANEMA_INCLUDES "$TMP" -o "$EXAMPLE_FILE.1.ll"
 
-"$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
+run "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
 	-add-attr-always-inline -inline-functions "evalParameterCouplings" \
 	-S "$EXAMPLE_FILE.1.ll" > "$EXAMPLE_FILE.2.ll"
 
-"$LLVM_BIN/opt" -always-inline -S "$EXAMPLE_FILE.2.ll" > "$EXAMPLE_FILE.3.ll"
+run "$LLVM_BIN/opt" -always-inline -S "$EXAMPLE_FILE.2.ll" > "$EXAMPLE_FILE.3.ll"
 
 mkdir -p "$PARTITIONING_RESULTS_DIR"
 
-"$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
+run "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
 	-partitioning \
 	-template-dir "$TEMPLATE_DIR" \
 	-partitioning-functions "$PARTITIONING_TARGET_FUNCTIONS" \
