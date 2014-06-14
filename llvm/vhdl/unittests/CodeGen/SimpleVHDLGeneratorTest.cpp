@@ -166,6 +166,17 @@ protected:
     file.close();
   }
 
+
+  std::string getCurrentTestName() {
+    const ::testing::TestInfo* const test_info =
+    ::testing::UnitTest::GetInstance()->current_test_info();
+    return test_info->name();
+  }
+
+  void CheckResultFromFile() { CheckResultFromFile(getCurrentTestName() + ".vhdl"); }
+  class TestOperator* makeTestOperator() { return makeTestOperator(getCurrentTestName()); }
+  void saveTestOperator() { saveTestOperator(getCurrentTestName() + ".vhdl"); }
+
 public:
   SimpleVHDLGeneratorTest() : codeGen(createBackend()), testOp(NULL) { }
 
@@ -192,16 +203,16 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterAssignmentTest) {
     "  a = 1;"
     "  b = a;"
     "}");
-  CheckResultFromFile("ParameterAssignmentTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("ParameterAssignmentTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitForAndCheckUnsignedIntegerResult("a_out", "1");
   test->waitForAndCheckUnsignedIntegerResult("b_out", "1", 0);
   test->endStimulusProcess();
 
-  saveTestOperator("ParameterAssignmentTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -210,9 +221,9 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
     "void test(int a, int b) {"
     "  b = a + 2;"
     "}");
-  CheckResultFromFile("ParameterCalculationTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("ParameterCalculationTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -222,7 +233,7 @@ TEST_F(SimpleVHDLGeneratorTest, ParameterCalculationTest) {
   test->waitForAndCheckUnsignedIntegerResult("b_out", "5");
   test->endStimulusProcess();
 
-  saveTestOperator("ParameterCalculationTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -232,16 +243,16 @@ TEST_F(SimpleVHDLGeneratorTest, ArrayParameterCalculationTest) {
     "  a[1] = 1;"
     "  b[0] = a[1] + 2;"
     "}");
-  CheckResultFromFile("ArrayParameterCalculationTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("ArrayParameterCalculationTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitForAndCheckFloatResult("b_0_out", "3.0");
   test->waitForAndCheckFloatResult("a_1_out", "1.0", 0);
   test->endStimulusProcess();
 
-  saveTestOperator("ArrayParameterCalculationTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -253,9 +264,9 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
     "  a[1] = b[0];"
     "  b[2] = a[0] + 2;"
     "}");
-  CheckResultFromFile("GlobalArrayCalculationTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("GlobalArrayCalculationTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -267,7 +278,7 @@ TEST_F(SimpleVHDLGeneratorTest, GlobalArrayCalculationTest) {
   test->waitForAndCheckFloatResult("b_2_out", "3.5", 0);
   test->endStimulusProcess();
 
-  saveTestOperator("GlobalArrayCalculationTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -277,9 +288,9 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithReturnTest) {
     "void test(int a) {"
     "  a = func(a);"
     "}");
-  CheckResultFromFile("FunctionCallWithReturnTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("FunctionCallWithReturnTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -289,7 +300,7 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithReturnTest) {
   test->waitForAndCheckUnsignedIntegerResult("a_out", "2*3+1");
   test->endStimulusProcess();
 
-  saveTestOperator("FunctionCallWithReturnTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -299,9 +310,9 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
     "void test(int a) {"
     "  func2(a, 2);"
     "}");
-  CheckResultFromFile("FunctionCallWithoutReturnTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("FunctionCallWithoutReturnTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -311,7 +322,7 @@ TEST_F(SimpleVHDLGeneratorTest, FunctionCallWithoutReturnTest) {
   //TODO We should check the result, but we don't even know when it is done.
   test->endStimulusProcess();
 
-  saveTestOperator("FunctionCallWithoutReturnTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -320,9 +331,9 @@ TEST_F(SimpleVHDLGeneratorTest, ReturnValueTest) {
     "double test(double a) {"
     "  return a+2;"
     "}");
-  CheckResultFromFile("ReturnValueTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("ReturnValueTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -332,7 +343,7 @@ TEST_F(SimpleVHDLGeneratorTest, ReturnValueTest) {
   test->waitForAndCheckFloatResult("return", "9.0");
   test->endStimulusProcess();
 
-  saveTestOperator("ReturnValueTest.vhdl");
+  saveTestOperator();
 }
 
 
@@ -342,9 +353,9 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
     "void test(int a) {"
     "  a = a+a;"
     "}");
-  CheckResultFromFile("UseParameterMoreThanOnce.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("UseParameterMoreThanOnce");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
   test->waitUntilReady();
@@ -354,7 +365,7 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
   test->waitForAndCheckUnsignedIntegerResult("a_out", "3+3");
   test->endStimulusProcess();
 
-  saveTestOperator("UseParameterMoreThanOnce.vhdl");
+  saveTestOperator();
 }
 
 
@@ -381,9 +392,9 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
     "if.end:                                           ; preds = %if.then, %entry\n"
     "  ret void\n"
     "}\n");
-  CheckResultFromFile("SingleIfTest.vhdl");
+  CheckResultFromFile();
 
-  TestOperator* test = makeTestOperator("SingleIfTest");
+  TestOperator* test = makeTestOperator();
 
   test->beginStimulusProcess();
 
@@ -400,11 +411,11 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
   test->setUnsignedIntegerInput("a_in", 0);
   test->setUnsignedIntegerInput("b_in", 7);
   test->endDataInput();
-  test->waitForAndCheckUnsignedIntegerResult("b_out", "7");
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "8");
 
   test->endStimulusProcess();
 
-  saveTestOperator("SingleIfTest.vhdl");
+  saveTestOperator();
 }
 
 
