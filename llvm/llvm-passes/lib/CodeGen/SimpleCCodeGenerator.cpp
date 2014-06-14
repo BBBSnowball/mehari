@@ -369,6 +369,7 @@ void CCodeBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   variables.clear();
   tmpVariables.clear();
   tmpVarNameGenerator.reset();
+  declarations.str("");
 }
 
 std::string CCodeBackend::generateBranchLabel(Value *target) {
@@ -506,6 +507,8 @@ void CCodeBackend::generateReturn(Value *retVal) {
 
 
 void CCodeBackend::generateVariableDeclarations() {
+  declarations.str("");
+
   for (std::map<std::string, std::vector<std::string> >::const_iterator it=tmpVariables.begin();
       it!=tmpVariables.end(); ++it) {
     declarations << "\t" << it->first << " ";
