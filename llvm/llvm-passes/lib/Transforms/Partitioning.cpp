@@ -118,6 +118,8 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new SimulatedAnnealing();
 		else if (PartitioningMethod == "k-lin")
 			PM = new KernighanLin();
+		else
+			throw std::runtime_error("Invalid partitioning method!");
 		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
 		delete PM;
 
