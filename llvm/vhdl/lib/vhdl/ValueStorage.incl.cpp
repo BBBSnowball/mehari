@@ -101,8 +101,12 @@ struct IfBranch {
 
   std::map<ValueStorageP, ValueStorageP> temporaries;
 
-  IfBranch(Value* condition, bool whichBranch, IfBranchP parent)
-    : condition(condition), whichBranch(whichBranch), parent(parent) { }
+  std::set<BasicBlock*> basic_blocks;
+
+  IfBranch(Value* condition, bool whichBranch, IfBranchP parent, BasicBlock* bb)
+      : condition(condition), whichBranch(whichBranch), parent(parent) {
+    basic_blocks.insert(bb);
+  }
 
   ValueStorageP get(ValueStorageP vs) {
     if (ValueStorageP* x = getValueOrNull(temporaries, vs))
@@ -249,18 +253,23 @@ public:
 
   void makeUnconditionalBranch(Instruction *target) {
     addIfBranchFor(target, current_if_branch);
+    if (current_if_branch)
+      current_if_branch->basic_blocks.insert(target->getParent());
     current_if_branch = IfBranchP((IfBranch*)NULL);
     last_instruction_was_branch = true;
   }
 
   void makeConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) {
-    addIfBranchFor(targetTrue,  IfBranchP(new IfBranch(condition, true,  current_if_branch)));
-    addIfBranchFor(targetFalse, IfBranchP(new IfBranch(condition, false, current_if_branch)));
+    addIfBranchFor(targetTrue,  IfBranchP(new IfBranch(condition, true,  current_if_branch, targetTrue ->getParent())));
+    addIfBranchFor(targetFalse, IfBranchP(new IfBranch(condition, false, current_if_branch, targetFalse->getParent())));
     current_if_branch = IfBranchP((IfBranch*)NULL);
     last_instruction_was_branch = true;
   }
 
   void beforeInstruction(llvm::Instruction* instr, PhiNodeSink* sink) {
+    bool is_first_instruction_in_basic_block = &instr->getParent()->front() == instr;
+    bool handle_phinode = isa<PHINode>(instr) && is_first_instruction_in_basic_block;
+
     if (std::vector<IfBranchP>* branches = getValueOrNull(if_branches_for_instruction, instr)) {
       if (!last_instruction_was_branch)
         // I think this won't happen because LLVM would generate a branch anyway.
@@ -270,8 +279,19 @@ public:
         current_if_branch = branches->front();
       else
         combineIfBranches(*branches, instr, sink);
+
+      if (handle_phinode) {
+        handlePhiNodes(instr->getParent(), *branches, sink);
+      }
     } else {
+      // If the last instruction was a branch, this instruction must be in a different path.
+      // Therefore, we need some branching information (i.e. we should be in the other branch
+      // of this if statement).
       assert(!last_instruction_was_branch);
+
+      // We haven't saved any branching information for this statement, so it isn't a branch
+      // target which means that a phi node doesn't make much sense here.
+      assert(!handle_phinode);
     }
 
     last_instruction_was_branch = false;
@@ -332,6 +352,82 @@ private:
       falseValue = falseBranch->get(var);
 
       sink->generatePhiNode(valueInParent, a->condition, trueValue, falseValue);
+    }
+  }
+
+  void handlePhiNodes(BasicBlock* bb, std::vector<IfBranchP>& branches, PhiNodeSink* sink) {
+    std::map<BasicBlock*, IfBranchP> branch_by_bb;
+    BOOST_FOREACH(IfBranchP branch, branches) {
+      BOOST_FOREACH(BasicBlock* bb2, branch->basic_blocks) {
+        if (bb == bb2)
+          // ignore current basic block because phi nodes can only refer to previous blocks
+          continue;
+
+        assert(!contains(branch_by_bb, bb2));
+
+        branch_by_bb[bb2] = branch;
+      }
+    }
+
+    bool only_phi_nodes_until_now = true;
+    BOOST_FOREACH(Instruction& instr, *bb) {
+      if (PHINode* phi = dyn_cast<PHINode>(&instr)) {
+        // All phi nodes should be at the start of the block.
+        assert(only_phi_nodes_until_now);
+
+        if (false) {
+          unsigned num = phi->getNumIncomingValues();
+          for (unsigned i=0;i<num;i++) {
+            std::cout << "incoming from " << phi->getIncomingBlock(i) << ": " << phi->getIncomingValue(i) << std::endl;
+          }
+          BOOST_FOREACH(IfBranchP branch, branches) {
+            std::cout << "branch: " << &*branch << std::endl;
+            if (branch) {
+              BOOST_FOREACH(BasicBlock* bb2, branch->basic_blocks) {
+                std::cout << "  with basic block: " << bb2 << std::endl;
+              }
+            }
+          }
+        }
+
+        // only the simplest case is supported: two incoming values that match the branches
+        assert(phi->getNumIncomingValues() == 2);
+
+        IfBranchP a = branch_by_bb[phi->getIncomingBlock(0)];
+        IfBranchP b = branch_by_bb[phi->getIncomingBlock(1)];
+        assert(a);
+        assert(b);
+        Value* a_value = phi->getIncomingValue(0);
+        Value* b_value = phi->getIncomingValue(1);
+
+        assert(a->parent == b->parent);
+        IfBranchP parent = a->parent;
+
+        assert(a->condition == b->condition);
+        assert(a->whichBranch != b->whichBranch);
+        Value* condition = a->condition;
+
+        IfBranchP trueBranch, falseBranch;
+        Value *trueValue, *falseValue;
+        if (a->whichBranch) {
+          trueBranch = a;
+          falseBranch = b;
+          trueValue = a_value;
+          falseValue = b_value;
+        } else {
+          trueBranch = b;
+          falseBranch = a;
+          trueValue = b_value;
+          falseValue = a_value;
+        }
+
+        ValueStorageP trueVS  = trueBranch ->get(this->get(trueValue));
+        ValueStorageP falseVS = falseBranch->get(this->get(falseValue));
+
+        ValueStorageP target = getOrCreateTemporaryVariable(phi);
+        sink->generatePhiNode(target, condition, trueVS, falseVS);
+      } else
+        only_phi_nodes_until_now = false;
     }
   }
 };

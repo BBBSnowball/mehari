@@ -402,7 +402,7 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
 }
 
 
-/*TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
+TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
   ParseAssembly(
     "define void @test(i32 %a, i32 %b, i32 %c) #0 {\n"
     "entry:\n"
@@ -428,6 +428,11 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
     "  store i32 %cond, i32* %c.addr, align 4\n"
     "  ret void\n"
     "}\n");
+  /*ParseC(
+    "void test(int a, int b, int c) {"
+    "  a = 42;"
+    "  b = 1;"
+    "  c = (a > 0 ? a : b);");*/
   std::string ExpectedResult =
     "\tint t0, t1;\n"
     "\ta = 42;\n"
@@ -443,5 +448,5 @@ TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
     "label2:\n"
     "label3:\n"
     "\tc = t1;\n";
-  CheckResult(ExpectedResult);
-}*/
+  CheckResultFromFile();
+}

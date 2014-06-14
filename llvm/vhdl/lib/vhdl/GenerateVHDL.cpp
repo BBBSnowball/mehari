@@ -564,8 +564,7 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_SGT:
-      ">";
-      assert(false);  // not supported
+      name = "icmp_sgt";
       break;
     case FCmpInst::ICMP_SGE:
       ">=";
@@ -666,11 +665,6 @@ void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
 void VHDLBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {
   debug_print("generatePhiNodeAssignment(" << tmpVar << ", " << op << ")");
   return_if_dry_run();
-  /*stream << "\t" << tmpVar
-    <<  " = "
-    <<  getOperandString(op)
-    <<  ";\n";*/
-  //TODO
 }
 
 void VHDLBackend::generateUnconditionalBranch(Instruction *target) {
@@ -722,6 +716,9 @@ ValueStorageP VHDLBackend::remember(ValueStorageP value) {
 }
 
 void VHDLBackend::generatePhiNode(ValueStorageP target, Value* condition, ValueStorageP trueValue, ValueStorageP falseValue) {
+  debug_print("generatePhiNode(...)");
+  return_if_dry_run();
+
   // make sure we cannot miss the valid signal
   ChannelP condition_rem  = remember(vs_factory->get(condition))->getReadChannel(op.get());
   ChannelP trueValue_rem  = remember(trueValue)->getReadChannel(op.get());
