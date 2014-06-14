@@ -58,3 +58,6 @@ cmake_install.cmake
 # performance test reports
 *.perf.*
 *.data
+
+
+/llvm/examples/*.c.*.ll
