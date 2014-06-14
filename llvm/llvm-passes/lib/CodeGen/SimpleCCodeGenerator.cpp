@@ -132,8 +132,12 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
     Instruction *prevInstr, *nextInstr;
     if (instrIt != instructions.begin())
       prevInstr = dyn_cast<Instruction>(*(instrIt-1));
+    else
+      prevInstr = NULL;
     if (instrIt+1 != instructions.end())
       nextInstr = dyn_cast<Instruction>(*(instrIt+1));
+    else
+      nextInstr = NULL;
 
     // insert a label for branch targets if the current instruction is one
     backend->generateBranchTargetIfNecessary(instr);
@@ -163,9 +167,9 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
           backend->copyVariable(instr->getOperand(0), instr);
         }
 
-        if (isa<GetElementPtrInst>(nextInstr))
+        if (nextInstr && isa<GetElementPtrInst>(nextInstr))
           cstate = GET_INDEX;
-        else if (isa<LoadInst>(nextInstr))
+        else if (nextInstr && isa<LoadInst>(nextInstr))
           cstate = LOAD_VAR;
         else
           cstate = APPLY;
@@ -183,7 +187,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
         std::string index = dyn_cast<llvm::ConstantInt>(instr->getOperand(1))->getValue().toString(10, true);
         backend->addIndexToVariable(instr->getOperand(0), instr, index);
         
-        if (isa<LoadInst>(nextInstr))
+        if (nextInstr && isa<LoadInst>(nextInstr))
           cstate = LOAD_INDEX;
         else
           cstate = APPLY;
@@ -201,7 +205,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
         // copy name of loaded value to new variable (with current instruction address)
         backend->copyVariable(instr->getOperand(0), instr);
 
-        if (isa<LoadInst>(nextInstr))
+        if (nextInstr && isa<LoadInst>(nextInstr))
           cstate = LOAD_VAR;
         else
           cstate = APPLY;
@@ -256,10 +260,12 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
               // create temporary variable for phi node assignment before the branch instruction
               std::string tmpVar = backend->getOrCreateTemporaryVariable(phiInstr);
               // print assignment for the phi node variable
+              assert(prevInstr);
               backend->generatePhiNodeAssignment(tmpVar, prevInstr);
             }
             // add unconditional branch
-            backend->generateUnconditionalBranch(&brInstr->getSuccessor(0)->front());                
+            Instruction* target = &brInstr->getSuccessor(0)->front();
+            backend->generateUnconditionalBranch(target);                
           }
           else {
             // create conditional branch
@@ -280,7 +286,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
           errs() << "ERROR: unhandled instruction type: " << *instr << "\n";
         
         
-        if (isa<LoadInst>(nextInstr))
+        if (nextInstr && isa<LoadInst>(nextInstr))
           cstate = LOAD_VAR;
 
       }
