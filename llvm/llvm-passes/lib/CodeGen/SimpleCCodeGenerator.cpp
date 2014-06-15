@@ -376,6 +376,7 @@ void CCodeBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   tmpVariables.clear();
   tmpVarNameGenerator.reset();
   declarations.str("");
+  ccode.str("");
 }
 
 std::string CCodeBackend::generateBranchLabel(Value *target) {
