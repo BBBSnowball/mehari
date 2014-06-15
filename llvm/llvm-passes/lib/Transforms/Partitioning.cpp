@@ -203,7 +203,8 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			(Type *)0));
 
 	// reset counting semaphore uses (semaphores are reused in each partitioned function)
-	unsigned int semNumber = 0;
+	// start counting at one, because semaphore 0 is used for return control
+	unsigned int semNumber = 1;
 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
 	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
@@ -341,10 +342,8 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	tWriter.setValue("GLOBAL_VARIABLES", globVarOutput.str());
 
 	// write number of used semaphores
-	std::string semDataCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << semNumberMax))->str();
-	tWriter.setValue("SEM_DATA_COUNT", semDataCountStr);
-	std::string semReturnCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << functions.size()))->str();
-	tWriter.setValue("SEM_RETURN_COUNT", semReturnCountStr);
+	std::string semCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << (semNumberMax)))->str();
+	tWriter.setValue("SEM_COUNT", semCountStr);
 
 	// write number of data dependencies
 	std::string dataDepCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << dataDependencies.size()))->str();
@@ -398,7 +397,6 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		// add implementation to main calculation function
 		std::string putParamStartStr = static_cast<std::ostringstream*>( &(std::ostringstream() << putParamStart))->str();
 		tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
-		tWriter.setValue(currentFunctionUppercase + "_RETURN_SEM_INDEX", functionIndexStr);
 
 		// add initialization of parameter depdendencies
 		for (int j=putParamStart; j<putParamStart+partitioningNumbers[currentFunction]-1; j++) {
@@ -458,8 +456,6 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				"FUNCTION_NUMBER", partitionNumber);
 			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 				"FUNCTION_BODY", functionBody);
-			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
-				"RETURN_SEM_INDEX", functionIndexStr);
 		}
 
 		// update parameter start index for the next function
