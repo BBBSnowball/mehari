@@ -74,30 +74,17 @@ prepend_path("lib/Transforms" MEHARI_TRANSFORMS_SOURCES)
 prepend_path("lib/utils" MEHARI_UTILS_SOURCES)
 
 # create a shared library
-add_llvm_loadable_module(SharedMehariLLVMPasses 
+add_llvm_loadable_module(libmeharipasses 
   ${MEHARI_COMMON_SOURCES} 
   ${MEHARI_ANALYSIS_SOURCES} 
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES}
   ${MEHARI_UTILS_SOURCES}
   )
-target_link_libraries(SharedMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
-set_target_properties(SharedMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
-
-# create a static library
-add_llvm_library(LibraryMehariLLVMPasses 
-  ${MEHARI_COMMON_SOURCES}
-  ${MEHARI_ANALYSIS_SOURCES} 
-  ${MEHARI_CODEGEN_SOURCES} 
-  ${MEHARI_TRANSFORMS_SOURCES}
-  ${MEHARI_UTILS_SOURCES})
-target_link_libraries(LibraryMehariLLVMPasses ${PASSES_REQUIRED_LIBS})
-set_target_properties(LibraryMehariLLVMPasses PROPERTIES OUTPUT_NAME "MehariLLVMPasses")
-# enable -fPIC, so we can link it into a shared library
-set_target_properties(LibraryMehariLLVMPasses PROPERTIES COMPILE_FLAGS "-fPIC")
+target_link_libraries(libmeharipasses ${PASSES_REQUIRED_LIBS})
 
 # install both libraries
-install(TARGETS SharedMehariLLVMPasses LibraryMehariLLVMPasses
+install(TARGETS libmeharipasses
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
@@ -140,20 +127,12 @@ add_mehari_llvm_unittest(MehariUnittests
   ${MEHARI_CODEGEN_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariUnittests MehariLLVMPasses ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariUnittests meharipasses ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
-add_dependencies(MehariUnittests LibraryMehariLLVMPasses)
+add_dependencies(MehariUnittests libmeharipasses)
 
 # install unittest
 install(TARGETS MehariUnittests
   RUNTIME DESTINATION unittests
-)
-
-# create a symlink to the shared library
-# This adapts the name to the standard naming schema, so the linker
-# will find the library.
-add_custom_command(
-    TARGET SharedMehariLLVMPasses POST_BUILD
-    COMMAND ln -sf MehariLLVMPasses.so libMehariLLVMPasses.so
 )
