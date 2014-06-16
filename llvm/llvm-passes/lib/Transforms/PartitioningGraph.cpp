@@ -344,7 +344,7 @@ boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalC
 }
 
 
-unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice) {
+unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &partitioningDevices) {
 	// create new simple graph type for critical path analysis
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
@@ -371,8 +371,8 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, s
 		int edgeWeight = 0;
 		VertexDescriptor u = boost::source(*eIt, pGraph), v = boost::target(*eIt, pGraph);
 		if (pGraph[u].partition != pGraph[v].partition)
-			edgeWeight += calcEdgeCost(*eIt, sourceDevice, targetDevice);
-		edgeWeight += getExecutionTime(v, sourceDevice);
+			edgeWeight += calcEdgeCost(*eIt, partitioningDevices[pGraph[u].partition], partitioningDevices[pGraph[v].partition]);
+		edgeWeight += getExecutionTime(v, partitioningDevices[pGraph[v].partition]);
 		edgeWeight *= (-1);
 		// create new edge and set edge weight in temporary graph
 		boost::add_edge(u, v, edgeWeight, tmpGraph);
@@ -401,7 +401,8 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, s
 						// if there is no edge yet
 						bool exists = boost::edge(i, currentVertex, tmpGraph).second;
 						if (!exists) 
-							boost::add_edge(i, currentVertex, (-1)*getExecutionTime(currentVertex, sourceDevice), tmpGraph);
+							boost::add_edge(i, currentVertex, (-1)*getExecutionTime(currentVertex, 
+								partitioningDevices[pGraph[currentVertex].partition]), tmpGraph);
 					}
 					currentVertex = i;
 				}

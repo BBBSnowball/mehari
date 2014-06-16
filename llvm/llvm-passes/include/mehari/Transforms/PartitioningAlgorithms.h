@@ -11,14 +11,14 @@
 
 class AbstractPartitioningMethod {
 public:
-	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount) = 0;
+	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) = 0;
 };
 
 
 
 class RandomPartitioning : public AbstractPartitioningMethod {
 public:
-	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices);
 	void balancedBiPartitioning(PartitioningGraph &pGraph);
 };
 
@@ -26,7 +26,7 @@ public:
 
 class HierarchicalClustering : public AbstractPartitioningMethod {
 public:
-	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices);
 
 private:
 	typedef std::vector<PartitioningGraph::VertexDescriptor> FunctionalUnitList;
@@ -55,7 +55,16 @@ private:
 	Graph clusteringGraph;
 	PartitioningGraph partitioningGraph;
 
+	std::vector<std::string> devices;
+
 	boost::tuple<float, unsigned int> closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2);
+	boost::tuple<float, unsigned int> ratioCutCloseness(VertexDescriptor vd1, VertexDescriptor vd2);
+
+	enum closenessMetric {
+		ratioCut
+	};
+
+	static const closenessMetric usedCloseness = ratioCut;
 
 	boost::tuple<VertexDescriptor, VertexDescriptor> getPairMaxCloseness(void);
 	VertexDescriptor mergeVertices(VertexDescriptor vd1, VertexDescriptor vd2);
@@ -74,7 +83,7 @@ private:
 
 class SimulatedAnnealing : public AbstractPartitioningMethod {
 public:
-	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices);
 
 	typedef PartitioningGraph State;
 	typedef float Temperature;
@@ -91,19 +100,21 @@ private:
 	int costFunction(State &state);
 	double randomNumber(void);
 
+	std::vector<std::string> devices;
+	
 	Temperature Tinit, Tmin;
 	int iterationMax;
 	float tempAcceptenceMultiplicator;
 	float tempDecreasingFactor;
 
-	unsigned int numOfPartitions;
+	unsigned int partitionCount;
 };
 
 
 
 class KernighanLin : public AbstractPartitioningMethod {
 public:
-	virtual unsigned int apply(PartitioningGraph &pGraph, unsigned int partitionCount);
+	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices);
 
 private:
 	struct AdditionalVertexInfo {
@@ -113,6 +124,8 @@ private:
 	};
 
 	std::vector<AdditionalVertexInfo> additionalVertexInformation;
+
+	std::vector<std::string> devices;
 
 	void createInitialCostDifferences(PartitioningGraph &pGraph);
 	void updateCostDifferences(unsigned int icV1, unsigned int icV2, PartitioningGraph &pGraph);

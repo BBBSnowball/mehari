@@ -81,7 +81,7 @@ public:
 
 	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(VertexDescriptor vd);
 
-	unsigned int getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice);
+	unsigned int getCriticalPathCost(std::vector<std::string> &partitioningDevices);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 

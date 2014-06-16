@@ -14,8 +14,9 @@
 // Random Partitioning
 // -----------------------------------
 
-unsigned int RandomPartitioning::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int RandomPartitioning::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
 	srand(42);
+	unsigned int partitionCount = targetDevices.size();
 	PartitioningGraph::VertexIterator vIt = pGraph.getFirstIterator(); 
 	PartitioningGraph::VertexIterator vEnd = pGraph.getEndIterator();
 	for (; vIt != vEnd; ++vIt) {
@@ -45,8 +46,10 @@ void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
 // Hierarchical Clustering
 // -----------------------------------
 
-unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
 	partitioningGraph = pGraph;
+	devices = targetDevices;
+	unsigned int partitionCountMax = targetDevices.size();
 	// first create a vertex in clustering graph for each of the functional units in the partitioning graph
 	PartitioningGraph::VertexIterator pvIt;
 	PartitioningGraph::VertexIterator pvBegin = pGraph.getFirstIterator(); 
@@ -89,7 +92,7 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned i
 		// update the closeness values
 		updateCloseness();
 		// save the current partitioning result if it does not exceed the partitioning count
-		if (boost::num_vertices(clusteringGraph) <= partitionCount) {
+		if (boost::num_vertices(clusteringGraph) <= partitionCountMax) {
 			PartitioningGraph tmpPartitioningResult = partitioningGraph;
 			applyClusteringOnPartitioningGraph(tmpPartitioningResult);
 			partitioningResults.push_back(tmpPartitioningResult);
@@ -99,7 +102,7 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, unsigned i
 	// determine the result with the minimum cost and save it in the original partitioning graph
 	// also set the new partition count
 	unsigned int newPartitionCount;
-	boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCount);
+	boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCountMax);
 
 
 	return newPartitionCount;
@@ -118,20 +121,23 @@ bool HierarchicalClustering::Edge::operator> (const Edge &e) const {
 
 
 boost::tuple<float, unsigned int> HierarchicalClustering::closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2) {
-	// NOTE: for this closeness function the so called ratio cut metric ist used
-	unsigned int comCost = 0, pExecTime1 = 0, pExecTime2 = 0;
-	std::string device = "Cortex-A9";
+	switch (usedCloseness) {
+		case ratioCut:
+			return ratioCutCloseness(vd1, vd2);
+	}	
+}
+
+
+boost::tuple<float, unsigned int> HierarchicalClustering::ratioCutCloseness(VertexDescriptor vd1, VertexDescriptor vd2) {
+	// sum of communication costs is weighted with the product of the number of nodes that theoretically can be connected
+	unsigned int comCost = 0;
 	FunctionalUnitList funits1 = clusteringGraph[vd1].funcUnits;
 	FunctionalUnitList funits2 = clusteringGraph[vd2].funcUnits;
-	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1) {
-		pExecTime1 += partitioningGraph.getExecutionTime(*it1, device);
+	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1)
 		for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
-			comCost += partitioningGraph.getCommunicationCost(*it1, *it2, device, device);
-	}
-	for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
-		pExecTime2 += partitioningGraph.getExecutionTime(*it2, device);
+			comCost += partitioningGraph.getDeviceIndependentCommunicationCost(*it1, *it2);
 
-	unsigned int pSizeProduct = pExecTime1 * pExecTime2;
+	unsigned int pSizeProduct = funits1.size() * funits2.size();
 	float closeness = float(comCost) / float(pSizeProduct);
 
 	return boost::make_tuple(closeness, pSizeProduct);
@@ -222,13 +228,11 @@ void HierarchicalClustering::applyClusteringOnPartitioningGraph(PartitioningGrap
 
 boost::tuple<PartitioningGraph, unsigned int> HierarchicalClustering::getFinalResult(
 		std::vector<PartitioningGraph> &partitioningResults, unsigned int maxPartitionCount) {
-	std::string device = "Cortex-A9";
-
 	// determine partitioning result with minimum cost
 	std::vector<PartitioningGraph>::iterator pGraphIt = partitioningResults.begin();
 	std::vector<PartitioningGraph>::iterator finalGraphIt = pGraphIt;
 	for ( ; pGraphIt != partitioningResults.end(); ++pGraphIt)
-		if (pGraphIt->getCriticalPathCost(device, device) <= finalGraphIt->getCriticalPathCost(device, device))
+		if (pGraphIt->getCriticalPathCost(devices) <= finalGraphIt->getCriticalPathCost(devices))
 			finalGraphIt = pGraphIt;
 
 	// calculate new partition count
@@ -262,7 +266,11 @@ void HierarchicalClustering::printGraph(void) {
 // Simulated Annealing
 // -----------------------------------
 
-unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
+	// save devices used for partitioning
+	devices = targetDevices;
+	partitionCount = targetDevices.size();
+
 	// configure algorithm
 	Tinit = 1.0;
 	Tmin = 0.1;
@@ -270,11 +278,10 @@ unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, unsigned int p
 	tempAcceptenceMultiplicator = 1.0;
 	tempDecreasingFactor = 0.9;
 
-	numOfPartitions = partitionCount;
 
 	// create initial state
 	RandomPartitioning P;
-	P.apply(pGraph, partitionCount);
+	P.apply(pGraph, targetDevices);
 
 	// run simulated annealing algorithm
 	simulatedAnnealing(pGraph, Tinit);
@@ -325,40 +332,45 @@ SimulatedAnnealing::Temperature SimulatedAnnealing::decreaseTemperature(Temperat
 }
 
 
+int SimulatedAnnealing::costFunction(State &state) {
+	// NOTE: the state is stored in a PartitioningGraph
+	return state.getCriticalPathCost(devices);
+}
+
+
 void SimulatedAnnealing::randomMove(State &state) {
 	// NOTE: the state is stored in a PartitioningGraph
 	PartitioningGraph::VertexDescriptor vd = state.getRandomVertex();
 	unsigned int oldPartition = state.getPartition(vd);
 	unsigned int newPartition;
 	do {
-		newPartition = rand() % numOfPartitions;
+		newPartition = rand() % partitionCount;
 	} while(newPartition == oldPartition);
 	state.setPartition(vd, newPartition);
 }
 
-
-int SimulatedAnnealing::costFunction(State &state) {
-	// NOTE: the state is stored in a PartitioningGraph
-	std::string device = "Cortex-A9";
-	return state.getCriticalPathCost(device, device);
-}
 
 double SimulatedAnnealing::randomNumber(void) {
 	return (rand() / double(RAND_MAX));
 }
 
 
+
 // -----------------------------------
 // Kernighan Lin
 // -----------------------------------
 
-unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partitionCount) {
+unsigned int KernighanLin::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
+	// save devices used for partitioning
+	devices = targetDevices;
+	unsigned int partitionCount = targetDevices.size();
+
 	// NOTE: currently this algorithm is only implemented for bi-partitioning
 	// -> return a random partitioning if the partition count is not 2
 	if (partitionCount != 2) {
 		errs() << "WARNING: Kernighan Lin currently only can handle bi-partitioning tasks!\n";
 		RandomPartitioning P;
-		P.apply(pGraph, partitionCount);
+		P.apply(pGraph, targetDevices);
 		return partitionCount;
 	}
 
@@ -413,12 +425,11 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, unsigned int partiti
 
 
 void KernighanLin::createInitialCostDifferences(PartitioningGraph &pGraph) {
-	std::string device = "Cortex-A9";
 	std::vector<AdditionalVertexInfo>::iterator it;
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
 		unsigned int internalCosts, externalCosts;
 		boost::tie(internalCosts, externalCosts) = pGraph.getInternalExternalCommunicationCost(
-			(it-additionalVertexInformation.begin()), device, device);
+			(it-additionalVertexInformation.begin()));
 		it->costDifference = externalCosts - internalCosts;
 	}
 }
@@ -426,13 +437,12 @@ void KernighanLin::createInitialCostDifferences(PartitioningGraph &pGraph) {
 
 void KernighanLin::updateCostDifferences(unsigned int icV1, unsigned int icV2, PartitioningGraph &pGraph) {
 	std::vector<AdditionalVertexInfo>::iterator it;
-	std::string device = "Cortex-A9";
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
 		if (it->locked)
 			continue;
 		unsigned int v = (it-additionalVertexInformation.begin());
-		unsigned int cost1 = pGraph.getCommunicationCost(v, icV1, device, device);
-		unsigned int cost2 = pGraph.getCommunicationCost(v, icV2, device, device);
+		unsigned int cost1 = pGraph.getDeviceIndependentCommunicationCost(v, icV1);
+		unsigned int cost2 = pGraph.getDeviceIndependentCommunicationCost(v, icV2);
 		if (cost1 > 0 || cost2 > 0) {
 			if (pGraph.getPartition(v) == pGraph.getPartition(icV1)) {
 				it->costDifference += 2*cost1 - 2*cost2;
@@ -447,7 +457,6 @@ void KernighanLin::updateCostDifferences(unsigned int icV1, unsigned int icV2, P
 
 boost::tuple<unsigned int, unsigned int, unsigned int> 
 KernighanLin::findInterchangePair(PartitioningGraph &pGraph) {
-	std::string device = "Cortex-A9";
 	unsigned int v1, v2;
 	int costReduction = std::numeric_limits<int>::min();
 	std::vector<AdditionalVertexInfo>::iterator it1, it2;
@@ -462,7 +471,7 @@ KernighanLin::findInterchangePair(PartitioningGraph &pGraph) {
 			if (pGraph.getPartition(vNr1) != pGraph.getPartition(vNr2)) {
 				// the current pair of nodes has different partitions -> check if we should interchange the nodes
 				int newCostReduction = it1->costDifference + it2->costDifference 
-					- 2*pGraph.getCommunicationCost(vNr1, vNr2, device, device);
+					- 2*pGraph.getDeviceIndependentCommunicationCost(vNr1, vNr2);
 				if (newCostReduction > costReduction) {
 					// the current pair of nodes would result in a higher cost reduction if we interchange them
 					// -> save the current pair and set new cost reduction value
