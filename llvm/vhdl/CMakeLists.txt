@@ -55,7 +55,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # set our external dependencies
-set(VHDL_REQUIRED_LIBS pivpav MehariLLVMPasses ctemplate)
+set(VHDL_REQUIRED_LIBS pivpav meharipasses ctemplate)
 
 # set source files for all custom LLVM passes
 set(MEHARI_VHDL_SOURCES "GenerateVHDL.cpp")
@@ -64,19 +64,12 @@ set(MEHARI_VHDL_SOURCES "GenerateVHDL.cpp")
 prepend_path("lib/vhdl" MEHARI_VHDL_SOURCES)
 
 # create a shared library
-add_llvm_loadable_module(SharedMehariVHDLPasses 
+add_llvm_loadable_module(libMehariVHDLPasses 
   ${MEHARI_VHDL_SOURCES})
-target_link_libraries(SharedMehariVHDLPasses ${VHDL_REQUIRED_LIBS})
-set_target_properties(SharedMehariVHDLPasses PROPERTIES OUTPUT_NAME "MehariVHDLPasses")
-
-# create a static library
-add_llvm_library(LibraryMehariVHDLPasses 
-  ${MEHARI_VHDL_SOURCES})
-target_link_libraries(LibraryMehariVHDLPasses ${VHDL_REQUIRED_LIBS})
-set_target_properties(LibraryMehariVHDLPasses PROPERTIES OUTPUT_NAME "MehariVHDLPasses")
+target_link_libraries(libMehariVHDLPasses ${VHDL_REQUIRED_LIBS})
 
 # install both libraries
-install(TARGETS SharedMehariVHDLPasses LibraryMehariVHDLPasses
+install(TARGETS libMehariVHDLPasses
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
@@ -103,14 +96,14 @@ set(LLVM_BUILD_TESTS ON)
 
 # set dependencies for the unit test
 set(LLVM_LINK_COMPONENTS Analysis AsmParser)
-set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
+set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser LLVMSupport)
 
 # build unittest
 add_mehari_vhdl_unittest(MehariVHDLTests
   unittests/CodeGen/SimpleVHDLGeneratorTest.cpp
   unittests/test_main.cpp
  )
-target_link_libraries(MehariVHDLTests MehariVHDLPasses LibraryMehariVHDLPasses ${VHDL_REQUIRED_LIBS} ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariVHDLTests libMehariVHDLPasses ${VHDL_REQUIRED_LIBS} ${TESTS_REQUIRED_LIBS})
 
 # create symlink to test data
 add_custom_command(TARGET MehariVHDLTests POST_BUILD
