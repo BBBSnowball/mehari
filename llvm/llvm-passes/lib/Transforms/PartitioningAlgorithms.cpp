@@ -440,7 +440,7 @@ void KernighanLin::createInitialCostDifferences(PartitioningGraph &pGraph) {
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
 		unsigned int internalCosts, externalCosts;
 		boost::tie(internalCosts, externalCosts) = pGraph.getInternalExternalCommunicationCost(
-			(it-additionalVertexInformation.begin()));
+			(it-additionalVertexInformation.begin()), devices);
 		it->costDifference = externalCosts - internalCosts;
 	}
 }
@@ -452,8 +452,8 @@ void KernighanLin::updateCostDifferences(unsigned int icV1, unsigned int icV2, P
 		if (it->locked)
 			continue;
 		unsigned int v = (it-additionalVertexInformation.begin());
-		unsigned int cost1 = pGraph.getDeviceIndependentCommunicationCost(v, icV1);
-		unsigned int cost2 = pGraph.getDeviceIndependentCommunicationCost(v, icV2);
+		unsigned int cost1 = pGraph.getCommunicationCost(v, icV1, devices[pGraph.getPartition(v)], devices[pGraph.getPartition(icV1)]);
+		unsigned int cost2 = pGraph.getCommunicationCost(v, icV2, devices[pGraph.getPartition(v)], devices[pGraph.getPartition(icV2)]);
 		if (cost1 > 0 || cost2 > 0) {
 			if (pGraph.getPartition(v) == pGraph.getPartition(icV1)) {
 				it->costDifference += 2*cost1 - 2*cost2;
@@ -482,7 +482,8 @@ KernighanLin::findInterchangePair(PartitioningGraph &pGraph) {
 			if (pGraph.getPartition(vNr1) != pGraph.getPartition(vNr2)) {
 				// the current pair of nodes has different partitions -> check if we should interchange the nodes
 				int newCostReduction = it1->costDifference + it2->costDifference 
-					- 2*pGraph.getDeviceIndependentCommunicationCost(vNr1, vNr2);
+					- 2*pGraph.getCommunicationCost(vNr1, vNr2, 
+						devices[pGraph.getPartition(vNr1)], devices[pGraph.getPartition(vNr2)]);
 				if (newCostReduction > costReduction) {
 					// the current pair of nodes would result in a higher cost reduction if we interchange them
 					// -> save the current pair and set new cost reduction value
