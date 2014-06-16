@@ -274,10 +274,9 @@ unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, std::vector<st
 	// configure algorithm
 	Tinit = 1.0;
 	Tmin = 0.1;
-	iterationMax = 2000;
-	tempAcceptenceMultiplicator = 1.0;
-	tempDecreasingFactor = 0.9;
-
+	iterationMax = 15*pGraph.getVertexCount()*partitionCount;
+	tempAcceptenceMultiplicator = 3.0;
+	tempDecreasingFactor = 0.95;
 
 	// create initial state
 	RandomPartitioning P;
@@ -302,8 +301,10 @@ void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTem
 			State newS = S;
 			randomMove(newS);
 			int deltaCost = costFunction(newS) - costFunction(S);
-			if (acceptNewState(deltaCost, T) > randomNumber())
+			float deltaCostNorm = normalizeCostDifference(deltaCost, tempAcceptenceMultiplicator);
+			if (acceptNewState(deltaCostNorm, T) > randomNumber()) {
 				S = newS;
+			}
 			itCount++;
 		}
 		T = decreaseTemperature(T);
@@ -335,6 +336,16 @@ SimulatedAnnealing::Temperature SimulatedAnnealing::decreaseTemperature(Temperat
 int SimulatedAnnealing::costFunction(State &state) {
 	// NOTE: the state is stored in a PartitioningGraph
 	return state.getCriticalPathCost(devices);
+}
+
+
+float SimulatedAnnealing::normalizeCostDifference(int deltaCost, unsigned int K) {
+	// the range of suitable cost differences depends on the parameters of the
+	// (exponential) acceptance function, especially the multiplication factor for the temperature
+	// accept = e^(- deltaCost / K * T)
+	// to approximate the cost range depending on K the linear function f = 2*k+1 is used
+	unsigned int rangeMax = 2*K+1;
+	return (rangeMax / (K*10.0) * deltaCost);
 }
 
 

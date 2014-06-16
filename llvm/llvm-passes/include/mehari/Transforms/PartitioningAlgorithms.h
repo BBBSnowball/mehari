@@ -96,8 +96,10 @@ private:
 	float acceptNewState(int deltaCost, Temperature T);
 	Temperature decreaseTemperature(Temperature T);
 
-	void randomMove(State &state);
 	int costFunction(State &state);
+	float normalizeCostDifference(int deltaCost, unsigned int K);
+
+	void randomMove(State &state);
 	double randomNumber(void);
 
 	std::vector<std::string> devices;
