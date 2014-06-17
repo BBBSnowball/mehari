@@ -26,6 +26,7 @@ public:
 
 private:
   std::vector<std::string> targetFunctions;
+  std::vector<std::string> partitioningDevices;
   unsigned int partitionCount;
 
   std::vector<std::string> dataDependencies;
@@ -35,6 +36,7 @@ private:
   std::vector<SimpleCCodeGenerator::GlobalArrayVariable> globalVariables;
 
   void parseTargetFunctions(void);
+  void parsePartitioningDevices(void);
 
   void handleDependencies(Module &M, Function &F, PartitioningGraph &pGraph, InstructionDependencyList &dependencies);
 

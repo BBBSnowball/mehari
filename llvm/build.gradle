@@ -28,11 +28,23 @@ ext {
 	PARTITIONED_EXAMPLE_BUILD_SCRIPT = file("$projectDir/../private/build_ipanema_and_example-mehari.sh")
 	PARTITIONED_EXAMPLE_TEST_SCRIPT = file("$projectDir/../private/python/tests/partitioned_example_test.py")
 
+	// valid function names for partitioning (seperated by whitespace):
+	// - evalD
+	// - evalND
+	// - evalS
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
 
-	// valid partitioning methods: random, clustering, sa, k-lin
+	// valid partitioning methods: 
+	// - random 	(random partitioning)
+	// - clustering (hierarchical clustering)
+	// - sa 		(simulated annealing)
+	// - k-lin 		(kernighan-lin)
 	PARTITIONING_METHOD = "k-lin"
-	PARTITIONING_COUNT = 2
+
+	// valid devices (sepearted by whitespace): 
+	// - Cortex-A9 	(ARMv7 core + FPU; one core for each entry!)
+	// - xc7z010-1 	(FPGA on Xilinx Zynq-7000: Z-7010)
+	PARTITIONING_DEVICES = "Cortex-A9 Cortex-A9"
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
 	MEHARI_SOURCES = file("$projectDir/examples/mehari")
@@ -342,7 +354,7 @@ task applyPartitioning(type: Exec) {
 	"-template-dir \"$TEMPLATE_DIR\" " +
 	"-partitioning-method \"$PARTITIONING_METHOD\" " +
 	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
-	"-partitioning-count $PARTITIONING_COUNT " +
+	"-partitioning-devices \"$PARTITIONING_DEVICES\" " +
 	"-partitioning-output-dir \"$PARTITIONING_RESULTS_DIR\" " +
 	"-partitioning-graph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
 	"-S $targetfile > /dev/null"

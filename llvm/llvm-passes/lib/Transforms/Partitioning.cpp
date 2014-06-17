@@ -25,9 +25,9 @@ static cl::opt<std::string> TargetFunctions("partitioning-functions",
 static cl::opt<std::string> PartitioningMethod("partitioning-method", 
             cl::desc("Specify the name of the partitioning method"), 
             cl::value_desc("partitioning-count"));
-static cl::opt<std::string> PartitionCount("partitioning-count", 
-            cl::desc("Specify the number of partitions"), 
-            cl::value_desc("partitioning-count"));
+static cl::opt<std::string> PartitionDevices("partitioning-devices", 
+            cl::desc("Specify the devices to execute the partitions"), 
+            cl::value_desc("partitioning-devices"));
 static cl::opt<std::string> OutputDir("partitioning-output-dir", 
             cl::desc("Set the output directory for partitioning results"), 
             cl::value_desc("partitioning-output-dir"));
@@ -43,8 +43,7 @@ Partitioning::Partitioning() : ModulePass(ID) {
 	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 	// read command line arguments
 	parseTargetFunctions();
-	std::stringstream ss(PartitionCount);
-	ss >> partitionCount;
+	parsePartitioningDevices();
 	// init dependency number to count them over all partitioned functions
 	depNumber = 0;
 }
@@ -120,7 +119,7 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new KernighanLin();
 		else
 			throw std::runtime_error("Invalid partitioning method!");
-		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
+		partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
 		delete PM;
 
 		// handle data and control dependencies between partitions
@@ -150,6 +149,12 @@ void Partitioning::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void Partitioning::parseTargetFunctions(void) {
   boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
+}
+
+
+void Partitioning::parsePartitioningDevices(void) {
+  boost::algorithm::split(partitioningDevices, PartitionDevices, boost::algorithm::is_any_of(" "));
+  partitionCount = partitioningDevices.size();
 }
 
 
