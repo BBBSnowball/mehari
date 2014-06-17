@@ -274,7 +274,7 @@ unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, std::vector<st
 	// configure algorithm
 	Tinit = 1.0;
 	Tmin = 0.1;
-	iterationMax = 15*pGraph.getVertexCount()*partitionCount;
+	iterationMax = 20*pGraph.getVertexCount()*partitionCount;
 	tempAcceptenceMultiplicator = 3.0;
 	tempDecreasingFactor = 0.95;
 
@@ -291,6 +291,7 @@ unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, std::vector<st
 
 void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTemperature) {
 	State S = state;
+	State Sbest = state;
 	Temperature T = initialTemperature;
 	
 	srand(time(0));
@@ -309,7 +310,7 @@ void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTem
 		}
 		T = decreaseTemperature(T);
 	}
-	state = S;
+	state = Sbest;
 }
 
 
@@ -345,7 +346,7 @@ float SimulatedAnnealing::normalizeCostDifference(int deltaCost, unsigned int K)
 	// accept = e^(- deltaCost / K * T)
 	// to approximate the cost range depending on K the linear function f = 2*k+1 is used
 	unsigned int rangeMax = 2*K+1;
-	return (rangeMax / (K*10.0) * deltaCost);
+	return (rangeMax / (K*100.0) * deltaCost);
 }
 
 
