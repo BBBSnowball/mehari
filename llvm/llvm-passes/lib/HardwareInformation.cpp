@@ -44,17 +44,17 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("fdiv",  25);
 	cortexA9->addInstructionInfo("or",     0);
 	cortexA9->addInstructionInfo("alloca", 0);
-	cortexA9->addInstructionInfo("load",   3);
+	cortexA9->addInstructionInfo("load",   4);
 	cortexA9->addInstructionInfo("store",  6);
-	cortexA9->addInstructionInfo("getelementptr", 1);
+	cortexA9->addInstructionInfo("getelementptr", 3);
 	cortexA9->addInstructionInfo("zext",   1);
 	cortexA9->addInstructionInfo("icmp",   3);
 	cortexA9->addInstructionInfo("fcmp",   4);
 	cortexA9->addInstructionInfo("phi",    0);
-	cortexA9->addInstructionInfo("call",  25); // TODO: how to get cycle timings for call instruction?
+	cortexA9->addInstructionInfo("call",  50); // NOTE: approximation
 
-	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 30);
-	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 5);
+	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 1400);
+	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency,  10);
 
 	// TODO: add communication costs ARM->FPGA
 
