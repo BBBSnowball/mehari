@@ -10,9 +10,11 @@
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/CommandLine.h"
 
 #include <sstream>
+#include <ctime>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -119,8 +121,15 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new KernighanLin();
 		else
 			throw std::runtime_error("Invalid partitioning method!");
+
+		clock_t start = std::clock();
 		partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
+		clock_t ends = std::clock();
 		delete PM;
+
+		double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
+		errs() << "Runtime for partitioning " << functionName << " using " << PartitioningMethod << ": " 
+			<< format("%4.4f", runtime) << " ms\n";
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
