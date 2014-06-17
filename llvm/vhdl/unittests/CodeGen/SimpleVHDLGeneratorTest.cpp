@@ -12,6 +12,7 @@
 
 #include "mehari/CodeGen/SimpleCCodeGenerator.h"
 #include "mehari/CodeGen/GenerateVHDL.h"
+#include "mehari/CodeGen/ReconOSOperator.h"
 
 #include "Operator.hpp"
 #include "Signal.hpp"
@@ -79,7 +80,7 @@ protected:
   }
 
 
-  void CheckResult(const std::string &ExpectedResult, bool printResults = false, const std::string &ExpectedResultFile = "") {
+  std::string GenerateCode() {
     // create worklist containing all instructions of the function
     std::vector<Instruction*> worklist;
     for (inst_iterator I = inst_begin(*F), E = inst_end(*F); I != E; ++I)
@@ -93,7 +94,12 @@ protected:
     worklist.erase(worklist.begin(), worklist.begin()+2*paramCount);
 
     // run C code generator
-    std::string CodeGenResult = codeGen.createCCode(*F, worklist);
+    return codeGen.createCCode(*F, worklist);
+  }
+
+
+  void CheckResult(const std::string &ExpectedResult, bool printResults = false, const std::string &ExpectedResultFile = "") {
+    std::string CodeGenResult = GenerateCode();
 
     if (printResults) {
       errs() << "### Expected Result:\n" << ExpectedResult << "\n";
@@ -160,9 +166,13 @@ protected:
   }
 
   void saveTestOperator(const std::string& filename) {
+    saveOperator(filename, testOp);
+  }
+
+  void saveOperator(const std::string& filename, ::Operator* op) {
     std::ofstream file;
     file.open(filename.c_str(), std::ios::out);
-    testOp->outputVHDL(file, testOp->getName());
+    op->outputVHDL(file, op->getName());
     file.close();
   }
 
@@ -176,6 +186,10 @@ protected:
   void CheckResultFromFile() { CheckResultFromFile(getCurrentTestName() + ".vhdl"); }
   class TestOperator* makeTestOperator() { return makeTestOperator(getCurrentTestName()); }
   void saveTestOperator() { saveTestOperator(getCurrentTestName() + ".vhdl"); }
+
+  MyOperator* getGeneratedOperator() {
+    return backend->getOperator();
+  }
 
 public:
   SimpleVHDLGeneratorTest() : codeGen(createBackend()), testOp(NULL) { }
@@ -435,4 +449,37 @@ TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
   test->endStimulusProcess();
 
   saveTestOperator();
+}
+
+
+
+class ReconOSVHDLGeneratorTest : public SimpleVHDLGeneratorTest {
+
+};
+
+
+TEST_F(ReconOSVHDLGeneratorTest, ReturnValueTest) {
+  ParseC(
+    "double test(double a) {"
+    "  return a+2;"
+    "}");
+  GenerateCode();
+  ::Operator* calculation = getGeneratedOperator();
+
+  boost::scoped_ptr<ReconOSOperator> r_op(new ReconOSOperator());
+  r_op->setName("ReturnValueReconOS");
+  r_op->setCalculation(calculation);
+  r_op->instantiateCalculation();
+
+  r_op->addInitialState();
+  r_op->addThreadExitState();
+
+  ChannelP a_in = Channel::make_component_input(calculation, "a_in");
+  ChannelP result_out = Channel::make_component_output(calculation, "return");
+  r_op->readMbox("READ_A", 0, a_in);
+  r_op->writeMbox("WRITE_RESULT", 1, result_out);
+
+  r_op->addAckState();
+
+  saveOperator("ReturnValueReconOS.vhdl", r_op.get());
 }

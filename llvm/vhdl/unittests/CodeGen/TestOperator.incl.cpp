@@ -1,3 +1,4 @@
+#include "mehari/utils/StringUtils.h"
 
 class TestOperator : public ::Operator {
   ::Operator* uut;
@@ -222,10 +223,6 @@ public:
   }
 
 private:
-  bool endsWith(const std::string& str, const std::string& suffix) {
-    return str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix;
-  }
-
   bool hasSignal(const std::string& name) {
     BOOST_FOREACH(::Signal* sig, *uut->getIOList()) {
       if (sig->getName() == name)

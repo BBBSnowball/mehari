@@ -59,7 +59,8 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(VHDL_REQUIRED_LIBS pivpav meharipasses ctemplate)
 
 # set source files for all custom LLVM passes
-set(MEHARI_VHDL_SOURCES "ReadySignals.cpp" "Channel.cpp" "ValueStorage.cpp" "GenerateVHDL.cpp")
+set(MEHARI_VHDL_SOURCES "ReadySignals.cpp" "Channel.cpp" "ValueStorage.cpp" "GenerateVHDL.cpp"
+  "MyOperator.cpp" "ReconOSOperator.cpp")
 
 # put path and source file names together
 prepend_path("lib/vhdl" MEHARI_VHDL_SOURCES)
@@ -129,4 +130,5 @@ install(TARGETS MehariVHDLTests
 add_custom_target(test
   ./MehariVHDLTests
   COMMAND RECONOS=${CMAKE_CURRENT_SOURCE_DIR}/../../reconos/reconos "${CMAKE_CURRENT_SOURCE_DIR}/test.sh" run-by-cmake
+  COMMAND RECONOS=${CMAKE_CURRENT_SOURCE_DIR}/../../reconos/reconos "${CMAKE_CURRENT_SOURCE_DIR}/test2.sh" run-by-cmake
   DEPENDS MehariVHDLTests)

@@ -18,7 +18,9 @@ check_environment
 if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
 	TESTS=""
 	for test in *.vhdl ; do
-		TESTS="$TESTS $(basename $test .vhdl)"
+		if [ "$(basename $test .vhdl)" != "ReturnValueReconOS" ] ; then
+			TESTS="$TESTS $(basename $test .vhdl)"
+		fi
 	done
 else
 	TESTS="$*"
