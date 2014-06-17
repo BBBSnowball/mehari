@@ -38,6 +38,7 @@ struct SetInserterItem {
 
   const T& operator =(const T& value) {
     container->insert(value);
+    return value;
   }
 };
 template<typename T>

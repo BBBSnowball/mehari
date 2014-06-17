@@ -266,14 +266,16 @@ void VHDLBackend::generateVoidCall(std::string funcName, std::vector<Value*> arg
   generateCall(funcName, "", args);
 }
 
+
 OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigned width) {
   std::string name;
   bool is_floating_point = false;
   std::string code;
   bool negate = false;
+# define ignore(x)
   switch (comparePredicate) {
     case FCmpInst::FCMP_FALSE:
-      "false";
+      ignore("false");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_OEQ:
@@ -319,75 +321,76 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
       code = "'00000100'";
       break;
     case FCmpInst::FCMP_UEQ:
-      "isnan || ==";
+      ignore("isnan || ==");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_UGT:
-      "isnan || >";
+      ignore("isnan || >");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_UGE:
-      "isnan || >=";
+      ignore("isnan || >=");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_ULT:
-      "isnan || <";
+      ignore("isnan || <");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_ULE:
-      "isnan || <=";
+      ignore("isnan || <=");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_UNE:
-      "isnan || !=";
+      ignore("isnan || !=");
       assert(false);  // not supported
       break;
     case FCmpInst::FCMP_TRUE:
-      "true";
+      ignore("true");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_EQ:
-      "==";
+      ignore("==");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_NE:
       name = "icmp_ne";
       break;
     case FCmpInst::ICMP_UGT:
-      ">";
+      ignore(">");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_UGE:
-      ">=";
+      ignore(">=");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_ULT:
-      "<";
+      ignore("<");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_ULE:
-      "<=";
+      ignore("<=");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_SGT:
       name = "icmp_sgt";
       break;
     case FCmpInst::ICMP_SGE:
-      ">=";
+      ignore(">=");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_SLT:
-      "<";
+      ignore("<");
       assert(false);  // not supported
       break;
     case FCmpInst::ICMP_SLE:
-      "<=";
+      ignore("<=");
       assert(false);  // not supported
       break;
     default:
       assert(false);
       break;
   }
+# undef ignore
 
   std::string input_prefix, output_prefix, data_suffix, valid_suffix, ready_suffix;
   if (is_floating_point) {
@@ -420,6 +423,10 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
     op->addInput (input_prefix  + "operation" + data_suffix, 8, true);
     op->addInput (input_prefix  + "operation" + valid_suffix);
     op->addOutput(input_prefix  + "operation" + ready_suffix);
+  }
+
+  if (negate) {
+    //TODO
   }
 
   OperatorInfo op_info = { op,

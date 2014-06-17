@@ -93,7 +93,7 @@ class ValueStorageFactory {
     inline ValueAndIndex(ValueStorageP value) : value(value) { }
 
     inline bool operator <(const ValueAndIndex& other) const {
-      return value < other.value || value == other.value && index < other.index;
+      return value < other.value || (value == other.value && index < other.index);
     }
   };
   std::map<ValueAndIndex, ValueStorageP> by_index;
