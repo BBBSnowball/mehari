@@ -449,6 +449,9 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 					"FUNCTION", currentFunction);
 				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
 					"THREAD_NUMBER", threadNumberStr);
+				std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"TARGET_CORE", targetCoreStr);
 				// NOTE: this call sets a sub-template in a sub-template!
 				tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
 					"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
