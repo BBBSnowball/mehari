@@ -75,9 +75,6 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 	std::vector<Instruction*> currentInstrutions;
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
-		Instruction *nextInstr;
-		if (instrIt+1 != instructions.end())
-      		nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 		currentInstrutions.push_back(instr);
 		// handle init vertex
 		if (instrNumber == 2*paramCount-1) {
@@ -89,11 +86,22 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 		// handle the calculations
 		else if (instrNumber >= 2*paramCount) {
 			// do we currently handle an if statement?
-			if (isa<BranchInst>(instr)) {
-				if (!isBlock)
+			// if statement detection: 
+			//   - IF-Start: conditional branch instruction
+			//   - IF-End:   unconditional branch instruction and next BB ends with no unconditional branch instruction 
+			if (BranchInst *bInstr = dyn_cast<BranchInst>(instr)) {
+				if (!isBlock) {
 					isBlock = true;
-				else
-					isBlockCompleted = true;
+				}
+				else {
+					Instruction *terminatorInstrNextBB = dyn_cast<TerminatorInst>(bInstr)->getSuccessor(0)->getTerminator();
+					if (bInstr->isUnconditional() &&
+						(!isa<BranchInst>(terminatorInstrNextBB)
+						|| (isa<BranchInst>(terminatorInstrNextBB)
+							&& !dyn_cast<BranchInst>(terminatorInstrNextBB)->isUnconditional()))) {
+						isBlockCompleted = true;
+					}
+				}
 			}
 			else if (isa<LoadInst>(instr) && instr->getOperand(0)->getName() == "status.addr")
 				isPtrAssignment = true;
