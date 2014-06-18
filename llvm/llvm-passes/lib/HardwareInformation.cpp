@@ -50,6 +50,7 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("zext",   1);
 	cortexA9->addInstructionInfo("icmp",   3);
 	cortexA9->addInstructionInfo("fcmp",   4);
+	cortexA9->addInstructionInfo("select", 4);
 	cortexA9->addInstructionInfo("phi",    0);
 	cortexA9->addInstructionInfo("call",  50); // NOTE: approximation
 
