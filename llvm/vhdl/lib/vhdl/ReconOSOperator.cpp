@@ -37,6 +37,8 @@ ReconOSOperator::ReconOSOperator() : calculation(NULL), stateNameGenerator("STAT
   *this << "   rst <= HWT_Rst;" << std::endl;
   *this << std::endl;
 
+  declare("init", 1);
+
   *this
     << "   -- ReconOS initilization" << std::endl;
     *this
@@ -102,8 +104,16 @@ void ReconOSOperator::addCalculationPort(Signal* sig) {
   else if (sig->isRst())
     inPortMap(calculation, sig->getName(), "rst");
   else if (sig->type() == Signal::in) {
-    declare(sig->getName(), sig->width(), sig->isBus());
-    inPortMap(calculation, sig->getName(), sig->getName());
+    std::string name = sig->getName();
+    if (isValidOfInputSignal(sig)) {
+      declare(name, sig->width(), sig->isBus());
+      std::string component_accepted_the_value = sig->getName() + "_component_accepted_the_value";
+      declare(component_accepted_the_value, 1);
+
+      name = name + "_direct";
+    }
+    declare(name, sig->width(), sig->isBus());
+    inPortMap(calculation, sig->getName(), name);
   } else if (sig->type() == Signal::out)
     outPortMap(calculation, sig->getName(), sig->getName());
   else
@@ -231,6 +241,34 @@ void ReconOSOperator::outputStateDeclarations(std::ostream& o) {
 void ReconOSOperator::outputStatemachine(std::ostream& o) {
   assert(calculation);
 
+  BOOST_FOREACH(Signal* valid_sig, *calculation->getIOList()) {
+    if (!isValidOfInputSignal(valid_sig))
+      continue;
+
+    Signal* ready_sig = calculation->getSignalByName(replace("valid", "ready", valid_sig->getName()));
+
+    std::string direct_valid_signal = valid_sig->getName() + "_direct";
+
+    std::string component_accepted_the_value = valid_sig->getName() + "_component_accepted_the_value";
+
+    o << "   " << valid_sig->getName() << "_valid: process (clk, rst, " << valid_sig->getName() << ") is" << endl
+      << "   begin" << endl
+      << "      if init = '1' then" << endl
+      << "         " << direct_valid_signal << " <= '0';" << endl
+      << "         " << component_accepted_the_value << " <= '0';" << endl
+      << "      elsif rising_edge(clk) then" << endl
+      << "         if " << component_accepted_the_value << " = '1' then" << endl
+      << "            " << direct_valid_signal << " <= '0';" << endl
+      << "         elsif " << valid_sig->getName() << " = '1' and " << ready_sig->getName() << " = '1' then" << endl
+      << "            " << direct_valid_signal << " <= '1';" << endl
+      << "            " << component_accepted_the_value << " <= '1';" << endl
+      << "         else" << endl
+      << "            " << direct_valid_signal << " <= " << valid_sig->getName() << ";" << endl
+      << "         end if;" << endl
+      << "      end if;" << endl
+      << "   end process;" << endl;
+  }
+
   o << "   -- os and memory synchronisation state machine" << endl
     << "   reconos_fsm: process (clk,rst,o_osif,o_memif,o_ram) is" << endl
     << "     variable done  : boolean;" << endl
@@ -244,7 +282,7 @@ void ReconOSOperator::outputStatemachine(std::ostream& o) {
     << "     --end;" << endl
 
     << "   begin" << endl
-    << "      if HWT_Rst = '1' then" << endl
+    << "      if rst = '1' then" << endl
     << "          osif_reset(o_osif);" << endl
     << "          memif_reset(o_memif);" << endl
     << "          ram_reset(o_ram);" << endl
@@ -252,7 +290,9 @@ void ReconOSOperator::outputStatemachine(std::ostream& o) {
     << "          done  := False;" << endl
     << "          addr <= (others => '0');" << endl
     << "          len <= (others => '0');" << endl
+    << "          init <= '1';" << endl
     << endl;
+
 
   BOOST_FOREACH(Signal* sig, *calculation->getIOList()) {
     if (isValidOfInputSignal(sig))
@@ -317,11 +357,14 @@ void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
 }
 
 void ReconOSOperator::addInitialState() {
-  addSequentialState("GET_ADDR")
-    .addComment("get address via mbox: the data will be copied from this address to the local ram in the next states")
-    .vhdl
+  State& state = addSequentialState("GET_ADDR")
+    .addComment("get address via mbox: the data will be copied from this address to the local ram in the next states");
+  
+  state.vhdl
+      << "init <= '1';" << endl
       << "osif_mbox_get(i_osif, o_osif, std_logic_vector(to_unsigned(0, 32)), addr, done);" << endl
       << "if done then" << endl
+      << "  init <= '0';" << endl
       << "  if (addr = X\"FFFFFFFF\") then" << endl
       << "    state <= STATE_THREAD_EXIT;" << endl
       << "  -- elsif (addr = X\"FFFFFFFE\") then" << endl
@@ -331,7 +374,15 @@ void ReconOSOperator::addInitialState() {
       << "  else" << endl
       << "    $next" << endl
       << "  end if;" << endl
-      << "end if;" << endl;
+      << "end if;" << endl
+      << endl;
+
+  BOOST_FOREACH(Signal* sig, *calculation->getIOList()) {
+    if (isValidOfInputSignal(sig))
+      state.vhdl << "         " << sig->getName() << " <= '0';" << endl;
+    else if (isReadyOfOutputSignal(sig))
+      state.vhdl << "         " << sig->getName() << " <= '0';" << endl;
+  }
 }
 
 void ReconOSOperator::addThreadExitState() {
@@ -408,8 +459,9 @@ void ReconOSOperator::readMbox(const std::string& state_name, unsigned int mbox,
         << part << ", done);" << endl
       << "if done then" << endl;
 
-    if (&part == &parts.back())
+    if (&part == &parts.back()) {
       state.vhdl << "   " << channel->valid_signal << " <= '1';" << endl;
+    }
 
     state.vhdl
       << "  $next" << endl
@@ -427,6 +479,7 @@ void ReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox
   if (!channel->valid_signal.empty()) {
     addSequentialState(getUniqueStateName(state_name + "_wait"))
       .vhdl
+        << channel->ready_signal << " <= '1';" << endl
         << "if " << channel->valid_signal << " = '1' then" << endl
         //TODO put value in register!
         << "   osif_mbox_put(i_osif, o_osif, std_logic_vector(to_unsigned(" << mbox << ", 32)), "
@@ -442,6 +495,7 @@ void ReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox
         << "osif_mbox_put(i_osif, o_osif, std_logic_vector(to_unsigned(" << mbox << ", 32)), "
           << part << ", ignore, done);" << endl
         << "if done then" << endl
+        << "  " << channel->ready_signal << " <= '0';" << endl
         << "  $next" << endl
         << "end if;" << endl;
   }

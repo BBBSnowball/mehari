@@ -193,23 +193,23 @@ begin
 		report "Calculation complete.";
 
 
---		report "Sending address to slave...";
---		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(23, 32));
---
---		report "Sending data to slave...";
---		a_in := to_float(-1.2);
---		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, a_in(31 downto 0));
---		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, a_in(63 downto 32));
---
---		report "Reading data from slave...";
---		return_out := to_float(-1.2+2.0);
---		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, return_out(31 downto 0));
---		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, return_out(63 downto 32));
---
---		report "Reading 'done' message from slave...";
---		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(23, 32));
---
---		report "Calculation complete.";
+		report "Sending address to slave...";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(23, 32));
+
+		report "Sending data to slave...";
+		a_in := to_float(-1.2);
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, a_in(31 downto 0));
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, a_in(63 downto 32));
+
+		report "Reading data from slave...";
+		return_out := to_float(-1.2+2.0);
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, return_out(31 downto 0));
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, return_out(63 downto 32));
+
+		report "Reading 'done' message from slave...";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(23, 32));
+
+		report "Calculation complete.";
 
 
 --		report "Sending address to slave...";
