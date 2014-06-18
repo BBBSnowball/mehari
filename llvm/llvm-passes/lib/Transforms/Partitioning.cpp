@@ -422,7 +422,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		}
 
 		// collect the instructions for each partition
-		std::vector<Instruction*> instructionsForPartition[partitionCount];
+		std::vector<Instruction*> instructionsForPartition[partitioningNumbers[currentFunction]];
 		PartitioningGraph::VertexIterator vIt = pGraph->getFirstIterator(); 
 		PartitioningGraph::VertexIterator vEnd = pGraph->getEndIterator();
 		for (; vIt != vEnd; ++vIt) {
