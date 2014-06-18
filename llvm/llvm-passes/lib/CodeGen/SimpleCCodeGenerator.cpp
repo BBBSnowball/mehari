@@ -282,6 +282,10 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
           if (retInstr->getReturnValue() != NULL)
             backend->generateReturn(retInstr->getReturnValue());
         }
+        else if (SelectInst *selInstr = dyn_cast<SelectInst>(instr)) {
+          std::string tmpVar = backend->getOrCreateTemporaryVariable(selInstr);
+          backend->generateSelect(tmpVar, selInstr->getCondition(), selInstr->getTrueValue(), selInstr->getFalseValue());
+        }
         else
           errs() << "ERROR: unhandled instruction type: " << *instr << "\n";
         
@@ -480,6 +484,15 @@ void CCodeBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
     <<  "(int)"
     <<  getOperandString(op)
     <<  ";\n";
+}
+
+void CCodeBackend::generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse) {
+    ccode << "\t" << tmpVar
+    <<  " = "
+    << getOperandString(condition) << "? "
+    << getOperandString(targetTrue) << " : "
+    << getOperandString(targetFalse)
+    << ";\n";
 }
 
 void CCodeBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {

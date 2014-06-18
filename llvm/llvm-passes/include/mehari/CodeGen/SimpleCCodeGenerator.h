@@ -59,6 +59,7 @@ public:
   virtual void generateVoidCall(std::string funcName, std::vector<Value*> args) =0;
   virtual void generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate) =0;
   virtual void generateIntegerExtension(std::string tmpVar, Value *op) =0;
+  virtual void generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse) =0;
   virtual void generatePhiNodeAssignment(std::string tmpVar, Value *op) =0;
   virtual void generateUnconditionalBranch(Instruction *target) =0;
   virtual void generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse) =0;
@@ -98,6 +99,7 @@ public:
   void generateVoidCall(std::string funcName, std::vector<Value*> args);
   void generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
   void generateIntegerExtension(std::string tmpVar, Value *op);
+  void generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse);
   void generatePhiNodeAssignment(std::string tmpVar, Value *op);
   void generateUnconditionalBranch(std::string label);
   void generateConditionalBranch(Value *condition, std::string label1, std::string label2);
