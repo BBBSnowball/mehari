@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 # Set flags
 set(CMAKE_C_FLAGS "-Wall -Werror")
+set(CMAKE_CXX_FLAGS "-Wall -Werror")
 
 # helper function to prepend a path to source file names
 function( prepend_path DIR_PATH SOURCE_FILES )
