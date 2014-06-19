@@ -49,9 +49,19 @@ ITERATIONS=10000
 
 rm ${PREFIX}*.perf.txt
 
-measure "${PREFIX}hw_1_10k.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_1_10k.perf.txt" 10   ./mbox_put_get 0 1  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_2_10k.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS --dont-flush
-measure "${PREFIX}sw_32_10k.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS --dont-flush
+# No operation with mbox calls for start and stop
+measure "${PREFIX}hw_1_10k_start_stop.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS --dont-flush
+measure "${PREFIX}sw_1_10k_start_stop.perf.txt" 10   ./mbox_put_get 0 1  -n $ITERATIONS --dont-flush
+measure "${PREFIX}sw_2_10k_start_stop.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS --dont-flush
+measure "${PREFIX}sw_32_10k_start_stop.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS --dont-flush
+
+# Now do some more things
+for operation in mbox_put mbox_get sem_post sem_wait
+do
+	measure "${PREFIX}hw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS -o operation --dont-flush
+	measure "${PREFIX}sw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 1  -m $ITERATIONS -o operation --dont-flush
+	measure "${PREFIX}sw_2_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS -o operation --dont-flush
+	measure "${PREFIX}sw_32_10k_${operation}.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS -o operation --dont-flush
+done
 
 tar -cf mbox_put_get_results.tar ${PREFIX}*.perf.txt
