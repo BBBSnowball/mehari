@@ -15,84 +15,71 @@
 #include <fstream>
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/assign.hpp>
 
 #include "mehari/utils/ContainerUtils.h"
 #include "mehari/utils/StringUtils.h"
 
 using namespace llvm;
 
-struct CCodeMaps {
-  std::map<unsigned,            std::string> binaryOperatorStrings;
-  std::map<FCmpInst::Predicate, std::string> comparePredicateStrings;
-
-  CCodeMaps() {
+namespace CCodeMaps {
+  std::map<unsigned, std::string> binaryOperatorStrings = boost::assign::map_list_of
     // TODO: complete and check operator and compare predicate mappings
-    binaryOperatorStrings[Instruction::FAdd] = "+";
-    binaryOperatorStrings[Instruction::Add]  = "+";
-    binaryOperatorStrings[Instruction::FSub] = "-";
-    binaryOperatorStrings[Instruction::Sub]  = "-";
-    binaryOperatorStrings[Instruction::FMul] = "*";
-    binaryOperatorStrings[Instruction::Mul]  = "*";
-    binaryOperatorStrings[Instruction::FDiv] = "/";
-    binaryOperatorStrings[Instruction::UDiv] = "/";
-    binaryOperatorStrings[Instruction::SDiv] = "/";
-    binaryOperatorStrings[Instruction::URem] = "%";
-    binaryOperatorStrings[Instruction::SRem] = "%";
-    binaryOperatorStrings[Instruction::FRem] = "%";
-    binaryOperatorStrings[Instruction::Or]   = "|";
-    binaryOperatorStrings[Instruction::And]  = "&";
+    (Instruction::FAdd, "+")
+    (Instruction::Add,  "+")
+    (Instruction::FSub, "-")
+    (Instruction::Sub,  "-")
+    (Instruction::FMul, "*")
+    (Instruction::Mul,  "*")
+    (Instruction::FDiv, "/")
+    (Instruction::UDiv, "/")
+    (Instruction::SDiv, "/")
+    (Instruction::URem, "%")
+    (Instruction::SRem, "%")
+    (Instruction::FRem, "%")
+    (Instruction::Or,   "|")
+    (Instruction::And,  "&");
 
     // not all of these cases are implemented in the code generator
     // isnan: at least one of the arguments is a not-a-number value
-    comparePredicateStrings[FCmpInst::FCMP_FALSE] = "false";
-    comparePredicateStrings[FCmpInst::FCMP_OEQ]   = "==";
-    comparePredicateStrings[FCmpInst::FCMP_OGT]   = ">";
-    comparePredicateStrings[FCmpInst::FCMP_OGE]   = ">=";
-    comparePredicateStrings[FCmpInst::FCMP_OLT]   = "<";
-    comparePredicateStrings[FCmpInst::FCMP_OLE]   = "<=";
-    comparePredicateStrings[FCmpInst::FCMP_ONE]   = "!=";
-    comparePredicateStrings[FCmpInst::FCMP_ORD]   = "!isnan";
-    comparePredicateStrings[FCmpInst::FCMP_UNO]   = "isnan";
-    comparePredicateStrings[FCmpInst::FCMP_UEQ]   = "isnan || ==";
-    comparePredicateStrings[FCmpInst::FCMP_UGT]   = "isnan || >";
-    comparePredicateStrings[FCmpInst::FCMP_UGE]   = "isnan || >=";
-    comparePredicateStrings[FCmpInst::FCMP_ULT]   = "isnan || <";
-    comparePredicateStrings[FCmpInst::FCMP_ULE]   = "isnan || <=";
-    comparePredicateStrings[FCmpInst::FCMP_UNE]   = "isnan || !=";
-    comparePredicateStrings[FCmpInst::FCMP_TRUE]  = "true";
-    comparePredicateStrings[FCmpInst::ICMP_EQ]    = "==";
-    comparePredicateStrings[FCmpInst::ICMP_NE]    = "!=";
-    comparePredicateStrings[FCmpInst::ICMP_UGT]   = ">";
-    comparePredicateStrings[FCmpInst::ICMP_UGE]   = ">=";
-    comparePredicateStrings[FCmpInst::ICMP_ULT]   = "<";
-    comparePredicateStrings[FCmpInst::ICMP_ULE]   = "<=";
-    comparePredicateStrings[FCmpInst::ICMP_SGT]   = ">";
-    comparePredicateStrings[FCmpInst::ICMP_SGE]   = ">=";
-    comparePredicateStrings[FCmpInst::ICMP_SLT]   = "<";
-    comparePredicateStrings[FCmpInst::ICMP_SLE]   = "<=";
-  }
+  std::map<FCmpInst::Predicate, std::string> comparePredicateStrings = boost::assign::map_list_of
+    (FCmpInst::FCMP_FALSE, "false")
+    (FCmpInst::FCMP_OEQ,   "==")
+    (FCmpInst::FCMP_OGT,   ">")
+    (FCmpInst::FCMP_OGE,   ">=")
+    (FCmpInst::FCMP_OLT,   "<")
+    (FCmpInst::FCMP_OLE,   "<=")
+    (FCmpInst::FCMP_ONE,   "!=")
+    (FCmpInst::FCMP_ORD,   "!isnan")
+    (FCmpInst::FCMP_UNO,   "isnan")
+    (FCmpInst::FCMP_UEQ,   "isnan || ==")
+    (FCmpInst::FCMP_UGT,   "isnan || >")
+    (FCmpInst::FCMP_UGE,   "isnan || >=")
+    (FCmpInst::FCMP_ULT,   "isnan || <")
+    (FCmpInst::FCMP_ULE,   "isnan || <=")
+    (FCmpInst::FCMP_UNE,   "isnan || !=")
+    (FCmpInst::FCMP_TRUE,  "true")
+    (FCmpInst::ICMP_EQ,    "==")
+    (FCmpInst::ICMP_NE,    "!=")
+    (FCmpInst::ICMP_UGT,   ">")
+    (FCmpInst::ICMP_UGE,   ">=")
+    (FCmpInst::ICMP_ULT,   "<")
+    (FCmpInst::ICMP_ULE,   "<=")
+    (FCmpInst::ICMP_SGT,   ">")
+    (FCmpInst::ICMP_SGE,   ">=")
+    (FCmpInst::ICMP_SLT,   "<")
+    (FCmpInst::ICMP_SLE,   "<=");
 
-  static const CCodeMaps* instance() {
-    if (!_instance)
-      _instance.reset(new CCodeMaps());
-    return _instance.get();
-  }
-
-  static std::string parseBinaryOperator(unsigned opcode) {
-    return getValueOrDefault(instance()->binaryOperatorStrings, opcode,
+  std::string parseBinaryOperator(unsigned opcode) {
+    return getValueOrDefault(binaryOperatorStrings, opcode,
       std::string("<binary operator ") + Instruction::getOpcodeName(opcode) + ">");
   }
 
   static std::string parseComparePredicate(FCmpInst::Predicate predicateNumber) {
-    return getValueOrDefault(instance()->comparePredicateStrings, predicateNumber,
+    return getValueOrDefault(comparePredicateStrings, predicateNumber,
       std::string("<compare predicate ") + predicateNumber + ">");
   }
-
-private:
-  static boost::scoped_ptr<CCodeMaps> _instance;
-};
-
-boost::scoped_ptr<CCodeMaps> CCodeMaps::_instance;
+}
 
 
 SimpleCCodeGenerator::SimpleCCodeGenerator(CodeGeneratorBackend* backend)
