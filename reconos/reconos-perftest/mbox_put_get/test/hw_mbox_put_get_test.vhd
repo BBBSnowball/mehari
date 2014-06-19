@@ -212,18 +212,33 @@ begin
 
 
 		report "start: 7x sem_post";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"02000005");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"03000006");
 
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_post(clk, i_osif_test, o_osif_test, SEM_TEST);
 
 		report "ack:   7x sem_post";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"02000005");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"03000006");
+
+
+		report "start: 8x sem_wait";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"04000007");
+
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+
+		report "ack:   8x sem_wait";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"04000008");
 
 
 		report "Terminating slave thread...";
