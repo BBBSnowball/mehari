@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <assert.h>
 #include <getopt.h>
 
@@ -22,32 +23,100 @@
 
 #define THREAD_EXIT    ((uint32_t)-1)
 
+enum resNumbers
+{
+    MBOX_RECV = 0,
+    MBOX_SEND = 1,
+    MBOX_TEST = 2,
+    SEM_TEST  = 3,
+
+    resNumbersCount
+};
+
 // software threads
 pthread_t swt[MAX_THREADS];
 pthread_attr_t swt_attr[MAX_THREADS];
 
 // hardware threads
-struct reconos_resource res[2];
+struct reconos_resource res[resNumbersCount];
 struct reconos_hwt hwt[MAX_THREADS];
-
 
 // mailboxes
 struct mbox mb_start;
 struct mbox mb_stop;
+struct mbox mb_test;
+
+// semaphores
+sem_t sem_test;
+
+typedef enum
+{
+    opNOP     = 0x00000000,
+    opMboxPut = 0x01000000,
+    opMboxGet = 0x02000000,
+    opSemPost = 0x03000000,
+    opSemWait = 0x04000000,
+
+    opCodeMask = 0xff000000,
+    opArgMask  = 0x00ffffff
+} TargetOperation;
+
+#define OP_WITH_ARG(op, arg) ((op) | ((arg)&opArgMask))
+
 
 void *software_thread(void* data)
 {
     uint32_t ret;
     struct reconos_resource *res  = (struct reconos_resource*) data;
-    struct mbox *mb_start = res[0].ptr;
-    struct mbox *mb_stop  = res[1].ptr;
-    while ( 1 ) {
+    struct mbox *mb_start = res[MBOX_RECV].ptr;
+    struct mbox *mb_stop  = res[MBOX_SEND].ptr;
+    struct mbox *mb_test  = res[MBOX_TEST].ptr;
+    sem_t  *sem_test      = res[SEM_TEST ].ptr;
+
+    while ( 1 ) 
+    {
         ret = mbox_get(mb_start);
+
         if (ret == THREAD_EXIT)
-        {
             pthread_exit((void*)0);
+
+        unsigned count = ret & opArgMask;
+
+        switch(ret & opCodeMask) 
+        {
+            case opNOP:
+                // do hard work; s/hard/\0ly/
+            break;
+
+            case opMboxPut:
+                while (count > 0) {
+                    mbox_put(mb_test, count);
+                    count--;
+                }
+            break;
+
+            case opMboxGet:
+                while (count > 0) {
+                    mbox_get(mb_test);
+                    count--;
+                }
+            break;
+
+            case opSemPost:
+                while (count > 0) {
+                    sem_post(sem_test);
+                    count--;
+                }
+            break;
+
+            case opSemWait:
+                while (count > 0) {
+                    sem_wait(sem_test);
+                    count--;
+                }
+            break;
         }
-        
+
         mbox_put(mb_stop, ret);
     }
 
@@ -65,13 +134,36 @@ void print_help()
         "\tmbox_put_get [options] <num_hw_threads> <num_sw_threads>\n"
     "Options:\n"
     "--without-reconos\tDon't use ReconOS\n"
-    "--dont-flush\tDo not flush caches between iterations.\n");
+    "--dont-flush\tDo not flush caches between iterations.\n"
+    "--iterations <NUM>\tDo the calculation <NUM> times (short: -n <NUM>)\n"
+    "--iterations-in-thread <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n"
+    "--operation <op> \t The operation that will be measured (nop, mbox_put, mbox_get, sem_post, sem_wait) (short: -o <op>)\n");
 }
+
+
+TargetOperation parseOperation(const char *operation) 
+{
+    if (strcmp(operation, "nop") == 0)
+        return opNOP;
+    if (strcmp(operation, "mbox_put") == 0)
+        return opMboxPut;
+    if (strcmp(operation, "mbox_get") == 0)
+        return opMboxGet;
+    if (strcmp(operation, "sem_post") == 0)
+        return opSemPost;
+    if (strcmp(operation, "sem_wait") == 0)
+        return opSemWait;
+    assert(0);
+}
+
 
 static int only_print_help = 0;
 static int without_reconos = 0, dont_flush = 0;
 static int verbose_progress = 0;
-static unsigned int iterations;
+static unsigned int iterations = 1;
+static unsigned int iterations_in_thread = 1;
+static unsigned int operation = opNOP;
+
 
 int main(int argc, char ** argv)
 {
@@ -80,39 +172,46 @@ int main(int argc, char ** argv)
     int sw_threads;
     int running_threads;
     int simulation_steps;
-    int success;
     int iteration;
 
     timing_t t_start, t_stop;
     ms_t t_calculate;
 
+    static struct option long_options[] =
+    {
+        { "help",                   no_argument, &only_print_help, 1 },
+        { "without-reconos",        no_argument, &without_reconos, 1 },
+        { "dont-flush",             no_argument, &dont_flush,      1 },
+        { "iterations",             required_argument, 0, 'n' },
+        { "iterations-in-thread",   required_argument, 0, 'm' },
+        { "operation",              required_argument, 0, 'o' },
+        {0, 0, 0, 0}
+    };
+
     // parse options
     while (1)
     {
         int c;
-
-        static struct option long_options[] =
-        {
-            { "help",            no_argument, &only_print_help, 1 },
-            { "without-reconos", no_argument, &without_reconos, 1 },
-            { "dont-flush",      no_argument, &dont_flush,      1 },
-            { "iterations",      required_argument, 0, 'n' },
-            {0, 0, 0, 0}
-        };
-
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:m:h?", long_options, &option_index);
+        c = getopt_long (argc, argv, "n:m:o:h?", long_options, &option_index);
 
         if (c == -1)
             // end of options
             break;
 
-        switch (c) {
+        switch (c) 
+        {
         case 0:
             // flags are handled by getopt - nothing else to do
             break;
         case 'n':
             iterations = atoi(optarg);
+            break;
+        case 'm':
+            iterations_in_thread = atoi(optarg);
+            break;
+        case 'o':
+            operation = parseOperation(optarg);
             break;
         case 'h':
         case '?':
@@ -148,6 +247,28 @@ int main(int argc, char ** argv)
         exit(-1);
     }
 
+    if (sizeof(void*) > sizeof(uint32_t) && sw_threads + hw_threads > 1)
+    {
+        fprintf(stderr, "mboxes work with 4-byte values, so we have some trouble passing a "
+            "pointer through them. We have to pass it in parts, but with more than one thread, "
+            "the threads might get parts from different pointers. Therefore, you cannot use "
+            "more than one thread on this platform.\n");
+        exit(-1);
+    }
+
+    if (iterations_in_thread > 1) {
+        if (hw_threads > 0 && hw_threads + sw_threads > 1)
+        {
+            fprintf(stderr, "'--iterations-in-thread' can only be used with software threads "
+                "or one hardware thread.\n");
+            exit(-1);
+        }
+    }
+
+     if (iterations_in_thread >= 2**24) {
+        fprintf(stderr, "'--iterations-in-thread' can not be larger then 2^24.\n");
+        exit(-1);
+     }
 
     running_threads = hw_threads + sw_threads;
 
@@ -159,6 +280,10 @@ int main(int argc, char ** argv)
     // init mailboxes
     mbox_init(&mb_start, simulation_steps);
     mbox_init(&mb_stop,  simulation_steps);
+    mbox_init(&mb_test,  simulation_steps);
+
+    // init semaphore
+    sem_init(&sem_test, 0, 0);
 
     // init reconos and communication resources
     if (!without_reconos)
@@ -168,6 +293,10 @@ int main(int argc, char ** argv)
     res[0].ptr  = &mb_start;
     res[1].type = RECONOS_TYPE_MBOX;
     res[1].ptr  = &mb_stop;
+    res[2].type = RECONOS_TYPE_MBOX;
+    res[2].ptr  = &mb_test;
+    res[3].type = RECONOS_TYPE_SEM;
+    res[3].ptr  = &sem_test;
 
     printf("Creating %i hw-threads: ", hw_threads);
     fflush(stdout);
@@ -211,7 +340,51 @@ int main(int argc, char ** argv)
         {
             if (verbose_progress) { printf(" %i",i); fflush(stdout); }
 
-            mbox_put(&mb_start, i);
+            mbox_put(&mb_start, OP_WITH_ARG(operation, iterations_in_thread-1));
+        }
+        if (verbose_progress) printf("\n");
+
+        if (verbose_progress) { printf("Perform operation: "); fflush(stdout); }
+        for (i=0; i<simulation_steps; i++)
+        {
+            if (verbose_progress) { printf(" %i",i); fflush(stdout); }
+
+            unsigned count = iterations_in_thread-1;
+
+            switch(operation) 
+            {
+                case opNOP:
+                    // relax...
+                break;
+
+                case opMboxPut:
+                    while (count > 0) {
+                        mbox_get(&mb_test);
+                        count--;
+                    }
+                break;
+
+                case opMboxGet:
+                    while (count > 0) {
+                        mbox_put(&mb_test, count);
+                        count--;
+                    }
+                break;
+
+                case opSemPost:
+                    while (count > 0) {
+                        sem_wait(&sem_test);
+                        count--;
+                    }
+                break;
+
+                case opSemWait:
+                    while (count > 0) {
+                        sem_post(&sem_test);
+                        count--;
+                    }
+                break;
+            }
         }
         if (verbose_progress) printf("\n");
 
