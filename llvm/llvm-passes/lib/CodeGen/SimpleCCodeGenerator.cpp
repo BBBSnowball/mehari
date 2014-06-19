@@ -259,9 +259,16 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
             if (PHINode *phiInstr = dyn_cast<PHINode>(&brInstr->getSuccessor(0)->front())) {
               // create temporary variable for phi node assignment before the branch instruction
               std::string tmpVar = backend->getOrCreateTemporaryVariable(phiInstr);
+              // read operators of phi node instruction
+              assert(phiInstr->getNumIncomingValues() == 2);
+              Value *op = NULL;
+              for (int i=0; i<2; i++) {
+                if (phiInstr->getIncomingBlock(i) == instr->getParent())
+                  op = phiInstr->getIncomingValue(i);
+              }
+              assert(op);
               // print assignment for the phi node variable
-              assert(prevInstr);
-              backend->generatePhiNodeAssignment(tmpVar, prevInstr);
+              backend->generatePhiNodeAssignment(tmpVar, op);
             }
             // add unconditional branch
             Instruction* target = &brInstr->getSuccessor(0)->front();
@@ -276,7 +283,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
         }
         else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
           // here we do not have to print anything, because
-          // the variable that is used was already set at the brancht instructions before
+          // the variable that is used was already set at the branch instructions before
         }
         else if (ReturnInst *retInstr = dyn_cast<ReturnInst>(instr)) {
           if (retInstr->getReturnValue() != NULL)
