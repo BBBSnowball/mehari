@@ -57,7 +57,7 @@ set(PASSES_REQUIRED_LIBS ctemplate)
 # set source files for all custom LLVM passes
 set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
 set(MEHARI_ANALYSIS_SOURCES IRGraphPrinter.cpp InstructionDependencyAnalysis.cpp SpeedupAnalysis.cpp)
-set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp TemplateWriter.cpp UnittestHelpers.cpp)
+set(MEHARI_CODEGEN_SOURCES SimpleCCodeGenerator.cpp TemplateWriter.cpp)
 set(MEHARI_TRANSFORMS_SOURCES 
   Partitioning.cpp 
   PartitioningGraph.cpp 
@@ -65,6 +65,7 @@ set(MEHARI_TRANSFORMS_SOURCES
   AddAlwaysInlineAttributePass.cpp
   )
 set(MEHARI_UTILS_SOURCES UniqueNameSource.cpp)
+set(MEHARI_UNITTEST_HELPERS_SOURCES UnittestHelpers.cpp)
 
 # put path and source file names together
 prepend_path("lib" MEHARI_COMMON_SOURCES)
@@ -72,6 +73,7 @@ prepend_path("lib/Analysis" MEHARI_ANALYSIS_SOURCES)
 prepend_path("lib/CodeGen" MEHARI_CODEGEN_SOURCES)
 prepend_path("lib/Transforms" MEHARI_TRANSFORMS_SOURCES)
 prepend_path("lib/utils" MEHARI_UTILS_SOURCES)
+prepend_path("lib/CodeGen" MEHARI_UNITTEST_HELPERS_SOURCES)
 
 # create a shared library
 add_llvm_loadable_module(libmeharipasses 
@@ -82,6 +84,12 @@ add_llvm_loadable_module(libmeharipasses
   ${MEHARI_UTILS_SOURCES}
   )
 target_link_libraries(libmeharipasses ${PASSES_REQUIRED_LIBS})
+
+# create a shared library
+add_llvm_loadable_module(libmehariunittesthelpers
+  ${MEHARI_UNITTEST_HELPERS_SOURCES}
+  )
+target_link_libraries(libmehariunittesthelpers libmeharipasses ${PASSES_REQUIRED_LIBS})
 
 # install both libraries
 install(TARGETS libmeharipasses
@@ -127,7 +135,7 @@ add_mehari_llvm_unittest(MehariUnittests
   ${MEHARI_CODEGEN_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariUnittests meharipasses ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariUnittests libmehariunittesthelpers meharipasses ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
 add_dependencies(MehariUnittests libmeharipasses)
