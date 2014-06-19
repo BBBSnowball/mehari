@@ -33,6 +33,8 @@ SimpleCCodeGenerator* CodeGeneratorTest::getCodeGenerator() {
 }
 
 void CodeGeneratorTest::ParseAssembly(const char *Assembly) {
+  this->assembly = assembly;
+
   M = new Module("Module", getGlobalContext());
 
   SMDiagnostic Error;
@@ -68,6 +70,8 @@ void CodeGeneratorTest::ParseC(const char *Code) {
 
   std::string assemblyfile = std::string(prefix) + ".ll";
   std::string assembly = readFile(assemblyfile);
+
+  writeFile("assembly-current.ll", assembly);
 
   remove(codefile.c_str());
   remove(assemblyfile.c_str());
@@ -108,7 +112,10 @@ void CodeGeneratorTest::CheckResult(const std::string &ExpectedResult, bool prin
       writeFile("expected", ExpectedResult);
     } else
       link(ExpectedResultFile, "expected");
-    writeFile("actual",   CodeGenResult);
+    writeFile("actual", CodeGenResult);
+
+    if (!assembly.empty())
+      writeFile("assembly-failed.ll", assembly);
   }
 
   // compare results

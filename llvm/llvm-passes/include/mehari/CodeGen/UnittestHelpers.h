@@ -33,6 +33,7 @@ public:
   CodeGeneratorTest();
 
 protected:
+  std::string assembly;
   Module *M;
   Function *F;
   CodeGeneratorBackend *backend;
