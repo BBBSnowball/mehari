@@ -4,7 +4,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-[ -z "$RECONOS" ] && RECONOS=../../../reconos/reconos
+[ -z "$RECONOS" ] && RECONOS=../../../reconos
 
 . "$RECONOS/pcores/reconos_test_v3_01_a/testlib.sh"
 

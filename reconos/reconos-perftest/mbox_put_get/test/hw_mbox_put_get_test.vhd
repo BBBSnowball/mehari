@@ -78,16 +78,12 @@ architecture behavior of hwt_mbox_put_get_test is
 	signal HWT_Clk   : std_logic;
 	signal HWT_Rst   : std_logic;
 
-	signal DEBUG_DATA : std_logic_vector(5 downto 0);
-
 	-- some constants from hwt_sort_demo.vhd
 	-- The values must be exactly the same as in hwt_sort_demo.vhd !
 	constant MBOX_RECV  : std_logic_vector(31 downto 0) := x"00000000";
 	constant MBOX_SEND  : std_logic_vector(31 downto 0) := x"00000001";
-	constant C_INPUT_SIZE  : integer := 9;	-- 5 params, 1 input, 2 states, and the current time
-	constant C_OUTPUT_SIZE : integer := 2;	-- 2 state derivatives
-	constant C_LOCAL_RAM_SIZE : integer := 2 * (C_INPUT_SIZE + C_OUTPUT_SIZE);	-- double takes 8 bytes, i.e. 2 words
-
+	constant MBOX_TEST  : std_logic_vector(31 downto 0) := x"00000002";
+	constant SEM_TEST   : std_logic_vector(31 downto 0) := x"00000003";
 
 	signal i_osif_test   : i_osif_test_t;
 	signal o_osif_test   : o_osif_test_t;
@@ -144,8 +140,7 @@ begin
 		MEMIF_FIFO_Mem2Hwt_Empty => MEMIF_FIFO_Mem2Hwt_Empty,
 		MEMIF_FIFO_Mem2Hwt_RE    => MEMIF_FIFO_Mem2Hwt_RE,
 		HWT_Clk                  => HWT_Clk,
-		HWT_Rst                  => HWT_Rst,
-		DEBUG_DATA               => DEBUG_DATA
+		HWT_Rst                  => HWT_Rst
 	);
 
 	HWT_Clk <= clk;
@@ -174,22 +169,61 @@ begin
 
 		rst <= '0';
 
-		addr_slv := CONV_STD_LOGIC_VECTOR(44, C_OSIF_WIDTH);
 
-		report "mbox_get";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, addr_slv);
+		report "start: noop";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"00000042");
 
-		report "mbox_put";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, addr_slv);
+		report "ack:   noop";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"00000042");
 
 
-		addr_slv := CONV_STD_LOGIC_VECTOR(24, C_OSIF_WIDTH);
+		report "start: noop";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"000000AA");
 
-		report "mbox_get";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, addr_slv);
+		report "ack:   noop";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"000000AA");
 
-		report "mbox_put";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, addr_slv);
+
+		report "start: 5x mbox_put";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"01000004");
+
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000004");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000003");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000002");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000001");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000000");
+
+		report "ack:   5x mbox_put";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"01000004");
+
+
+		report "start: 6x mbox_get";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"02000005");
+
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+
+		report "ack:   6x mbox_get";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"02000005");
+
+
+		report "start: 7x sem_post";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"02000005");
+
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_TEST, X"00000042");
+
+		report "ack:   7x sem_post";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"02000005");
 
 
 		report "Terminating slave thread...";
