@@ -76,12 +76,13 @@ public:
 
 	unsigned int getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2, 
 		std::string &sourceDevice, std::string &targetDevice);
+	unsigned int getDeviceIndependentCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
 	unsigned int getExecutionTime(VertexDescriptor vd, std::string &targetDevice);
 
 	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(
-		VertexDescriptor vd, std::string &sourcedevice, std::string &targetDevice);
+		VertexDescriptor vd, std::vector<std::string> &partitioningDevices);
 
-	unsigned int getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice);
+	unsigned int getCriticalPathCost(std::vector<std::string> &partitioningDevices);
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 
@@ -101,6 +102,7 @@ private:
 	void copyGraph(const Graph &orig, Graph &copy);
 
 	unsigned int calcEdgeCost(EdgeDescriptor ed, std::string &sourceDevice, std::string &targetDevice);
+	unsigned int calcDeviceIndependentEdgeCost(EdgeDescriptor ed);
 
 	std::vector<Instruction*> instructionList;
 	Graph pGraph;

@@ -382,9 +382,9 @@ TEST_F(InstructionDependencyAnalysisTest, IfElseTest) {
     /*3:*/ "0 2\n"
     /*4:*/ "3\n"
     /*5:*/ "4\n"
-    /*6:*/ "1 5\n"
+    /*6:*/ "1\n"
     /*7:*/ "6\n"
-    /*8:*/ "5 7\n";
+    /*8:*/ "7\n";
   CheckResult(ParseResults(result));
 }
 
@@ -416,10 +416,10 @@ TEST_F(InstructionDependencyAnalysisTest, PhyNodeTest) {
     /*3:*/ "0 2\n"
     /*4:*/ "3\n"
     /*5:*/ "4\n"
-    /*6:*/ "0 2 5\n"
+    /*6:*/ "0 2\n"
     /*7:*/ "6\n"
-    /*8:*/ "5\n"
-    /*9:*/ "6 7 8\n"
+    /*8:*/ "-\n"
+    /*9:*/ "6\n"
     /*10:*/ "1 9\n"
     /*11:*/ "10\n";
   CheckResult(ParseResults(result));

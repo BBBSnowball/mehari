@@ -75,9 +75,6 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 	std::vector<Instruction*> currentInstrutions;
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
-		Instruction *nextInstr;
-		if (instrIt+1 != instructions.end())
-      		nextInstr = dyn_cast<Instruction>(*(instrIt+1));
 		currentInstrutions.push_back(instr);
 		// handle init vertex
 		if (instrNumber == 2*paramCount-1) {
@@ -89,11 +86,22 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 		// handle the calculations
 		else if (instrNumber >= 2*paramCount) {
 			// do we currently handle an if statement?
-			if (isa<BranchInst>(instr)) {
-				if (!isBlock)
+			// if statement detection: 
+			//   - IF-Start: conditional branch instruction
+			//   - IF-End:   unconditional branch instruction and next BB ends with no unconditional branch instruction 
+			if (BranchInst *bInstr = dyn_cast<BranchInst>(instr)) {
+				if (!isBlock) {
 					isBlock = true;
-				else
-					isBlockCompleted = true;
+				}
+				else {
+					Instruction *terminatorInstrNextBB = dyn_cast<TerminatorInst>(bInstr)->getSuccessor(0)->getTerminator();
+					if (bInstr->isUnconditional() &&
+						(!isa<BranchInst>(terminatorInstrNextBB)
+						|| (isa<BranchInst>(terminatorInstrNextBB)
+							&& !dyn_cast<BranchInst>(terminatorInstrNextBB)->isUnconditional()))) {
+						isBlockCompleted = true;
+					}
+				}
 			}
 			else if (isa<LoadInst>(instr) && instr->getOperand(0)->getName() == "status.addr")
 				isPtrAssignment = true;
@@ -267,6 +275,16 @@ unsigned int PartitioningGraph::calcEdgeCost(EdgeDescriptor ed,
 }
 
 
+unsigned int PartitioningGraph::calcDeviceIndependentEdgeCost(EdgeDescriptor ed) {
+	unsigned int costs = 0;
+	HardwareInformation hwInfo;
+  	for (std::vector<CommunicationType>::iterator it = pGraph[ed].comOperations.begin(); 
+		it != pGraph[ed].comOperations.end(); ++it) 
+		costs += hwInfo.getDeviceIndependentCommunicationCost(*it);
+	return costs;
+}
+
+
 unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2, 
 		std::string &sourceDevice, std::string &targetDevice) {
 	bool exists1, exists2;
@@ -278,6 +296,20 @@ unsigned int PartitioningGraph::getCommunicationCost(VertexDescriptor vd1, Verte
 		costs += calcEdgeCost(ed1, sourceDevice, targetDevice);
 	if (exists2)
 		costs += calcEdgeCost(ed2, sourceDevice, targetDevice);
+	return costs;
+}
+
+
+unsigned int PartitioningGraph::getDeviceIndependentCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2) {
+	bool exists1, exists2;
+	EdgeDescriptor ed1, ed2;
+	boost::tie(ed1, exists1) = boost::edge(vd1, vd2, pGraph);
+	boost::tie(ed2, exists2) = boost::edge(vd2, vd1, pGraph);
+	unsigned int costs = 0;
+	if (exists1)
+		costs += calcDeviceIndependentEdgeCost(ed1);
+	if (exists2)
+		costs += calcDeviceIndependentEdgeCost(ed2);
 	return costs;
 }
 
@@ -297,7 +329,7 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::strin
 
 
 boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalCommunicationCost(
-	VertexDescriptor vd, std::string &sourcedevice, std::string &targetDevice) {
+	VertexDescriptor vd, std::vector<std::string> &partitioningDevices) {
 	Graph::out_edge_iterator oeIt, oeEnd;
 	Graph::in_edge_iterator ieIt, ieEnd;
 	boost::tie(oeIt, oeEnd) = boost::out_edges(vd, pGraph);
@@ -306,22 +338,26 @@ boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalC
 	for (; oeIt != oeEnd; ++oeIt) {
 		VertexDescriptor u = boost::source(*oeIt, pGraph), v = boost::target(*oeIt, pGraph);
 		if (pGraph[u].partition == pGraph[v].partition)
-			intCosts += calcEdgeCost(*oeIt, sourcedevice, sourcedevice);
+			intCosts += calcEdgeCost(*oeIt, partitioningDevices[pGraph[u].partition], 
+				partitioningDevices[pGraph[v].partition]);
 		else
-			extCosts += calcEdgeCost(*oeIt, sourcedevice, targetDevice);
+			extCosts += calcEdgeCost(*oeIt, partitioningDevices[pGraph[u].partition], 
+				partitioningDevices[pGraph[v].partition]);
 	}
 	for (; ieIt != ieEnd; ++ieIt) {
 		VertexDescriptor u = boost::source(*ieIt, pGraph), v = boost::target(*ieIt, pGraph);
 		if (pGraph[u].partition == pGraph[v].partition)
-			intCosts += calcEdgeCost(*ieIt, sourcedevice, sourcedevice);
+			intCosts += calcEdgeCost(*ieIt, partitioningDevices[pGraph[u].partition], 
+				partitioningDevices[pGraph[v].partition]);
 		else
-			extCosts += calcEdgeCost(*ieIt, sourcedevice, targetDevice);
+			extCosts += calcEdgeCost(*ieIt, partitioningDevices[pGraph[u].partition], 
+				partitioningDevices[pGraph[v].partition]);;
 	}
 	return boost::make_tuple(intCosts, extCosts);
 }
 
 
-unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, std::string &targetDevice) {
+unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &partitioningDevices) {
 	// create new simple graph type for critical path analysis
 	typedef boost::adjacency_list<
 		boost::setS, 				// store out-edges of each vertex in a set to avoid parallel edges
@@ -348,8 +384,8 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, s
 		int edgeWeight = 0;
 		VertexDescriptor u = boost::source(*eIt, pGraph), v = boost::target(*eIt, pGraph);
 		if (pGraph[u].partition != pGraph[v].partition)
-			edgeWeight += calcEdgeCost(*eIt, sourceDevice, targetDevice);
-		edgeWeight += getExecutionTime(v, sourceDevice);
+			edgeWeight += calcEdgeCost(*eIt, partitioningDevices[pGraph[u].partition], partitioningDevices[pGraph[v].partition]);
+		edgeWeight += getExecutionTime(v, partitioningDevices[pGraph[v].partition]);
 		edgeWeight *= (-1);
 		// create new edge and set edge weight in temporary graph
 		boost::add_edge(u, v, edgeWeight, tmpGraph);
@@ -378,7 +414,8 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::string &sourceDevice, s
 						// if there is no edge yet
 						bool exists = boost::edge(i, currentVertex, tmpGraph).second;
 						if (!exists) 
-							boost::add_edge(i, currentVertex, (-1)*getExecutionTime(currentVertex, sourceDevice), tmpGraph);
+							boost::add_edge(i, currentVertex, (-1)*getExecutionTime(currentVertex, 
+								partitioningDevices[pGraph[currentVertex].partition]), tmpGraph);
 					}
 					currentVertex = i;
 				}

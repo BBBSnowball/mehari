@@ -42,12 +42,12 @@ class TapTestResult(unittest.TestResult):
         self.stream.write("ok %d - %s\n" % (self.testsRun, str(test)))
 
     def addFailure(self, test, err):
-        super(TapTestResult, self).addFailure(test)
+        super(TapTestResult, self).addFailure(test, err)
         self.stream.write("not ok - %d %s\n" % (self.testsRun, str(test)))
         self.__addDiagnostics(self.__formatErr(err))
 
     def addError(self, test, err):
-        super(TapTestResult, self).addError(test)
+        super(TapTestResult, self).addError(test, err)
         self.stream.write("not ok %d - %s # ERROR\n" % (self.testsRun, str(test)))
         self.tapOutput.append("# ERROR:")
         self.__addDiagnostics(self.__formatErr(err))

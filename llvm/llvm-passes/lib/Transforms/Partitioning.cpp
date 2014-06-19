@@ -10,9 +10,11 @@
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/CommandLine.h"
 
 #include <sstream>
+#include <ctime>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -25,9 +27,9 @@ static cl::opt<std::string> TargetFunctions("partitioning-functions",
 static cl::opt<std::string> PartitioningMethod("partitioning-method", 
             cl::desc("Specify the name of the partitioning method"), 
             cl::value_desc("partitioning-count"));
-static cl::opt<std::string> PartitionCount("partitioning-count", 
-            cl::desc("Specify the number of partitions"), 
-            cl::value_desc("partitioning-count"));
+static cl::opt<std::string> PartitionDevices("partitioning-devices", 
+            cl::desc("Specify the devices to execute the partitions"), 
+            cl::value_desc("partitioning-devices"));
 static cl::opt<std::string> OutputDir("partitioning-output-dir", 
             cl::desc("Set the output directory for partitioning results"), 
             cl::value_desc("partitioning-output-dir"));
@@ -43,8 +45,7 @@ Partitioning::Partitioning() : ModulePass(ID) {
 	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 	// read command line arguments
 	parseTargetFunctions();
-	std::stringstream ss(PartitionCount);
-	ss >> partitionCount;
+	parsePartitioningDevices();
 	// init dependency number to count them over all partitioned functions
 	depNumber = 0;
 }
@@ -120,8 +121,15 @@ bool Partitioning::runOnModule(Module &M) {
 			PM = new KernighanLin();
 		else
 			throw std::runtime_error("Invalid partitioning method!");
-		partitioningNumbers[functionName] = PM->apply(*pGraph, partitionCount);
+
+		clock_t start = std::clock();
+		partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
+		clock_t ends = std::clock();
 		delete PM;
+
+		double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
+		errs() << "Runtime for partitioning " << functionName << " using " << PartitioningMethod << ": " 
+			<< format("%4.4f", runtime) << " ms\n";
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
@@ -150,6 +158,12 @@ void Partitioning::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void Partitioning::parseTargetFunctions(void) {
   boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
+}
+
+
+void Partitioning::parsePartitioningDevices(void) {
+  boost::algorithm::split(partitioningDevices, PartitionDevices, boost::algorithm::is_any_of(" "));
+  partitionCount = partitioningDevices.size();
 }
 
 
@@ -408,7 +422,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		}
 
 		// collect the instructions for each partition
-		std::vector<Instruction*> instructionsForPartition[partitionCount];
+		std::vector<Instruction*> instructionsForPartition[partitioningNumbers[currentFunction]];
 		PartitioningGraph::VertexIterator vIt = pGraph->getFirstIterator(); 
 		PartitioningGraph::VertexIterator vEnd = pGraph->getEndIterator();
 		for (; vIt != vEnd; ++vIt) {
@@ -444,6 +458,9 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 					"FUNCTION", currentFunction);
 				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
 					"THREAD_NUMBER", threadNumberStr);
+				std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"TARGET_CORE", targetCoreStr);
 				// NOTE: this call sets a sub-template in a sub-template!
 				tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
 					"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");

@@ -144,21 +144,11 @@ InstructionDependencyList InstructionDependencyAnalysis::getDependencies(Functio
 				}
 			}
 		}
-
-		// loop over all predecessors of the current basic block and add control dependencies
-		for (pred_iterator pi = pred_begin(bb), pe = pred_end(bb); pi != pe; ++pi) {
-			BasicBlock *pbb = *pi;
-			// add a dependency between the first instruction of the current BB 
-			// and the last instruction of the first predecessor BB
-			int tgtNumber = getInstructionNumber(instructions, &(bb->front()));
-			InstructionDependency instrdep;
-			instrdep.depInstruction = &(pbb->back());
-			instrdep.isCtrlDep = true;
-			dependencies[tgtNumber].dependencies.push_back(instrdep);
-			if (Verbose)
-				errs() << "CTL-DEP: " << (bb->front()) << "  depends on  " << (pbb->back()) << "\n";
-		}
 	}
+
+	// NOTE: Generally there is a control flow inside an IF statement which is not handled here, 
+	// because in the further processing If statements will be kept together
+	// if you do not keep if statements as one block you will need to add this control flow here!
 
 	// remove duplicate entries
 	for (InstructionDependencyList::iterator depIt = dependencies.begin(), depEnd = dependencies.end(); depIt != depEnd; ++depIt) {

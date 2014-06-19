@@ -34,6 +34,7 @@ namespace {
 HardwareInformation::HardwareInformation() {
 	devices = new std::map<std::string, DeviceInformation*>();
 
+	// add timinigs for the Cortex-A9
 	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9");
 	cortexA9->addInstructionInfo("ret",    0);
 	cortexA9->addInstructionInfo("br",     0);
@@ -43,20 +44,45 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("fdiv",  25);
 	cortexA9->addInstructionInfo("or",     0);
 	cortexA9->addInstructionInfo("alloca", 0);
-	cortexA9->addInstructionInfo("load",   3);
+	cortexA9->addInstructionInfo("load",   4);
 	cortexA9->addInstructionInfo("store",  6);
-	cortexA9->addInstructionInfo("getelementptr", 1);
+	cortexA9->addInstructionInfo("getelementptr", 3);
 	cortexA9->addInstructionInfo("zext",   1);
 	cortexA9->addInstructionInfo("icmp",   3);
 	cortexA9->addInstructionInfo("fcmp",   4);
+	cortexA9->addInstructionInfo("select", 4);
 	cortexA9->addInstructionInfo("phi",    0);
-	cortexA9->addInstructionInfo("call",  25); // TODO: how to get cycle timings for call instruction?
+	cortexA9->addInstructionInfo("call",  50); // NOTE: approximation
 
-	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 30);
-	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 5);	
+	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 1400);
+	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency,  10);
+
+	// TODO: add communication costs ARM->FPGA
 
 	std::string deviceName = "Cortex-A9";
 	devices->insert(std::pair<std::string, DeviceInformation*>(deviceName, cortexA9));
+
+
+	// TODO: add timinigs for the FPGA
+
+
+	// calculate the device independent communication costs 
+	// -> average value of all devices for the communication cost types
+	std::vector<std::string> targets;
+	for (std::map<std::string, DeviceInformation*>::iterator it = devices->begin(); it != devices->end(); ++it)
+		targets.push_back(it->first);
+
+	unsigned int dataDepCostSum = 0, orderDepCostSum = 0, count = 0;
+	for (std::map<std::string, DeviceInformation*>::iterator it = devices->begin(); it != devices->end(); ++it) {
+		for (std::vector<std::string>::iterator targetIt = targets.begin(); targetIt != targets.end(); ++targetIt) {
+			dataDepCostSum += it->second->getCommunicationInfo(*targetIt)->getCommunicationCost(DataDependency);
+			orderDepCostSum += it->second->getCommunicationInfo(*targetIt)->getCommunicationCost(OrderDependency);
+			count++;
+		}
+	}
+
+	deviceIndependentComCosts[DataDependency] = dataDepCostSum/count;
+	deviceIndependentComCosts[OrderDependency] = orderDepCostSum/count;
 }
 
 
@@ -69,6 +95,11 @@ HardwareInformation::~HardwareInformation() {
 
 DeviceInformation *HardwareInformation::getDeviceInfo(std::string deviceName) {
 	return (*devices)[deviceName];
+}
+
+
+unsigned int HardwareInformation::getDeviceIndependentCommunicationCost(CommunicationType type) {
+	return deviceIndependentComCosts[type];
 }
 
 

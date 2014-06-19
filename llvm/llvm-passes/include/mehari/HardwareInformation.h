@@ -64,9 +64,11 @@ public:
 	~HardwareInformation();
 	
 	DeviceInformation *getDeviceInfo(std::string deviceName);
+	unsigned int getDeviceIndependentCommunicationCost(CommunicationType type);
 
 private:
 	std::map<std::string, DeviceInformation*> *devices;
+	std::map<CommunicationType, unsigned int> deviceIndependentComCosts;
 };
 
 #endif /*HARDWARE_INFORMATION_H_*/
