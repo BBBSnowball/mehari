@@ -73,7 +73,7 @@ void *software_thread(void* data)
     struct mbox *mb_test  = res[MBOX_TEST].ptr;
     sem_t  *sem_test      = res[SEM_TEST ].ptr;
 
-    while ( 1 ) 
+    while ( 1 )
     {
         ret = mbox_get(mb_start);
 
@@ -82,7 +82,7 @@ void *software_thread(void* data)
 
         unsigned count = ret & opArgMask;
 
-        switch(ret & opCodeMask) 
+        switch(ret & opCodeMask)
         {
             case opNOP:
                 // do hard work; s/hard/\0ly/
@@ -137,11 +137,12 @@ void print_help()
     "--dont-flush\tDo not flush caches between iterations.\n"
     "--iterations <NUM>\tDo the calculation <NUM> times (short: -n <NUM>)\n"
     "--iterations-in-thread <NUM>\tRepeat the calculation without using any synchronization (short: -m <NUM>)\n"
-    "--operation <op> \t The operation that will be measured (nop, mbox_put, mbox_get, sem_post, sem_wait) (short: -o <op>)\n");
+    "--operation <OP> \t The operation that will be measured (nop, mbox_put, mbox_get, sem_post, sem_wait) (short: -o <OP>)\n"
+    "--mbox-size <SIZE> \t The queue size of test mboxes (short: -s <SIZE>)\n");
 }
 
 
-TargetOperation parseOperation(const char *operation) 
+TargetOperation parseOperation(const char *operation)
 {
     if (strcmp(operation, "nop") == 0)
         return opNOP;
@@ -163,6 +164,7 @@ static int verbose_progress = 0;
 static unsigned int iterations = 1;
 static unsigned int iterations_in_thread = 1;
 static unsigned int operation = opNOP;
+static unsigned int mbox_size = 32;
 
 
 int main(int argc, char ** argv)
@@ -185,6 +187,7 @@ int main(int argc, char ** argv)
         { "iterations",             required_argument, 0, 'n' },
         { "iterations-in-thread",   required_argument, 0, 'm' },
         { "operation",              required_argument, 0, 'o' },
+        { "mbox-size",              required_argument, 0, 's' },
         {0, 0, 0, 0}
     };
 
@@ -193,13 +196,13 @@ int main(int argc, char ** argv)
     {
         int c;
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:m:o:h?", long_options, &option_index);
+        c = getopt_long (argc, argv, "n:m:o:s:h?", long_options, &option_index);
 
         if (c == -1)
             // end of options
             break;
 
-        switch (c) 
+        switch (c)
         {
         case 0:
             // flags are handled by getopt - nothing else to do
@@ -212,6 +215,9 @@ int main(int argc, char ** argv)
             break;
         case 'o':
             operation = parseOperation(optarg);
+            break;
+        case 's':
+            mbox_size = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -265,7 +271,7 @@ int main(int argc, char ** argv)
         }
     }
 
-     if (iterations_in_thread >= 2**24) {
+     if (iterations_in_thread >= 1<<24) {
         fprintf(stderr, "'--iterations-in-thread' can not be larger then 2^24.\n");
         exit(-1);
      }
@@ -280,7 +286,7 @@ int main(int argc, char ** argv)
     // init mailboxes
     mbox_init(&mb_start, simulation_steps);
     mbox_init(&mb_stop,  simulation_steps);
-    mbox_init(&mb_test,  simulation_steps);
+    mbox_init(&mb_test,  mbox_size);
 
     // init semaphore
     sem_init(&sem_test, 0, 0);
@@ -351,7 +357,7 @@ int main(int argc, char ** argv)
 
             unsigned count = iterations_in_thread-1;
 
-            switch(operation) 
+            switch(operation)
             {
                 case opNOP:
                     // relax...

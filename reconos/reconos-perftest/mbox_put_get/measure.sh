@@ -58,10 +58,13 @@ measure "${PREFIX}sw_32_10k_start_stop.perf.txt" 10  ./mbox_put_get 0 32 -n $ITE
 # Now do some more things
 for operation in mbox_put mbox_get sem_post sem_wait
 do
-	measure "${PREFIX}hw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 1 0  -n $ITERATIONS -o operation --dont-flush
-	measure "${PREFIX}sw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 1  -m $ITERATIONS -o operation --dont-flush
-	measure "${PREFIX}sw_2_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 2  -n $ITERATIONS -o operation --dont-flush
-	measure "${PREFIX}sw_32_10k_${operation}.perf.txt" 10  ./mbox_put_get 0 32 -n $ITERATIONS -o operation --dont-flush
+	measure "${PREFIX}hw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 1 0  -m $ITERATIONS -o $operation --dont-flush
+	measure "${PREFIX}sw_1_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 1  -m $ITERATIONS -o $operation --dont-flush
+	measure "${PREFIX}sw_2_10k_${operation}.perf.txt" 10   ./mbox_put_get 0 2  -m $ITERATIONS -o $operation --dont-flush
+	measure "${PREFIX}sw_32_10k_${operation}.perf.txt" 10  ./mbox_put_get 0 32 -m $ITERATIONS -o $operation --dont-flush
+
+	measure "${PREFIX}hw_1_10k_${operation}_mbox-size=256.perf.txt" 10   ./mbox_put_get 1 0  -m $ITERATIONS -o $operation -s 256 --dont-flush
+	measure "${PREFIX}sw_1_10k_${operation}_mbox-size=256.perf.txt" 10   ./mbox_put_get 0 1  -m $ITERATIONS -o $operation -s 256 --dont-flush
 done
 
 tar -cf mbox_put_get_results.tar ${PREFIX}*.perf.txt
