@@ -340,6 +340,19 @@ TEST_F(SimpleVHDLGeneratorTest, SelectOperationTest) {
     "  return SGN(a);"
     "}");
   CheckResultFromFile();
+
+  //TODO add VHDL test bench
+}
+
+
+TEST_F(SimpleVHDLGeneratorTest, IntegerExtensionTest) {
+  ParseC(
+    "unsigned int test(unsigned short a) {"
+    "  return a;"
+    "}");
+  CheckResultFromFile();
+
+  //TODO add VHDL test bench
 }
 
 

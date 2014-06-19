@@ -446,15 +446,26 @@ void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
   *this->op << this->op->instance(op_info.op, tmpVar);
 }
 
-void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *op) {
+void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *value) {
   debug_print("generateComparison(" << tmpVar << ", " << op << ")");
   return_if_dry_run();
-  /*stream << "\t" << tmpVar
-    <<  " = "
-    <<  "(int)"
-    <<  getOperandString(op)
-    <<  ";\n";*/
-  //TODO
+
+  // only unsigned extension is supported
+  //TODO assert(isa<IntegerType>(value->getType()) && dyn_cast<IntegerType>(value->getType())->getSignBit() == 0);
+
+  ChannelP write = vs_factory->getTemporaryVariable(tmpVar)->getWriteChannel(op.get());
+  ChannelP read  = vs_factory->get(value)->getReadChannel(op.get());
+
+  unsigned int added_zeros = write->width - read->width;
+
+  *op << "   " << write->data_signal << " <= \"";
+  for (unsigned int i=0;i<added_zeros;i++) {
+    *op << '0';
+  }
+  *op << "\" & " << read->data_signal << ";\n";
+
+  *op << "   " << write->valid_signal << " <= " << read->valid_signal << ";\n";
+  ready_signals->addConsumer(read->ready_signal, write->ready_signal);
 }
 
 void VHDLBackend::generatePhiNodeAssignment(std::string tmpVar, Value *op) {
