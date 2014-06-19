@@ -56,24 +56,25 @@ void CodeGeneratorTest::ParseAssembly(const char *Assembly) {
 
 
 void CodeGeneratorTest::ParseC(const char *Code) {
-  char prefix[] = "ccode.XXXXXXXX";
-  mktemp(prefix);
+  char codefile[] = "ccode.XXXXXX.c";
+  int fd = mkstemps(codefile, 2);
 
-  std::string codefile = std::string(prefix) + ".c";
   writeFile(codefile, Code);
 
-  std::string command = "./clang -S -emit-llvm '" + codefile + "'";
+  std::string command = "./clang -S -emit-llvm '" + std::string(codefile) + "'";
   int result = system(command.c_str());
   EXPECT_EQ(result, 0);
   if (result != 0)
     throw std::runtime_error("clang returned a non-zero status.");
 
-  std::string assemblyfile = std::string(prefix) + ".ll";
+  close(fd);
+
+  std::string assemblyfile = std::string(codefile).substr(0, strlen(codefile)-2) + ".ll";
   std::string assembly = readFile(assemblyfile);
 
   writeFile("assembly-current.ll", assembly);
 
-  remove(codefile.c_str());
+  remove(codefile);
   remove(assemblyfile.c_str());
 
   ParseAssembly(assembly.c_str());
