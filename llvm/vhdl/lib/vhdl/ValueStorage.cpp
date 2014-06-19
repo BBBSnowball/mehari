@@ -50,13 +50,14 @@ Type* ValueStorage::elementType() const {
   return type;
 }
 
-void ValueStorage::initWithChannels(ChannelP channel_read, ChannelP channel_write) {
+void ValueStorage::initWithChannels(ChannelP channel_read, ChannelP channel_write, llvm::Type* type) {
   assert(!channel_read  || ChannelDirection::matching_direction(channel_read ->direction, OUT));
   assert(!channel_write || ChannelDirection::matching_direction(channel_write->direction, IN ));
 
   this->kind = CHANNEL;
   this->channel_read  = channel_read;
   this->channel_write = channel_write;
+  this->type = type;
 }
 
 // Call this, if you write a value to channel_write.
@@ -178,9 +179,27 @@ void ValueStorageFactory::clear() {
   last_instruction_was_branch = false;
 }
 
+bool isValidCIdentifier(const std::string& name) {
+  if (name.empty())
+    return false;
+
+  bool first_char = true;
+  BOOST_FOREACH(char c, name) {
+    bool valid = (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+       || (!first_char && '0' <= c && c <= '9'));
+    if (!valid)
+      return false;
+
+    first_char = false;
+  }
+
+  return true;
+}
+
 ValueStorageP ValueStorageFactory::makeParameter(Value* value, const std::string& name) {
   assert(!contains(by_llvm_value, value));
   assert(!contains(by_name, name));
+  assert(isValidCIdentifier(name));
 
   ValueStorageP x(new ValueStorage());
   x->kind = ValueStorage::FUNCTION_PARAMETER;
@@ -284,6 +303,20 @@ void ValueStorageFactory::makeConditionalBranch(Value *condition, Instruction *t
   last_instruction_was_branch = true;
 }
 
+void ValueStorageFactory::makeSelect(ValueStorageP target, Value *condition, Value *trueValue,
+    Value *falseValue, PhiNodeSink* sink) {
+  IfBranchP branchTrue  = IfBranchP(new IfBranch(condition, true,  current_if_branch, NULL));
+  IfBranchP branchFalse = IfBranchP(new IfBranch(condition, false, current_if_branch, NULL));
+  //addIfBranchFor(target, branchTrue);
+  //addIfBranchFor(target, branchFalse);
+
+  branchTrue ->temporaries[target] = get(trueValue);
+  branchFalse->temporaries[target] = get(falseValue);
+
+  combineIfBranches(branchTrue, branchFalse, sink);
+}
+
+
 void ValueStorageFactory::beforeInstruction(llvm::Instruction* instr, PhiNodeSink* sink) {
   bool is_first_instruction_in_basic_block = &instr->getParent()->front() == instr;
   bool handle_phinode = isa<PHINode>(instr) && is_first_instruction_in_basic_block;
@@ -333,11 +366,11 @@ void ValueStorageFactory::combineIfBranches(std::vector<IfBranchP>& branches,
   // We only implement the simplest case: There is one pair of branches.
   // In the more complex cases, we have to find pairs of branches and also combine the results.
   assert(branches.size() == 2);
-  combineIfBranches(branches[0], branches[1], firstPhiInstruction, sink);
+  combineIfBranches(branches[0], branches[1], sink);
 }
 
 void ValueStorageFactory::combineIfBranches(IfBranchP a, IfBranchP b,
-    llvm::Instruction* firstPhiInstruction, PhiNodeSink* sink) {
+    PhiNodeSink* sink) {
   assert(a->condition   == b->condition);
   assert(a->whichBranch != b->whichBranch);
   assert(a->parent      == b->parent);
@@ -493,10 +526,11 @@ ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, std::strin
   return pointee;
 }
 
-ValueStorageP ValueStorageFactory::getConstant(const std::string& constant, unsigned int width) {
+ValueStorageP ValueStorageFactory::getConstant(const std::string& constant, unsigned int width,
+    llvm::Type* type) {
   ValueStorageP x(new ValueStorage());
   ChannelP read_channel = Channel::make_constant(constant, width);
-  x->initWithChannels(read_channel, ChannelP((Channel*)NULL));
+  x->initWithChannels(read_channel, ChannelP((Channel*)NULL), type);
   return x;
 }
 
@@ -528,7 +562,7 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
     std::stringstream s;
     s << "std_logic_vector(to_unsigned(" << constant << ", " << width << "))";
     constant = s.str();
-    return getConstant(constant, width);
+    return getConstant(constant, width, value->getType());
   }
 
   // handle constant floating point numbers
@@ -544,7 +578,7 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
 
     unsigned int width = value->getType()->getPrimitiveSizeInBits();
     constant = "to_float(" + constant + ")";
-    return getConstant(constant, width);
+    return getConstant(constant, width, value->getType());
   } else {
     assert(false);
   }

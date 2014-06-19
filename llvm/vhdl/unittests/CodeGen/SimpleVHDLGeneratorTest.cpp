@@ -319,6 +319,29 @@ TEST_F(SimpleVHDLGeneratorTest, TernaryOperatorTest) {
 }
 
 
+/*
+// not implemented
+TEST_F(SimpleVHDLGeneratorTest, LocalVariableTest) {
+  ParseC(
+    "int test(int a) {"
+    "  int x = 7;"
+    "  int y = 42;"
+    "  return (a > 0 ? x : y);"
+    "}");
+  CheckResultFromFile();
+}
+*/
+
+
+TEST_F(SimpleVHDLGeneratorTest, SelectOperationTest) {
+  ParseC(
+    "#define SGN(x) (x >= 0.0 ? 1.0 : (x == 0.0 ? 0.0 : -1.0))\n"
+    "double test(double a) {"
+    "  return SGN(a);"
+    "}");
+  CheckResultFromFile();
+}
+
 
 class ReconOSVHDLGeneratorTest : public SimpleVHDLGeneratorTest {
 

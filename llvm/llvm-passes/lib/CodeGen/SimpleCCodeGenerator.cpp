@@ -322,8 +322,6 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   if (func.arg_begin() == func.arg_end())
     return;
 
-  int remainingParams = 0;
-
   inst_iterator I = inst_begin(func), E = inst_end(func);
 
   for (; I != E; ++I) {
@@ -331,11 +329,10 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
 
     if (!isa<AllocaInst>(instr))
       break;
-
-    remainingParams++;
   }
 
-  for (; I != E && remainingParams > 0; ++I) {
+  int remainingParams = func.arg_size();
+  for (; I != E && remainingParams > 0; ++I, remainingParams--) {
     Instruction *instr = dyn_cast<Instruction>(&*I);
 
     if (!isa<StoreInst>(instr))
@@ -347,8 +344,6 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
     if (paramName == "status")
       paramName = "*status";
     backend->addParameter(instr->getOperand(1), paramName);
-
-    remainingParams--;
   }
 
   if (remainingParams != 0) {

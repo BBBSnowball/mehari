@@ -44,7 +44,7 @@ public:
   ChannelP getReadChannel(MyOperator* op);
   ChannelP getWriteChannel(MyOperator* op);
 
-  void initWithChannels(ChannelP channel_read, ChannelP channel_write);
+  void initWithChannels(ChannelP channel_read, ChannelP channel_write, llvm::Type* type);
 
   // Call this, if you write a value to channel_write.
   void replaceBy(ChannelP channel_read);
@@ -124,7 +124,7 @@ public:
   ValueStorageP getGlobalVariable(const std::string& name, llvm::Type* type);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, llvm::Value* index);
   ValueStorageP getAtConstIndex(ValueStorageP ptr, std::string str_index);
-  ValueStorageP getConstant(const std::string& constant, unsigned int width);
+  ValueStorageP getConstant(const std::string& constant, unsigned int width, llvm::Type* type);
 
   ValueStorageP get(llvm::Value* value);
 
@@ -137,6 +137,9 @@ public:
 
   void makeConditionalBranch(llvm::Value *condition, llvm::Instruction *targetTrue, llvm::Instruction *targetFalse);
 
+  void makeSelect(ValueStorageP target, llvm::Value *condition, llvm::Value *trueValue,
+    llvm::Value *falseValue, PhiNodeSink* sink);
+
   void beforeInstruction(llvm::Instruction* instr, PhiNodeSink* sink);
 
 private:
@@ -148,7 +151,7 @@ private:
 
   void combineIfBranches(std::vector<IfBranchP>& branches, llvm::Instruction* firstPhiInstruction, PhiNodeSink* sink);
 
-  void combineIfBranches(IfBranchP a, IfBranchP b, llvm::Instruction* firstPhiInstruction, PhiNodeSink* sink);
+  void combineIfBranches(IfBranchP a, IfBranchP b, PhiNodeSink* sink);
 
   void handlePhiNodes(llvm::BasicBlock* bb, std::vector<IfBranchP>& branches, PhiNodeSink* sink);
 };

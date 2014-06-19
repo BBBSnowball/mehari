@@ -631,9 +631,11 @@ void VHDLBackend::addIndexToVariable(Value *source, Value *target, std::string i
   vs_factory->set(target, vs_source_with_index);
 }
 
-void VHDLBackend::generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse) {
+void VHDLBackend::generateSelect(std::string tmpVar, Value *condition, Value *targetTrue,
+    Value *targetFalse) {
   debug_print("generateSelect(" << tmpVar << ", " << condition << ", " << targetTrue << ", " << targetFalse << ")");
   return_if_dry_run();
 
-  //TODO
+  ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+  vs_factory->makeSelect(tmp, condition, targetTrue, targetFalse, this);
 }
