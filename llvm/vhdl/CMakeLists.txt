@@ -48,6 +48,10 @@ add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIRS})
 link_directories(${LLVM_LIBRARY_DIRS})
 
+# The LLVM build scripts automatically add the required libraries, but unfortunately
+# they are too early in the dependency list, so we have to add them a second time.
+set(LLVM_LIBS LLVMAnalysis LLVMAsmParser LLVMSupport LLVMTarget LLVMCore LLVMMC LLVMObject)
+
 
 # CUSTOM LLVM PASSES LIBRARY
 # ----------------------------------------
@@ -56,7 +60,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # set our external dependencies
-set(VHDL_REQUIRED_LIBS pivpav meharipasses ctemplate)
+set(VHDL_REQUIRED_LIBS pivpav meharipasses ctemplate ${LLVM_LIBS})
 
 # set source files for all custom LLVM passes
 set(MEHARI_VHDL_SOURCES "ReadySignals.cpp" "Channel.cpp" "ValueStorage.cpp" "GenerateVHDL.cpp"
@@ -98,7 +102,7 @@ set(LLVM_BUILD_TESTS ON)
 
 # set dependencies for the unit test
 set(LLVM_LINK_COMPONENTS Analysis AsmParser)
-set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser LLVMSupport)
+set(TESTS_REQUIRED_LIBS ${LLVM_LIBS})
 
 # build unittest
 add_mehari_vhdl_unittest(MehariVHDLTests
