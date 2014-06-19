@@ -30,10 +30,10 @@ void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
 	srand(42);
 	std::vector<unsigned int> vList;
 	unsigned int vertexCount = pGraph.getVertexCount();
-	for (int i=0; i<vertexCount; i++)
+	for (unsigned int i=0; i<vertexCount; i++)
 		vList.push_back(i);
 	std::random_shuffle(vList.begin(), vList.end());
-	for (int i=0; i<vertexCount; i++) {
+	for (unsigned int i=0; i<vertexCount; i++) {
 		if (i < vertexCount/2)
 			pGraph.setPartition(vList[i], 0);
 		else
@@ -397,7 +397,7 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, std::vector<std::str
 		unsigned int iterationCount = (currentResult.getVertexCount()/2);
 		// create the additional information mapping for all vertices of the partitioning graph
 		additionalVertexInformation.clear();
-		for (int i=0; i<currentResult.getVertexCount(); i++) {
+		for (unsigned int i=0; i<currentResult.getVertexCount(); i++) {
 			additionalVertexInformation.push_back(AdditionalVertexInfo());
 		}
 		// initialize the costDifference values for all vertices
@@ -406,7 +406,7 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, std::vector<std::str
 		std::vector<boost::tuple<unsigned int, unsigned int> > interchanges;
 		int currentTotalGain = 0, maxTotalGain = std::numeric_limits<int>::min(), maxTotalGainIndex = 0;
 		// iterate over the vertices and interchange them
-		for (int i=0; i<iterationCount; i++) {
+		for (unsigned int i=0; i<iterationCount; i++) {
 			// find pair that should be interchanged
 			unsigned int v1, v2;
 			int gain;
@@ -425,7 +425,7 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, std::vector<std::str
 		}
 		// unlock all vertices to enable them for interchanging during the next iteration
 		unlockAllVertices();
-		if (improved = (maxTotalGain > 0))
+		if ((improved = (maxTotalGain > 0)))
 			// save current result
 			applyInterchanges(interchanges, maxTotalGainIndex, currentResult);
 	} while (improved);
@@ -513,7 +513,7 @@ void KernighanLin::unlockAllVertices(void) {
 
 void KernighanLin::applyInterchanges(std::vector<boost::tuple<unsigned int, unsigned int> > &interchanges, 
 	unsigned int iterationCount, PartitioningGraph &result) {
-	for (int i=0; i<=iterationCount; i++) {
+	for (unsigned int i=0; i<=iterationCount; i++) {
 		unsigned int v1, v2;
 		boost::tie(v1, v2) = interchanges[i];
 		unsigned int tmpPartition = result.getPartition(v1);

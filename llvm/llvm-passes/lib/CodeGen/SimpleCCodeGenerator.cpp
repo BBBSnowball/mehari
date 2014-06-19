@@ -129,11 +129,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
       instrIt != instructions.end(); ++instrIt) {
 
     Instruction *instr = dyn_cast<Instruction>(*instrIt);
-    Instruction *prevInstr, *nextInstr;
-    if (instrIt != instructions.begin())
-      prevInstr = dyn_cast<Instruction>(*(instrIt-1));
-    else
-      prevInstr = NULL;
+    Instruction *nextInstr;
     if (instrIt+1 != instructions.end())
       nextInstr = dyn_cast<Instruction>(*(instrIt+1));
     else
@@ -228,7 +224,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
           Function *func = cInstr->getCalledFunction();
           std::string functionName = func->getName().str();
           std::vector<Value*> args;
-          for (int i=0; i<cInstr->getNumArgOperands(); i++)
+          for (unsigned int i=0; i<cInstr->getNumArgOperands(); i++)
             args.push_back(cInstr->getArgOperand(i));
           if (func->getReturnType()->isVoidTy()) {
             backend->generateVoidCall(functionName, args);
@@ -281,7 +277,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
             backend->generateConditionalBranch(brInstr->getCondition(), targetTrue, targetFalse);
           }
         }
-        else if (PHINode *phiInstr = dyn_cast<PHINode>(instr)) {
+        else if (isa<PHINode>(instr)) {
           // here we do not have to print anything, because
           // the variable that is used was already set at the branch instructions before
         }

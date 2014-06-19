@@ -60,7 +60,7 @@ bool SpeedupAnalysis::runOnFunction(Function &func) {
 
   // init distances and predecessors
   std::vector<Graph::vertex_descriptor> predecessors(boost::num_vertices(depGraph));
-  for (int i = 0; i < boost::num_vertices(depGraph); ++i)
+  for (unsigned int i = 0; i < boost::num_vertices(depGraph); ++i)
     predecessors[i] = i;
 
   // init distances vector

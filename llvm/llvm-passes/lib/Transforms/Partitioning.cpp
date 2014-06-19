@@ -226,7 +226,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 		Instruction *tgtinstr = depEntry.tgtInstruction;
 		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
 		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtinstr);
-		if (instrVertex == (-1))
+		if (instrVertex == (unsigned)(-1))
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
@@ -234,7 +234,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
-			if (depVertex == (-1))
+			if (depVertex == (unsigned)(-1))
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
 			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {				
@@ -413,7 +413,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		tWriter.setValue(currentFunctionUppercase + "_PUT_PARAM_START",  putParamStartStr);
 
 		// add initialization of parameter depdendencies
-		for (int j=putParamStart; j<putParamStart+partitioningNumbers[currentFunction]-1; j++) {
+		for (unsigned int j=putParamStart; j<putParamStart+partitioningNumbers[currentFunction]-1; j++) {
 			std::string depNum = static_cast<std::ostringstream*>( &(std::ostringstream() << j))->str();
 			tWriter.setValueInSubTemplate(paramDepInitTemplate, "DEPENDENCY_INITIALIZATIONS",  depNum + "_DEP_PARAM_INIT",
 				"DEPENDENCY_NUMBER", depNum);
@@ -436,7 +436,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 		}
 
 		// generate C code for each partition of this function and write it into template
-		for (int i=0; i<partitioningNumbers[currentFunction]; i++) {
+		for (unsigned int i=0; i<partitioningNumbers[currentFunction]; i++) {
 			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
 			std::string functionName = currentFunction + "_" + partitionNumber;
 			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);

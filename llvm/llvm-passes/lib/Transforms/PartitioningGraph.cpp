@@ -66,7 +66,7 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
         paramCount++;
 
 	int vertexNumber = 0;
-	int instrNumber = 0;
+	unsigned int instrNumber = 0;
 	bool isBlock = false;
 	bool isBlockCompleted = false;
 	bool isPtrAssignment = false;
@@ -142,14 +142,14 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	for (std::vector<Instruction*>::iterator instrIt = instructionList.begin(); instrIt != instructionList.end(); ++instrIt, ++index) {
 		// find the ComputationUnit that contains the target instruction
 		Graph::vertex_descriptor targetVertex = getVertexForInstruction(*instrIt);
-		if (targetVertex == (-1))
+		if (targetVertex == (unsigned)(-1))
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depIt = dependencies[index].dependencies.begin(); depIt != dependencies[index].dependencies.end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(depIt->depInstruction);
-			if (dependencyVertex == (-1))
+			if (dependencyVertex == (unsigned)(-1))
 				// the dependency instruction is not part of the Graph -> continue with the next instruction
 				continue;
 			if (targetVertex != dependencyVertex) {
@@ -371,7 +371,7 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &pa
 	cpGraph tmpGraph;
 
 	// copy vertices to new graph
-	for (int i=0; i<boost::num_vertices(pGraph); i++)
+	for (unsigned int i=0; i<boost::num_vertices(pGraph); i++)
 		boost::add_vertex(tmpGraph);
 
 	// create edges and set edge weight of new Graph:
@@ -401,7 +401,7 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &pa
 	// collect the used partitions 
 	if (true) {
 		std::set<unsigned int> partitions;
-		for (int i=0; i<boost::num_vertices(pGraph); i++)
+		for (unsigned int i=0; i<boost::num_vertices(pGraph); i++)
 			partitions.insert(pGraph[i].partition);
 		// create a schedule for each partition
 		for (std::set<unsigned int>::iterator it = partitions.begin(); it != partitions.end(); ++it) {
@@ -429,7 +429,7 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &pa
 
 	// init predecessors and distances
 	std::vector<cpGraph::vertex_descriptor> predecessors(vertexCount);
-	for (int i=0; i<vertexCount; i++)
+	for (unsigned int i=0; i<vertexCount; i++)
 		predecessors[i] = i;
 	std::vector<int> distances(vertexCount);
 	distances[0] = 0;

@@ -123,9 +123,9 @@ protected:
 
         // compare the analysis results with the expected result
         EXPECT_EQ(ExpectedResult.size(), AnalysisResult.size());
-        for (int i=0; i<std::min(AnalysisResult.size(), ExpectedResult.size()); i++) {
+        for (unsigned int i=0; i<std::min(AnalysisResult.size(), ExpectedResult.size()); i++) {
           EXPECT_EQ(ExpectedResult[i].size(), AnalysisResult[i].size());
-          for (int j=0; j<std::min(AnalysisResult[i].size(), ExpectedResult[i].size()); j++) {
+          for (unsigned int j=0; j<std::min(AnalysisResult[i].size(), ExpectedResult[i].size()); j++) {
             EXPECT_EQ(ExpectedResult[i][j], AnalysisResult[i][j]);
           }
         }
