@@ -105,6 +105,7 @@ TEST_F(SimpleCCodeGeneratorTest, FunctionCallWithReturnTest) {
   CheckResult(ExpectedResult);
 }
 
+
 TEST_F(SimpleCCodeGeneratorTest, FunctionCallWithoutReturnTest) {
   ParseC(
     "void func2(int, int);"
@@ -113,6 +114,19 @@ TEST_F(SimpleCCodeGeneratorTest, FunctionCallWithoutReturnTest) {
     "}");
   std::string ExpectedResult = 
     "\tfunc2(a, 2);\n";
+  CheckResult(ExpectedResult);
+}
+
+
+TEST_F(SimpleCCodeGeneratorTest, OrTest) {
+  ParseC(
+    "void test(int a, int b) {"
+    "  b = a | 2;"
+    "}");
+  std::string ExpectedResult =
+    "\tint t0;\n"
+    "\tt0 = a | 2;\n"
+    "\tb = t0;\n";
   CheckResult(ExpectedResult);
 }
 
