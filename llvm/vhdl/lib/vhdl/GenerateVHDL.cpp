@@ -630,3 +630,10 @@ void VHDLBackend::addIndexToVariable(Value *source, Value *target, std::string i
   ValueStorageP vs_source_with_index = vs_factory->getAtConstIndex(vs_source, index);
   vs_factory->set(target, vs_source_with_index);
 }
+
+void VHDLBackend::generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse) {
+  debug_print("generateSelect(" << tmpVar << ", " << condition << ", " << targetTrue << ", " << targetFalse << ")");
+  return_if_dry_run();
+
+  //TODO
+}

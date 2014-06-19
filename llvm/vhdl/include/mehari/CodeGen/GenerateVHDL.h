@@ -34,6 +34,7 @@ public:
   void generateVoidCall(std::string funcName, std::vector<Value*> args);
   void generateComparison(std::string tmpVar, Value *op1, Value *op2, FCmpInst::Predicate comparePredicate);
   void generateIntegerExtension(std::string tmpVar, Value *op);
+  void generateSelect(std::string tmpVar, Value *condition, Value *targetTrue, Value *targetFalse);
   void generatePhiNodeAssignment(std::string tmpVar, Value *op);
   void generateUnconditionalBranch(Instruction *target);
   void generateConditionalBranch(Value *condition, Instruction *targetTrue, Instruction *targetFalse);
