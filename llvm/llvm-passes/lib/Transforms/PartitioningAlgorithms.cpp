@@ -10,6 +10,9 @@
 
 
 
+AbstractPartitioningMethod::~AbstractPartitioningMethod() {}
+
+
 // -----------------------------------
 // Random Partitioning
 // -----------------------------------

@@ -51,6 +51,8 @@ private:
 
 class CodeGeneratorBackend {
 public:
+  virtual ~CodeGeneratorBackend();
+
   virtual void init(SimpleCCodeGenerator* generator, std::ostream& stream) =0;
 
   virtual void generateStore(Value *op1, Value *op2) =0;
@@ -89,6 +91,7 @@ class CCodeBackend : public CodeGeneratorBackend {
   SimpleCCodeGenerator* generator;
 public:
   CCodeBackend();
+  ~CCodeBackend();
 
   void init(SimpleCCodeGenerator* generator, std::ostream& stream);
 

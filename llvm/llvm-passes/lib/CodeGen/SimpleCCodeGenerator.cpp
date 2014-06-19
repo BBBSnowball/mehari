@@ -346,12 +346,16 @@ std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opStrin
 }
 
 
+CodeGeneratorBackend::~CodeGeneratorBackend() {}
+
 void CodeGeneratorBackend::generateEndOfMethod() { }
 
 
 CCodeBackend::CCodeBackend()
   : branchLabelNameGenerator("label"),
     tmpVarNameGenerator("t") { }
+
+CCodeBackend::~CCodeBackend() {}
 
 void CCodeBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;

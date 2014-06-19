@@ -11,6 +11,7 @@
 
 class AbstractPartitioningMethod {
 public:
+	virtual ~AbstractPartitioningMethod();
 	virtual unsigned int apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) = 0;
 };
 
