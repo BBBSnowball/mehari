@@ -173,3 +173,40 @@ TEST_F(SimpleCCodeGeneratorTest, TernaryOperatorTest) {
     "\tc = t1;\n";
   CheckResult(ExpectedResult);
 }
+
+
+TEST_F(SimpleCCodeGeneratorTest, SelectOperationTest) {
+  ParseC(
+    "#define SGN(x) (x >= 0.0 ? 1.0 : (x == 0.0 ? 0.0 : -1.0))\n"
+    "double test(double a) {"
+    "  return SGN(a);"
+    "}");
+  CheckResult(
+    "\tdouble t1, t3;\n"
+    "\tint t0, t2;\n"
+    "\tt0 = (a >= 0);\n"
+    "\tif (t0) goto label1; else goto label0;\n"
+    "label1:\n"
+    "\tt1 = 1;\n"
+    "\tgoto label2;\n"
+    "label0:\n"
+    "\tt2 = (a == 0);\n"
+    "\tt3 = t2? 0 : -1;\n"
+    "\tt1 = t3;\n"
+    "\tgoto label3;\n"
+    "label2:\n"
+    "label3:\n"
+    "\treturn t1;\n");
+}
+
+
+TEST_F(SimpleCCodeGeneratorTest, IntegerExtensionTest) {
+  ParseC(
+    "unsigned int test(unsigned short a) {"
+    "  return a;"
+    "}");
+  CheckResult(
+    "\tint t0;\n"
+    "\tt0 = (int)a;\n"
+    "\treturn t0;\n");
+}
