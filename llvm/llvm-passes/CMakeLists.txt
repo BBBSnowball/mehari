@@ -136,3 +136,15 @@ add_dependencies(MehariUnittests libmeharipasses)
 install(TARGETS MehariUnittests
   RUNTIME DESTINATION unittests
 )
+
+# create symlink to clang
+add_custom_command(TARGET MehariUnittests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+      "${CMAKE_BINARY_DIR}/../llvm/bin/clang"
+      "${CMAKE_BINARY_DIR}/clang"
+)
+
+# run tests
+add_custom_target(test
+  ./MehariUnittests
+  DEPENDS MehariUnittests)
