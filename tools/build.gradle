@@ -181,6 +181,58 @@ task installGMock {
 	dependsOn installGMockHeaders, installGMockLibs, installGTest
 }
 
+task preparePivpav(type: Exec) {
+	ext.sourceDir = rootPath("pivpav", "api", "wrapper")
+
+	commandLine "cmake", "-DCMAKE_BUILD_TYPE=Debug",
+		"-DCMAKE_INSTALL_PREFIX=${file("_install")}",
+		sourceDir
+	workingDir rootPath("pivpav", "api", "wrapper", "build")
+
+	doFirst { workingDir.mkdirs() }
+
+	outputs.file rootPath("pivpav", "api", "wrapper", "build", "Makefile")
+}
+
+task compilePivpav(type: Exec) {
+	commandLine "make"
+	workingDir preparePivpav.workingDir
+
+	inputs.files fileTree(preparePivpav.sourceDir) {
+		include "**/*.cpp", "**/*.h", "CMakeLists.txt"
+	}
+	outputs.files path(workingDir, "libpivpav.so"),
+		path(workingDir, "libwrapper.so"),
+		path(workingDir, "libwrapper_static.a")
+
+	dependsOn preparePivpav
+}
+
+task installPivPavLibraries(type: Copy) {
+    from(compilePivpav.workingDir) {
+        include '*.so'
+        include '*.a'
+    }
+	into(rootPath("_install", "lib"))
+
+	dependsOn compilePivpav
+}
+
+task installPivPavHeaders(type: Copy) {
+    from(rootPath("pivpav", "api", "include")) {
+        include '*.h'
+        include '*.hpp'
+    }
+	into(rootPath("_install", "include", "pivpav"))
+
+	dependsOn compilePivpav
+}
+
+task installPivPav {
+	dependsOn installPivPavHeaders, installPivPavLibraries
+}
+
+
 def subproject_names = ["vhdlgen"]
 
 ["compile", "install", "test"].each { name ->
