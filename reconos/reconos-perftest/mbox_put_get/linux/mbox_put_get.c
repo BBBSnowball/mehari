@@ -80,7 +80,7 @@ void *software_thread(void* data)
         if (ret == THREAD_EXIT)
             pthread_exit((void*)0);
 
-        unsigned count = ret & opArgMask;
+        unsigned count = (ret & opArgMask)+1;
 
         switch(ret & opCodeMask)
         {
@@ -89,30 +89,26 @@ void *software_thread(void* data)
             break;
 
             case opMboxPut:
-                while (count > 0) {
+                for (;count > 0; count--) {
                     mbox_put(mb_test, count);
-                    count--;
                 }
             break;
 
             case opMboxGet:
-                while (count > 0) {
+                for (;count > 0; count--) {
                     mbox_get(mb_test);
-                    count--;
                 }
             break;
 
             case opSemPost:
-                while (count > 0) {
+                for (;count > 0; count--) {
                     sem_post(sem_test);
-                    count--;
                 }
             break;
 
             case opSemWait:
-                while (count > 0) {
+                for (;count > 0; count--) {
                     sem_wait(sem_test);
-                    count--;
                 }
             break;
         }
@@ -385,7 +381,7 @@ int main(int argc, char ** argv)
         {
             if (verbose_progress) { printf(" %i",i); fflush(stdout); }
 
-            unsigned count = iterations_in_thread-1;
+            unsigned count = iterations_in_thread;
 
             switch(operation)
             {
@@ -394,30 +390,26 @@ int main(int argc, char ** argv)
                 break;
 
                 case opMboxPut:
-                    while (count > 0) {
+                    for (; count > 0; count--) {
                         mbox_get(&mb_test);
-                        count--;
                     }
                 break;
 
                 case opMboxGet:
-                    while (count > 0) {
+                    for (; count > 0; count--) {
                         mbox_put(&mb_test, count);
-                        count--;
                     }
                 break;
 
                 case opSemPost:
-                    while (count > 0) {
+                    for (; count > 0; count--) {
                         sem_wait(&sem_test);
-                        count--;
                     }
                 break;
 
                 case opSemWait:
-                    while (count > 0) {
+                    for (; count > 0; count--) {
                         sem_post(&sem_test);
-                        count--;
                     }
                 break;
             }
