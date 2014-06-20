@@ -7,7 +7,7 @@ ext {
 
 	LLVM_PASSES = file("$projectDir/llvm-passes")
 	LLVM_PASSES_INSTALL = file("$INSTALL_DIR/llvm-passes")
-	LLVM_PASSES_LIB_DIR = file("$LLVM_PASSES_INSTALL/lib")
+	LLVM_PASSES_LIB_DIR = file("$BUILD_DIR/llvm-passes")
 	LLVM_PASSES_LIB = file("$LLVM_PASSES_LIB_DIR/libmeharipasses.so")
 	LLVM_SOURCE = file("$projectDir/_llvm")
 	LLVM_BIN = file("$INSTALL_DIR/llvm/bin")
@@ -214,7 +214,6 @@ task installLLVMPasses(type: Exec) {
 
 	workingDir build_dir
 	commandLine "bash", "-c", "gmake -j$parallel_processes install"
-
 }
 
 

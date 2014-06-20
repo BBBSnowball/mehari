@@ -57,7 +57,7 @@ add_custom_target(MehariCustomLLVMPasses)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # set external dependencies for custom LLVM passes
-set(PASSES_REQUIRED_LIBS ctemplate)
+set(PASSES_REQUIRED_LIBS pivpav ctemplate)
 
 # set source files for all custom LLVM passes
 set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
@@ -90,7 +90,6 @@ add_llvm_loadable_module(libmeharipasses
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES}
   ${MEHARI_UTILS_SOURCES}
-  ${MEHARI_UNITTEST_HELPERS_SOURCES}
   ${MEHARI_VHDL_SOURCES}
   )
 target_link_libraries(libmeharipasses ${PASSES_REQUIRED_LIBS})
@@ -127,10 +126,11 @@ set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
 # build unittest
 add_custom_target(MehariUnitTests)
 add_unittest(MehariUnitTests MehariUnittests
+  ${MEHARI_UNITTEST_HELPERS_SOURCES}
   ${MEHARI_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariUnittests meharipasses pivpav ctemplate ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariUnittests meharipasses ${PASSES_REQUIRED_LIBS} ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
 add_dependencies(MehariUnittests libmeharipasses)
