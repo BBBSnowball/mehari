@@ -308,6 +308,9 @@ void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTem
 			itCount++;
 		}
 		T = decreaseTemperature(T);
+		if (costFunction(S) - costFunction(Sbest) < 0)
+			// the current result has lower cost then the best result known so far -> replace best result
+			Sbest = S;
 	}
 	state = Sbest;
 }
