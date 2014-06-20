@@ -226,7 +226,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 		Instruction *tgtinstr = depEntry.tgtInstruction;
 		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
 		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtinstr);
-		if (instrVertex == (unsigned)(-1))
+		if (instrVertex == NO_SUCH_VERTEX)
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
@@ -234,7 +234,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
-			if (depVertex == (unsigned)(-1))
+			if (depVertex == NO_SUCH_VERTEX)
 				// the dependency is not part of the Graph -> continue with the next instruction
 				continue;
 			if (pGraph.getPartition(instrVertex) != pGraph.getPartition(depVertex)) {				
