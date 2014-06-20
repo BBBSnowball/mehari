@@ -4,6 +4,8 @@
 #include <map>
 #include <string>
 
+#include "llvm/IR/Instructions.h"
+
 
 class InstructionInformation {
 public:
@@ -45,8 +47,10 @@ public:
 	DeviceInformation(std::string deviceName);
 	~DeviceInformation();
 
+	std::string getName(void);
+
 	void addInstructionInfo(std::string opcodeName, unsigned int cycles);
-	InstructionInformation *getInstructionInfo(std::string opcodeName);
+	InstructionInformation *getInstructionInfo(llvm::Instruction *instr);
 
 	void addCommunicationInfo(std::string target, CommunicationType type, unsigned int cost);
 	CommunicationInformation *getCommunicationInfo(std::string target);
@@ -55,6 +59,9 @@ private:
 	std::string name;
 	std::map<std::string, InstructionInformation*> *instrInfoMap;
 	std::map<std::string, CommunicationInformation*> *comInfoMap;
+
+	std::string getOpcodeName(llvm::Instruction *instr);
+	InstructionInformation *getInstructionInfo(std::string opcodeName);
 };
 
 

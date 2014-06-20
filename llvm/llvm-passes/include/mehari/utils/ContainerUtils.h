@@ -2,6 +2,7 @@
 #define CONTAINER_UTILS_H
 
 #include <map>
+#include <set>
 #include <iterator>
 
 template<typename KEY, typename VALUE>
@@ -18,6 +19,11 @@ inline static const VALUE& getValueOrDefault(
     return found->second;
   else
     return default_value;
+}
+
+template<typename KEY, typename VALUE>
+inline static const VALUE& getValueOrDefault(const std::map<KEY, VALUE>& map, const KEY& key) {
+  return getValueOrDefault(map, key, (VALUE)0);
 }
 
 template<typename KEY, typename VALUE>

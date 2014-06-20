@@ -323,7 +323,7 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::strin
 	unsigned int texe = 0;
 	std::vector<Instruction*> instrList = getInstructions(vd);
 	for (std::vector<Instruction*>::iterator it = instrList.begin(); it != instrList.end(); ++it) {
-		InstructionInformation *instrInfo = devInfo->getInstructionInfo((*it)->getOpcodeName());
+		InstructionInformation *instrInfo = devInfo->getInstructionInfo(*it);
 		instrInfo != NULL ? texe += instrInfo->getCycleCount() : texe += 1;		
 	}
 	return texe;

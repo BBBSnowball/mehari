@@ -160,7 +160,7 @@ void SpeedupAnalysis::printGraphviz(std::string &name) {
 unsigned int SpeedupAnalysis::getInstructionCost(Instruction *instruction) {
   HardwareInformation hwInfo;
   DeviceInformation *devInfo = hwInfo.getDeviceInfo("Cortex-A9");
-  InstructionInformation *instrInfo = devInfo->getInstructionInfo(instruction->getOpcodeName());
+  InstructionInformation *instrInfo = devInfo->getInstructionInfo(instruction);
   if (instrInfo == NULL) {
     errs() << "WARNING: unhandled instruction (" << instruction->getOpcode() << " / " << instruction->getOpcodeName() << ")\n";
     return 1;
