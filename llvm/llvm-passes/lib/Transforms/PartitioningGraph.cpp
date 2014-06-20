@@ -206,6 +206,16 @@ unsigned int PartitioningGraph::getVertexCount(void) {
 }
 
 
+unsigned int PartitioningGraph::getVertexCountForPartition(unsigned int i) {
+	unsigned int count = 0;
+	Graph::vertex_iterator vertexIt, vertexEnd;
+	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt)
+		if (pGraph[*vertexIt].partition == i)
+			count++;
+	return count;
+}
+
+
 PartitioningGraph::VertexDescriptor PartitioningGraph::getRandomVertex(void) {
 	boost::mt19937 gen(time(0));
 	return boost::random_vertex(pGraph, gen);

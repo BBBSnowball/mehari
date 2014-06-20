@@ -58,6 +58,7 @@ public:
 	typedef Graph::edge_descriptor EdgeDescriptor;
 
 	unsigned int getVertexCount(void);
+	unsigned int getVertexCountForPartition(unsigned int i);
 
 	VertexDescriptor getRandomVertex(void);
 
