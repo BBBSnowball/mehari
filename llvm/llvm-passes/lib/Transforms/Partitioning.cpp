@@ -24,9 +24,9 @@
 static cl::opt<std::string> TargetFunctions("partitioning-functions", 
             cl::desc("Specify the functions the partitioning will be applyed on (seperated by whitespace)"), 
             cl::value_desc("target-functions"));
-static cl::opt<std::string> PartitioningMethod("partitioning-method", 
-            cl::desc("Specify the name of the partitioning method"), 
-            cl::value_desc("partitioning-count"));
+static cl::opt<std::string> PartitioningMethods("partitioning-methods", 
+            cl::desc("Specify the name of the partitioning methods"), 
+            cl::value_desc("partitioning-methods"));
 static cl::opt<std::string> PartitionDevices("partitioning-devices", 
             cl::desc("Specify the devices to execute the partitions"), 
             cl::value_desc("partitioning-devices"));
@@ -45,6 +45,7 @@ Partitioning::Partitioning() : ModulePass(ID) {
 	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 	// read command line arguments
 	parseTargetFunctions();
+	parsePartitioningMethods();
 	parsePartitioningDevices();
 	// init dependency number to count them over all partitioned functions
 	depNumber = 0;
@@ -110,26 +111,40 @@ bool Partitioning::runOnModule(Module &M) {
 		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
-		AbstractPartitioningMethod *PM;
-		if (PartitioningMethod == "random") 
-			PM = new RandomPartitioning();
-		else if (PartitioningMethod == "clustering") 
-			PM = new HierarchicalClustering();
-		else if (PartitioningMethod == "sa")
-			PM = new SimulatedAnnealing();
-		else if (PartitioningMethod == "k-lin")
-			PM = new KernighanLin();
-		else
-			throw std::runtime_error("Invalid partitioning method!");
+		for (std::vector<std::string>::iterator it = partitioningMethods.begin(); it != partitioningMethods.end(); ++it) {
+			std::string pMethod = *it;
+			// if the first algorithm that should be executed is an iterative algorithm that needs a starting point,
+			// create an random partitioning before
+			if ((it-partitioningMethods.begin() == 0) && (pMethod == "sa" || pMethod == "k-lin")) {
+				RandomPartitioning rPM;
+				if (pMethod == "k-lin")
+					rPM.balancedBiPartitioning(*pGraph);
+				else
+					rPM.apply(*pGraph, partitioningDevices);
+			}
 
-		clock_t start = std::clock();
-		partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
-		clock_t ends = std::clock();
-		delete PM;
+			AbstractPartitioningMethod *PM;
+			
+			if (pMethod == "random")
+				PM = new RandomPartitioning();
+			else if (pMethod == "clustering")
+				PM = new HierarchicalClustering();
+			else if (pMethod == "sa")
+				PM = new SimulatedAnnealing();
+			else if (pMethod == "k-lin")
+				PM = new KernighanLin();
+			else
+				throw std::runtime_error("Invalid partitioning method!");
 
-		double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
-		errs() << "Runtime for partitioning " << functionName << " using " << PartitioningMethod << ": " 
-			<< format("%4.4f", runtime) << " ms\n";
+			clock_t start = std::clock();
+			partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
+			clock_t ends = std::clock();
+			delete PM;
+
+			double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
+			errs() << "Runtime for partitioning " << functionName << " using " << pMethod << ": " 
+				<< format("%4.4f", runtime) << " ms\n";
+		}
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
@@ -158,6 +173,11 @@ void Partitioning::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void Partitioning::parseTargetFunctions(void) {
   boost::algorithm::split(targetFunctions, TargetFunctions, boost::algorithm::is_any_of(" "));
+}
+
+
+void Partitioning::parsePartitioningMethods(void) {
+  boost::algorithm::split(partitioningMethods, PartitioningMethods, boost::algorithm::is_any_of("+"));
 }
 
 

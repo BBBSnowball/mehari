@@ -34,17 +34,17 @@ ext {
 	// - evalS
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
 
-	// valid partitioning methods: 
+	// valid partitioning methods (sperated by '+'):
 	// - random 	(random partitioning)
 	// - clustering (hierarchical clustering)
 	// - sa 		(simulated annealing)
 	// - k-lin 		(kernighan-lin)
-	PARTITIONING_METHOD = "k-lin"
+	PARTITIONING_METHODS = "sa+k-lin"
 
 	// valid devices (sepearted by whitespace): 
 	// - Cortex-A9 	(ARMv7 core + FPU; one core for each entry!)
-	// - xc7z010-1 	(FPGA on Xilinx Zynq-7000: Z-7010)
-	PARTITIONING_DEVICES = "Cortex-A9 Cortex-A9"
+	// - xc7z020-1 	(FPGA on Xilinx Zynq-7000: Z-7010)
+	PARTITIONING_DEVICES = "Cortex-A9 xc7z020-1"
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
 	MEHARI_SOURCES = file("$projectDir/examples/mehari")
@@ -53,7 +53,7 @@ ext {
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
 	PARTITIONING_RESULTS_DIR = file("$OUTPUT_DIR/partitioning")
 
-	PARTITIONING_TARGET_NAME = "$EXAMPLE_NAME"+"_partitioned_"+"$PARTITIONING_METHOD"
+	PARTITIONING_TARGET_NAME = "$EXAMPLE_NAME"+"_partitioned_"+"$PARTITIONING_METHODS"
 	PARTITIONING_TARGET_FILE = file("$PARTITIONING_RESULTS_DIR/$PARTITIONING_TARGET_NAME"+".c")
 
 	PRIVATE_BUILD_DIR = file("$projectDir/../private/build")
@@ -352,7 +352,7 @@ task applyPartitioning(type: Exec) {
 	"-load $LLVM_PASSES_LIB " +
 	"-partitioning " +
 	"-template-dir \"$TEMPLATE_DIR\" " +
-	"-partitioning-method \"$PARTITIONING_METHOD\" " +
+	"-partitioning-methods \"$PARTITIONING_METHODS\" " +
 	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
 	"-partitioning-devices \"$PARTITIONING_DEVICES\" " +
 	"-partitioning-output-dir \"$PARTITIONING_RESULTS_DIR\" " +

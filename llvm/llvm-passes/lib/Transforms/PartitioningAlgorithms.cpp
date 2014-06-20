@@ -281,10 +281,6 @@ unsigned int SimulatedAnnealing::apply(PartitioningGraph &pGraph, std::vector<st
 	tempAcceptenceMultiplicator = 3.0;
 	tempDecreasingFactor = 0.95;
 
-	// create initial state
-	RandomPartitioning P;
-	P.apply(pGraph, targetDevices);
-
 	// run simulated annealing algorithm
 	simulatedAnnealing(pGraph, Tinit);
 
@@ -312,6 +308,9 @@ void SimulatedAnnealing::simulatedAnnealing(State &state, Temperature initialTem
 			itCount++;
 		}
 		T = decreaseTemperature(T);
+		if (costFunction(S) - costFunction(Sbest) < 0)
+			// the current result has lower cost then the best result known so far -> replace best result
+			Sbest = S;
 	}
 	state = Sbest;
 }
@@ -381,23 +380,24 @@ unsigned int KernighanLin::apply(PartitioningGraph &pGraph, std::vector<std::str
 	unsigned int partitionCount = targetDevices.size();
 
 	// NOTE: currently this algorithm is only implemented for bi-partitioning
-	// -> return a random partitioning if the partition count is not 2
 	if (partitionCount != 2) {
 		errs() << "WARNING: Kernighan Lin currently only can handle bi-partitioning tasks!\n";
-		RandomPartitioning P;
-		P.apply(pGraph, targetDevices);
 		return partitionCount;
 	}
 
-	// create balanced initial state
 	PartitioningGraph currentResult = pGraph;
-	RandomPartitioning P;
-	P.balancedBiPartitioning(currentResult);
+
+	// create balanced initial state
+	// RandomPartitioning P;
+	// P.balancedBiPartitioning(currentResult);
 
 	// perform iteration until there is no improvement
 	bool improved = false;
 	do {
-		unsigned int iterationCount = (currentResult.getVertexCount()/2);
+		// set iteration count to minimum of the number of vertices in one of the two partitions
+		unsigned int iterationCount = std::min(currentResult.getVertexCountForPartition(0), 
+			currentResult.getVertexCountForPartition(1));
+
 		// create the additional information mapping for all vertices of the partitioning graph
 		additionalVertexInformation.clear();
 		for (unsigned int i=0; i<currentResult.getVertexCount(); i++) {

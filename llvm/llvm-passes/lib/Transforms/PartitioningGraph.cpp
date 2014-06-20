@@ -206,6 +206,16 @@ unsigned int PartitioningGraph::getVertexCount(void) {
 }
 
 
+unsigned int PartitioningGraph::getVertexCountForPartition(unsigned int i) {
+	unsigned int count = 0;
+	Graph::vertex_iterator vertexIt, vertexEnd;
+	for (boost::tie(vertexIt, vertexEnd) = boost::vertices(pGraph); vertexIt != vertexEnd; ++vertexIt)
+		if (pGraph[*vertexIt].partition == i)
+			count++;
+	return count;
+}
+
+
 PartitioningGraph::VertexDescriptor PartitioningGraph::getRandomVertex(void) {
 	boost::mt19937 gen(time(0));
 	return boost::random_vertex(pGraph, gen);
@@ -323,7 +333,7 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::strin
 	unsigned int texe = 0;
 	std::vector<Instruction*> instrList = getInstructions(vd);
 	for (std::vector<Instruction*>::iterator it = instrList.begin(); it != instrList.end(); ++it) {
-		InstructionInformation *instrInfo = devInfo->getInstructionInfo((*it)->getOpcodeName());
+		InstructionInformation *instrInfo = devInfo->getInstructionInfo(*it);
 		instrInfo != NULL ? texe += instrInfo->getCycleCount() : texe += 1;		
 	}
 	return texe;

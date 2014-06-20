@@ -1,6 +1,11 @@
 #include "mehari/HardwareInformation.h"
+#include "mehari/utils/ContainerUtils.h"
 
-#include "boost/assign.hpp"
+#include "llvm/IR/Function.h"
+
+#include <cstddef>
+
+#include <boost/assign.hpp>
 
 
 namespace {
@@ -34,7 +39,7 @@ namespace {
 HardwareInformation::HardwareInformation() {
 	devices = new std::map<std::string, DeviceInformation*>();
 
-	// add timinigs for the Cortex-A9
+	// add timinigs for the ARM Cortex-A9 @ 800MHz
 	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9");
 	cortexA9->addInstructionInfo("ret",    0);
 	cortexA9->addInstructionInfo("br",     0);
@@ -42,7 +47,7 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("fsub",   4);
 	cortexA9->addInstructionInfo("fmul",   6);
 	cortexA9->addInstructionInfo("fdiv",  25);
-	cortexA9->addInstructionInfo("or",     0);
+	cortexA9->addInstructionInfo("or",     2);
 	cortexA9->addInstructionInfo("alloca", 0);
 	cortexA9->addInstructionInfo("load",   4);
 	cortexA9->addInstructionInfo("store",  6);
@@ -54,16 +59,46 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("phi",    0);
 	cortexA9->addInstructionInfo("call",  50); // NOTE: approximation
 
-	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency, 1400);
-	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency,  10);
+	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency,  1400);
+	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 1380);
+	cortexA9->addCommunicationInfo("xc7z020-1", DataDependency,  1400);
+	cortexA9->addCommunicationInfo("xc7z020-1", OrderDependency, 1380);
 
-	// TODO: add communication costs ARM->FPGA
-
-	std::string deviceName = "Cortex-A9";
-	devices->insert(std::pair<std::string, DeviceInformation*>(deviceName, cortexA9));
+	devices->insert(std::pair<std::string, DeviceInformation*>(cortexA9->getName(), cortexA9));
 
 
-	// TODO: add timinigs for the FPGA
+	// the FPGA runs @  100MHz instead of 800MHz, so we need to corrent 
+	// the timinigs for a comparison with the ARM processor
+	unsigned int fpgaClockMultiplier = 8;
+
+	// add timinigs for the FPGA
+	DeviceInformation *fpga = new DeviceInformation("xc7z020-1");
+	fpga->addInstructionInfo("ret",           fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("br",            fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("fadd",          fpgaClockMultiplier * 13);
+	fpga->addInstructionInfo("fsub",          fpgaClockMultiplier * 13);
+	fpga->addInstructionInfo("fmul",          fpgaClockMultiplier * 10);
+	fpga->addInstructionInfo("fdiv",          fpgaClockMultiplier * 58);
+	fpga->addInstructionInfo("or",            fpgaClockMultiplier * 1);
+	fpga->addInstructionInfo("alloca",        fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("load",          fpgaClockMultiplier * 40);
+	fpga->addInstructionInfo("store",         fpgaClockMultiplier * 40);
+	fpga->addInstructionInfo("getelementptr", fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("zext",          fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("icmp",          fpgaClockMultiplier * 1);
+	fpga->addInstructionInfo("fcmp",          fpgaClockMultiplier * 3);
+	fpga->addInstructionInfo("select",        fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("phi",           fpgaClockMultiplier * 0);
+	fpga->addInstructionInfo("call",          fpgaClockMultiplier * (1<<20)); 
+	fpga->addInstructionInfo("call#sin",      fpgaClockMultiplier * (7+54+8));
+	fpga->addInstructionInfo("call#cos",      fpgaClockMultiplier * (7+54+8));
+
+	fpga->addCommunicationInfo("Cortex-A9", DataDependency,  1400);
+	fpga->addCommunicationInfo("Cortex-A9", OrderDependency, 1380);
+	fpga->addCommunicationInfo("xc7z020-1", DataDependency,  1400);
+	fpga->addCommunicationInfo("xc7z020-1", OrderDependency, 1380);
+
+	devices->insert(std::pair<std::string, DeviceInformation*>(fpga->getName(), fpga));
 
 
 	// calculate the device independent communication costs 
@@ -125,14 +160,43 @@ DeviceInformation::~DeviceInformation() {
 }
 
 
+std::string DeviceInformation::getName(void) {
+	return name;
+}
+
+
 void DeviceInformation::addInstructionInfo(std::string opcodeName, unsigned int cycles) {
 	instrInfoMap->insert(std::pair<std::string, InstructionInformation*>(
 		opcodeName, new InstructionInformation(opcodeName, cycles)));
 }
 
 
+InstructionInformation *DeviceInformation::getInstructionInfo(llvm::Instruction *instr) {
+	return getInstructionInfo(getOpcodeName(instr));
+}
+
+
+std::string DeviceInformation::getOpcodeName(llvm::Instruction *instr) {
+	if (llvm::CallInst *cInstr = llvm::dyn_cast<llvm::CallInst>(instr))
+		return "call#" + cInstr->getCalledFunction()->getName().str();
+	else
+		return instr->getOpcodeName();
+}
+
+
 InstructionInformation *DeviceInformation::getInstructionInfo(std::string opcodeName) {
-	return (*instrInfoMap)[opcodeName];
+	size_t pos;
+	if (InstructionInformation *ii = getValueOrDefault(*instrInfoMap, opcodeName))
+		return ii;
+	else if ((pos = opcodeName.find('#')) != std::string::npos) {
+		std::string opcodePrefix = opcodeName.substr(0, pos);
+		assert(contains(*instrInfoMap, opcodePrefix));
+		return (*instrInfoMap)[opcodePrefix];
+	} 
+	else {
+		assert(false);
+		return NULL;
+	}
 }
 
 
