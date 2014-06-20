@@ -110,10 +110,10 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
     is_floating_point = true;
     break;
   case Instruction::Or:
-    name = "or_";
+    name = "bit_or";
     break;
   case Instruction::And:
-    name = "and_";
+    name = "bit_and";
     break;
   default:
     assert(false);

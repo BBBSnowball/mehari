@@ -250,6 +250,37 @@ TEST_F(SimpleVHDLGeneratorTest, UseParameterMoreThanOnce) {
 }
 
 
+TEST_F(SimpleVHDLGeneratorTest, OrTest) {
+  ParseC(
+    "void test(int a, int b) {"
+    "  b = a | 6;"
+    "}");
+  CheckResultFromFile();
+
+
+  TestOperator* test = makeTestOperator();
+
+  test->beginStimulusProcess();
+
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 32+4+1);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "39");
+
+  test->reset();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setUnsignedIntegerInput("a_in", 2);
+  test->endDataInput();
+  test->waitForAndCheckUnsignedIntegerResult("b_out", "6");
+
+  test->endStimulusProcess();
+
+  saveTestOperator();
+}
+
+
 TEST_F(SimpleVHDLGeneratorTest, SingleIfTest) {
   ParseC(
     "void test(int a, int b) {"
