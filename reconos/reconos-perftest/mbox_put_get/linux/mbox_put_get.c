@@ -158,6 +158,19 @@ TargetOperation parseOperation(const char *operation)
 }
 
 
+void debug_print_semaphore(const char *label, sem_t *sem)
+{
+    printf("%s: ", label);
+    int sval;
+    if (sem_getvalue(sem, &sval) == 0)
+        printf("%d\n", sval);
+    else
+        printf("ERROR\n");
+}
+
+
+static int debug_semaphores = 0;
+static int delta_iterations = 0;
 static int only_print_help = 0;
 static int without_reconos = 0, dont_flush = 0;
 static int verbose_progress = 0;
@@ -188,6 +201,8 @@ int main(int argc, char ** argv)
         { "iterations-in-thread",   required_argument, 0, 'm' },
         { "operation",              required_argument, 0, 'o' },
         { "mbox-size",              required_argument, 0, 's' },
+        { "delta-iterations",       required_argument, 0, 'D' },
+        { "debug-semaphores",       no_argument, &debug_semaphores, 1 },
         {0, 0, 0, 0}
     };
 
@@ -196,7 +211,7 @@ int main(int argc, char ** argv)
     {
         int c;
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:m:o:s:h?", long_options, &option_index);
+        c = getopt_long (argc, argv, "n:m:o:s:D:dh?", long_options, &option_index);
 
         if (c == -1)
             // end of options
@@ -218,6 +233,12 @@ int main(int argc, char ** argv)
             break;
         case 's':
             mbox_size = atoi(optarg);
+            break;
+        case 'd':
+            debug_semaphores = 1;
+            break;
+        case 'D':
+            delta_iterations = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -309,7 +330,7 @@ int main(int argc, char ** argv)
     for (i = 0; i < hw_threads; i++)
     {
       printf(" %i",i);fflush(stdout);
-      reconos_hwt_setresources(&(hwt[i]),res,2);
+      reconos_hwt_setresources(&(hwt[i]), res, resNumbersCount);
       reconos_hwt_create(&(hwt[i]),i,NULL);
     }
     printf("\n");
@@ -346,9 +367,18 @@ int main(int argc, char ** argv)
         {
             if (verbose_progress) { printf(" %i",i); fflush(stdout); }
 
-            mbox_put(&mb_start, OP_WITH_ARG(operation, iterations_in_thread-1));
+            mbox_put(&mb_start, OP_WITH_ARG(operation, iterations_in_thread-1+delta_iterations));
         }
         if (verbose_progress) printf("\n");
+
+
+        if (debug_semaphores) 
+        {
+            debug_print_semaphore("before: mb_test.sem_read", &mb_test.sem_read);
+            debug_print_semaphore("before: mb_test.sem_write", &mb_test.sem_write);
+            debug_print_semaphore("before: sem_test", &sem_test);
+        }
+
 
         if (verbose_progress) { printf("Perform operation: "); fflush(stdout); }
         for (i=0; i<simulation_steps; i++)
@@ -393,6 +423,13 @@ int main(int argc, char ** argv)
             }
         }
         if (verbose_progress) printf("\n");
+
+        if (debug_semaphores) 
+        {
+            debug_print_semaphore("after: mb_test.sem_read", &mb_test.sem_read);
+            debug_print_semaphore("after: mb_test.sem_write", &mb_test.sem_write);
+            debug_print_semaphore("after: sem_test", &sem_test);
+        }
 
         // Wait for results
         if (verbose_progress) {
