@@ -72,6 +72,7 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 	bool isPtrAssignment = false;
 	initVertex = boost::add_vertex(pGraph);
 	pGraph[initVertex].name = "init";
+	pGraph[initVertex].partition = -1;
 	std::vector<Instruction*> currentInstrutions;
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
@@ -115,6 +116,7 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 					ss << vertexNumber++;
 					pGraph[newVertex].name = ss.str();
 					pGraph[newVertex].instructions = currentInstrutions;
+					pGraph[newVertex].partition = 0;
 					addInstructionsToList(currentInstrutions);
 					currentInstrutions.clear();
 					isBlock = false;
