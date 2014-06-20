@@ -72,6 +72,7 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 	bool isPtrAssignment = false;
 	initVertex = boost::add_vertex(pGraph);
 	pGraph[initVertex].name = "init";
+	pGraph[initVertex].partition = -1;
 	std::vector<Instruction*> currentInstrutions;
 	for (std::vector<Instruction*>::iterator instrIt = instructions.begin(); instrIt != instructions.end(); ++instrIt) {
 		Instruction *instr = dyn_cast<Instruction>(*instrIt);
@@ -115,6 +116,7 @@ void PartitioningGraph::createVertices(std::vector<Instruction*> &instructions) 
 					ss << vertexNumber++;
 					pGraph[newVertex].name = ss.str();
 					pGraph[newVertex].instructions = currentInstrutions;
+					pGraph[newVertex].partition = 0;
 					addInstructionsToList(currentInstrutions);
 					currentInstrutions.clear();
 					isBlock = false;
@@ -142,14 +144,14 @@ void PartitioningGraph::addEdges(InstructionDependencyList &dependencies) {
 	for (std::vector<Instruction*>::iterator instrIt = instructionList.begin(); instrIt != instructionList.end(); ++instrIt, ++index) {
 		// find the ComputationUnit that contains the target instruction
 		Graph::vertex_descriptor targetVertex = getVertexForInstruction(*instrIt);
-		if (targetVertex == (unsigned)(-1))
+		if (targetVertex == NO_SUCH_VERTEX)
 			// the target instruction is not part of the Graph -> continue with the next instruction
 			continue;
 		for (std::vector<InstructionDependency>::iterator depIt = dependencies[index].dependencies.begin(); depIt != dependencies[index].dependencies.end(); ++depIt) {
 			// find the ComputationUnit that contains the dependency 
 			// if this ComputationUnit is not the one the target instruction is located in, create an edge between the two ComputationUnits
 			Graph::vertex_descriptor dependencyVertex = getVertexForInstruction(depIt->depInstruction);
-			if (dependencyVertex == (unsigned)(-1))
+			if (dependencyVertex == NO_SUCH_VERTEX)
 				// the dependency instruction is not part of the Graph -> continue with the next instruction
 				continue;
 			if (targetVertex != dependencyVertex) {
@@ -176,7 +178,7 @@ PartitioningGraph::VertexDescriptor PartitioningGraph::getVertexForInstruction(I
 		if (std::find(instrList.begin(), instrList.end(), instruction) != instrList.end())
 			return *vertexIt;
 	}
-	return (-1);
+	return NO_SUCH_VERTEX;
 }
 
 

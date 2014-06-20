@@ -15,6 +15,10 @@
 
 using namespace llvm;
 
+
+const unsigned int NO_SUCH_VERTEX = (unsigned)(-1);
+
+
 class PartitioningGraph {
 
 public:

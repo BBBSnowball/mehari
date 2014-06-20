@@ -45,7 +45,7 @@ avg() {
 }
 
 PREFIX="mbox_put_get_"
-ITERATIONS=10000
+ITERATIONS=1000000
 
 rm ${PREFIX}*.perf.txt
 
