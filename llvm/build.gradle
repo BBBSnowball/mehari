@@ -393,9 +393,12 @@ task createResults() {
 task runOptimizationPassesUnittests(type: Exec) {
 	dependsOn installLLVMPasses
 
-	environment "LD_LIBRARY_PATH", LLVM_PASSES_LIB_DIR
+	// environment "LD_LIBRARY_PATH", LLVM_PASSES_LIB_DIR
+	// workingDir file("$LLVM_PASSES_INSTALL/unittests")
 
-	workingDir file("$LLVM_PASSES_INSTALL/unittests")
+	def build_dir = file("$BUILD_DIR/llvm-passes")
+	workingDir build_dir
+
 	commandLine "./MehariUnittests"
 }
 

@@ -142,9 +142,9 @@ target_link_libraries(MehariUnittests libmehariunittesthelpers meharipasses ${TE
 add_dependencies(MehariUnittests libmeharipasses)
 
 # install unittest
-install(TARGETS MehariUnittests
-  RUNTIME DESTINATION unittests
-)
+# install(TARGETS MehariUnittests
+#   RUNTIME DESTINATION unittests
+# )
 
 # create symlink to clang
 add_custom_command(TARGET MehariUnittests POST_BUILD
