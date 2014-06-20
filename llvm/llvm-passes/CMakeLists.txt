@@ -133,7 +133,7 @@ add_unittest(MehariUnitTests MehariUnittests
 target_link_libraries(MehariUnittests meharipasses pivpav ctemplate ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
-add_dependencies(MehariUnittests meharipasses)
+add_dependencies(MehariUnittests libmeharipasses)
 
 # create symlink to test data
 add_custom_command(TARGET MehariUnittests POST_BUILD
