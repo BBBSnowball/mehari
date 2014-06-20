@@ -18,6 +18,10 @@ endfunction()
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/_install/include/")
 link_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/_install/lib/")
 
+# add pivpav directories
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/pivpav/api/include")
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../tools/pivpav/api/wrapper/build")
+
 
 # LLVM 
 # ----------------------------------------
@@ -67,6 +71,8 @@ set(MEHARI_TRANSFORMS_SOURCES
   )
 set(MEHARI_UTILS_SOURCES UniqueNameSource.cpp)
 set(MEHARI_UNITTEST_HELPERS_SOURCES UnittestHelpers.cpp)
+set(MEHARI_VHDL_SOURCES ReadySignals.cpp Channel.cpp ValueStorage.cpp GenerateVHDL.cpp
+  MyOperator.cpp ReconOSOperator.cpp)
 
 # put path and source file names together
 prepend_path("lib" MEHARI_COMMON_SOURCES)
@@ -75,6 +81,7 @@ prepend_path("lib/CodeGen" MEHARI_CODEGEN_SOURCES)
 prepend_path("lib/Transforms" MEHARI_TRANSFORMS_SOURCES)
 prepend_path("lib/utils" MEHARI_UTILS_SOURCES)
 prepend_path("lib/CodeGen" MEHARI_UNITTEST_HELPERS_SOURCES)
+prepend_path("lib/vhdl" MEHARI_VHDL_SOURCES)
 
 # create a shared library
 add_llvm_loadable_module(libmeharipasses 
@@ -83,16 +90,12 @@ add_llvm_loadable_module(libmeharipasses
   ${MEHARI_CODEGEN_SOURCES} 
   ${MEHARI_TRANSFORMS_SOURCES}
   ${MEHARI_UTILS_SOURCES}
+  ${MEHARI_UNITTEST_HELPERS_SOURCES}
+  ${MEHARI_VHDL_SOURCES}
   )
 target_link_libraries(libmeharipasses ${PASSES_REQUIRED_LIBS})
 
-# create a shared library
-add_llvm_loadable_module(libmehariunittesthelpers
-  ${MEHARI_UNITTEST_HELPERS_SOURCES}
-  )
-target_link_libraries(libmehariunittesthelpers libmeharipasses ${PASSES_REQUIRED_LIBS})
-
-# install both libraries
+# install the library
 install(TARGETS libmeharipasses
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
@@ -103,15 +106,6 @@ install(TARGETS libmeharipasses
 # CUSTOM LLVM PASSES UNITTESTS
 # ----------------------------------------
 
-# set new target
-add_custom_target(MehariUnitTests)
-
-# helper function for adding unit tests
-function(add_mehari_llvm_unittest test_name)
-  # call llvm add_unittest function
-  add_unittest(MehariUnitTests ${test_name} ${ARGN})
-endfunction()
-
 # add llvm passes lib directory to link_directories to use them in the unit tests
 link_directories(${CMAKE_BINARY_DIR})
 
@@ -119,41 +113,48 @@ link_directories(${CMAKE_BINARY_DIR})
 set(LLVM_BUILD_TESTS ON)
 
 # set source files for all custom LLVM passes unittests
-set(MEHARI_ANALYSIS_TEST_SOURCES InstructionDependencyAnalysisTest.cpp)
-set(MEHARI_CODEGEN_TEST_SOURCES SimpleCCodeGeneratorTest.cpp)
+set(MEHARI_TEST_SOURCES Analysis/InstructionDependencyAnalysisTest.cpp
+  CodeGen/SimpleCCodeGeneratorTest.cpp
+  CodeGen/SimpleVHDLGeneratorTest.cpp)
 
 # put path and source file names together
-prepend_path("unittests/Analysis" MEHARI_ANALYSIS_TEST_SOURCES)
-prepend_path("unittests/CodeGen" MEHARI_CODEGEN_TEST_SOURCES)
+prepend_path("unittests" MEHARI_TEST_SOURCES)
 
 # set dependencies for the unit test
 set(LLVM_LINK_COMPONENTS Analysis AsmParser)
 set(TESTS_REQUIRED_LIBS LLVMAnalysis LLVMAsmParser)
 
 # build unittest
-add_mehari_llvm_unittest(MehariUnittests
-  ${MEHARI_ANALYSIS_TEST_SOURCES}
-  ${MEHARI_CODEGEN_TEST_SOURCES}
+add_custom_target(MehariUnitTests)
+add_unittest(MehariUnitTests MehariUnittests
+  ${MEHARI_TEST_SOURCES}
   unittests/test_main.cpp
  )
-target_link_libraries(MehariUnittests libmehariunittesthelpers meharipasses ${TESTS_REQUIRED_LIBS})
+target_link_libraries(MehariUnittests meharipasses pivpav ctemplate ${TESTS_REQUIRED_LIBS})
 
 # add dependency between targets
-add_dependencies(MehariUnittests libmeharipasses)
+add_dependencies(MehariUnittests meharipasses)
 
-# install unittest
-# install(TARGETS MehariUnittests
-#   RUNTIME DESTINATION unittests
-# )
+# create symlink to test data
+add_custom_command(TARGET MehariUnittests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+      "${CMAKE_CURRENT_SOURCE_DIR}/unittests/CodeGen/data"
+      "${CMAKE_BINARY_DIR}/CodeGen_data"
+)
 
-# create symlink to clang
+# create symlink to clang (used by the test)
 add_custom_command(TARGET MehariUnittests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
       "${CMAKE_BINARY_DIR}/../llvm/bin/clang"
       "${CMAKE_BINARY_DIR}/clang"
 )
 
-# run tests
+# add targets for tests
 add_custom_target(test
   ./MehariUnittests
   DEPENDS MehariUnittests)
+
+add_custom_target(test-vhdl
+  COMMAND RECONOS=${CMAKE_CURRENT_SOURCE_DIR}/../../reconos/reconos "${CMAKE_CURRENT_SOURCE_DIR}/test.sh"  run-by-cmake
+  COMMAND RECONOS=${CMAKE_CURRENT_SOURCE_DIR}/../../reconos/reconos "${CMAKE_CURRENT_SOURCE_DIR}/test2.sh" run-by-cmake
+  DEPENDS MehariUnittests test)
