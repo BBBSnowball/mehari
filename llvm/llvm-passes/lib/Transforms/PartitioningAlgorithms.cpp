@@ -456,8 +456,8 @@ void KernighanLin::updateCostDifferences(unsigned int icV1, unsigned int icV2, P
 		if (it->locked)
 			continue;
 		unsigned int v = (it-additionalVertexInformation.begin());
-		unsigned int cost1 = pGraph.getCommunicationCost(v, icV1, devices[pGraph.getPartition(v)], devices[pGraph.getPartition(icV1)]);
-		unsigned int cost2 = pGraph.getCommunicationCost(v, icV2, devices[pGraph.getPartition(v)], devices[pGraph.getPartition(icV2)]);
+		unsigned int cost1 = pGraph.getDeviceIndependentCommunicationCost(v, icV1);
+		unsigned int cost2 = pGraph.getDeviceIndependentCommunicationCost(v, icV2);
 		if (cost1 > 0 || cost2 > 0) {
 			if (pGraph.getPartition(v) == pGraph.getPartition(icV1)) {
 				it->costDifference += 2*cost1 - 2*cost2;
