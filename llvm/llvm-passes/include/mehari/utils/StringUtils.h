@@ -61,7 +61,12 @@ inline static std::string replace(const std::string& pattern, const std::string&
 }
 
 inline static std::string prefixAllLines(const std::string& prefix, const std::string& text) {
-	return prefix + replace(toString(std::endl), toString(std::endl)+prefix, text);
+	// don't add prefix to last line, if it is empty
+	std::string suffix;
+	if (endsWith(text, toString(std::endl)))
+		suffix = toString(std::endl);
+
+	return prefix + replace(toString(std::endl), toString(std::endl)+prefix, text.substr(0, text.size()-suffix.size())) + suffix;
 }
 
 #endif /*STRING_UTILS_H*/

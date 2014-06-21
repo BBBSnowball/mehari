@@ -70,6 +70,16 @@ ChannelP Channel::make_variable(::Operator* op, const std::string& name, unsigne
   return ch;
 }
 
+ChannelP Channel::make_part(const std::string& data_channel_part, unsigned int part_width, ChannelP channel) {
+  ChannelP ch(new Channel());
+  ch->direction = channel->direction;
+  ch->width     = part_width;
+  ch->data_signal  = channel->data_signal;
+  ch->valid_signal = channel->valid_signal;
+  ch->ready_signal = channel->ready_signal;
+  return ch;
+}
+
 void Channel::addTo(::Operator* op) {
   if (direction == IN) {
     op->addOutput(data_signal, width, 1, true);

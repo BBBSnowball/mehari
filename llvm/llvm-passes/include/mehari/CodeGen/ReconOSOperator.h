@@ -36,14 +36,15 @@ public:
 
 
   void readMemory(const std::string& state_name, const std::string& ready_condition,
-    const std::string& addr, const std::string& len);
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr);
 
   void readMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel);
 
   void writeMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel);
 
   void writeMemory(const std::string& state_name,
-    const std::string& addr, const std::string& len);
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr,
+    const std::string& valid_condition, const std::string& set_ready);
 
   void addAckState();
 
@@ -52,6 +53,8 @@ public:
   void stdLibs(std::ostream& o);
   void outputVHDLEntity(std::ostream& o);
   void outputVHDL(std::ostream& o, std::string name);
+
+  static void splitAccessIntoWords(const std::string& data_signal, unsigned width, std::vector<std::string>& parts);
 
 protected:
   void outputStateDeclarations(std::ostream& o);
@@ -91,8 +94,26 @@ protected:
   State& addSequentialState(const std::string& state_name);
   State& addOutOfBandState(const std::string& state_name);
   State& internalAddState(const std::string& state_name);
-
-  static void splitAccessIntoWords(const std::string& data_signal, unsigned width, std::vector<std::string>& parts);
 };
+
+class LocalFakeRam {
+  struct MemoryWordInfo {
+    ChannelP channel;
+    std::string part;
+    bool isLastPart;
+  };
+  std::vector<MemoryWordInfo> channels;
+public:
+  LocalFakeRam();
+
+  unsigned int addChannel(ChannelP channel);
+
+  void generateCode(std::ostream& stream) const;
+};
+
+inline static std::ostream& operator << (std::ostream& stream, const LocalFakeRam& ram) {
+  ram.generateCode(stream);
+  return stream;
+}
 
 #endif /*RECONOS_OPERATOR_H*/

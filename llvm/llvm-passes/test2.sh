@@ -15,18 +15,37 @@ SOURCE_DIR="$(dirname "$0")"
 check_environment
 
 # determine which tests we should run
-TESTS="ReturnValueReconOSTest"
+if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
+	TESTS="ReturnValueReconOSTest GlobalArrayTest"
+else
+	TESTS="$*"
+fi
 
 sed 's~SOURCE_DIR~'"$SOURCE_DIR"'~' <"$SOURCE_DIR/project.prj" >project.prj
 
-test=ReturnValueReconOSTest
-createProjectFile $test.prj           \
-	project.prj                       \
-	CodeGen_data/ReturnValueTest.vhdl \
-	ReturnValueReconOS.vhdl           \
-	"$SOURCE_DIR/unittests/CodeGen/ReturnValueReconOSTest.vhd" \
-	"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
-runTest $test.prj "work.$test"
+ReturnValueReconOSTest() {
+	createProjectFile $test.prj           \
+		project.prj                       \
+		CodeGen_data/ReturnValueTest.vhdl \
+		ReturnValueReconOS.vhdl           \
+		"$SOURCE_DIR/unittests/CodeGen/ReturnValueReconOSTest.vhd" \
+		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
+	runTest $test.prj "work.$test"
+}
+
+GlobalArrayTest() {
+	createProjectFile $test.prj           \
+		project.prj                       \
+		$test/calculation.vhdl            \
+		$test/reconos.vhdl                \
+		CodeGen_data/${test}ReconOS.vhdl  \
+		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
+	runTest $test.prj "work.$test"
+}
+
+for test in $TESTS ; do
+	$test
+done
 
 echo "Tests: $TESTS"
 echo "PASSED"

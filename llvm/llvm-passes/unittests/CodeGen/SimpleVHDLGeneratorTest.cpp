@@ -417,3 +417,44 @@ TEST_F(ReconOSVHDLGeneratorTest, ReturnValueTest) {
 
   saveOperator("ReturnValueReconOS.vhdl", r_op.get());
 }
+
+
+TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
+  ParseC(
+    "double x[7];"
+    "double test(double a) {"
+    "  x[2] = a;"
+    "  return x[1];"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  boost::scoped_ptr<ReconOSOperator> r_op(new ReconOSOperator());
+  r_op->setName("GlobalArrayReconOS");
+  ::Operator* calculation = getGeneratedOperator();
+  r_op->setCalculation(calculation);
+  r_op->instantiateCalculation();
+
+  r_op->addInitialState();
+  r_op->addThreadExitState();
+
+  LocalFakeRam ram;
+  std::string address_of_x = "44";
+  std::string address_of_x_1 = "std_logic_vector(to_unsigned(" + address_of_x + "+1*8" + ", 32))";
+  std::string address_of_x_2 = "std_logic_vector(to_unsigned(" + address_of_x + "+2*8" + ", 32))";
+
+  r_op->readMbox("READ_A", 0, Channel::make_component_input(calculation, "a_in"));
+  r_op->writeMemory("WRITE_X_2", address_of_x_2, "std_logic_vector(to_unsigned(8, 24))",
+    ram.addChannel(Channel::make_component_output(calculation, "x_2_out")),
+    "x_2_out_valid = '1'", "x_2_out_ready <= $value;\n");
+  r_op->readMemory("READ_X_1", "x_1_in_ready = '1'", address_of_x_1, "std_logic_vector(to_unsigned(8, 24))", ram.addChannel(Channel::make_component_output(calculation, "x_1_in")));
+  r_op->writeMbox("WRITE_RESULT", 1, Channel::make_component_output(calculation, "return"));
+
+  r_op->addAckState();
+
+  *r_op << ram;
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", r_op.get());
+}

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <boost/foreach.hpp>
 #include <ios>
+#include <iomanip>
 
 
 ReconOSOperator::ReconOSOperator() : calculation(NULL), stateNameGenerator("STATE") {
@@ -71,10 +72,10 @@ ReconOSOperator::ReconOSOperator() : calculation(NULL), stateNameGenerator("STAT
     << "   ram_setup (" << std::endl
     << "     i_ram," << std::endl
     << "     o_ram," << std::endl
-    << "     o_RAMAddr_reconos," << std::endl
-    << "     o_RAMWE_reconos," << std::endl
-    << "     o_RAMData_reconos," << std::endl
-    << "     i_RAMData_reconos" << std::endl
+    << "     o_RAMAddr," << std::endl
+    << "     o_RAMWE," << std::endl
+    << "     o_RAMData," << std::endl
+    << "     i_RAMData" << std::endl
     << "   );" << std::endl
     << std::endl;
 }
@@ -229,13 +230,13 @@ void ReconOSOperator::outputStateDeclarations(std::ostream& o) {
 
 
   //TODO use those variables.
-  o << "   signal addr              : std_logic_vector(31 downto 0);" << endl;
-  o << "   signal len               : std_logic_vector(23 downto 0);" << endl;
-  o << "   signal ignore            : std_logic_vector(31 downto 0);" << endl;
-  o << "   signal o_RAMAddr_reconos : std_logic_vector(0 to 31);" << endl;
-  o << "   signal o_RAMData_reconos : std_logic_vector(0 to 31);" << endl;
-  o << "   signal o_RAMWE_reconos   : std_logic;" << endl;
-  o << "   signal i_RAMData_reconos : std_logic_vector(0 to 31);" << endl;
+  o << "   signal addr      : std_logic_vector(31 downto 0);" << endl;
+  o << "   signal len       : std_logic_vector(23 downto 0);" << endl;
+  o << "   signal ignore    : std_logic_vector(31 downto 0);" << endl;
+  o << "   signal o_RAMAddr : std_logic_vector(0 to 31);" << endl;
+  o << "   signal o_RAMData : std_logic_vector(0 to 31);" << endl;
+  o << "   signal o_RAMWE   : std_logic;" << endl;
+  o << "   signal i_RAMData : std_logic_vector(0 to 31);" << endl;
 }
 
 void ReconOSOperator::outputStatemachine(std::ostream& o) {
@@ -421,26 +422,30 @@ std::string ReconOSOperator::getUniqueStateName() {
   return getUniqueStateName(stateNameGenerator.next());
 }
 
+std::string addressToVHDLString(unsigned int local_ram_addr) {
+  std::ostringstream s;
+  s << "X\"" << std::hex << std::setfill('0') << std::setw(8) << local_ram_addr << "\"";
+  return s.str();
+}
+
 void ReconOSOperator::readMemory(const std::string& state_name, const std::string& ready_condition,
-    const std::string& addr, const std::string& len) {
-  std::string local_addr = ",X\"00000000\",";
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr) {
+  std::string local_addr = addressToVHDLString(local_ram_addr);
 
   if (!ready_condition.empty()) {
     addSequentialState(getUniqueStateName(state_name + "_wait"))
       .vhdl
         << "if " << ready_condition << " then" << endl
         << "   memif_read(i_ram,o_ram,i_memif,o_memif," << addr << "," << local_addr << "," << len << ",done);" << endl
-        << "   state <= " << state_name << ";" << endl
+        << "   $next" << endl
         << "end if;";
   }
 
   addSequentialState(state_name)
     .vhdl
-      << "if " << ready_condition << " then" << endl
-      << "   memif_read(i_ram,o_ram,i_memif,o_memif," << addr << "," << local_addr << "," << len << ",done);" << endl
-      << "   if done then" << endl
-      << "     $next" << endl
-      << "   end if;" << endl
+      << "memif_read(i_ram,o_ram,i_memif,o_memif," << addr << "," << local_addr << "," << len << ",done);" << endl
+      << "if done then" << endl
+      << "  $next" << endl
       << "end if;" << endl;
 }
 
@@ -484,7 +489,7 @@ void ReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox
         //TODO put value in register!
         << "   osif_mbox_put(i_osif, o_osif, std_logic_vector(to_unsigned(" << mbox << ", 32)), "
           << parts.front() << ", ignore, done);" << endl
-        << "   state <= STATE_" << state_name << ";" << endl
+        << "   $next" << endl
         << "end if;";
   }
 
@@ -520,13 +525,25 @@ void ReconOSOperator::splitAccessIntoWords(const std::string& data_signal, unsig
 }
 
 void ReconOSOperator::writeMemory(const std::string& state_name,
-    const std::string& addr, const std::string& len) {
-  std::string local_addr = ",X\"00000000\",";
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr,
+    const std::string& valid_condition, const std::string& set_ready) {
+  std::string local_addr = addressToVHDLString(local_ram_addr);
+
+  if (!valid_condition.empty()) {
+    addSequentialState(getUniqueStateName(state_name + "_wait"))
+      .vhdl
+        << replace("$value", "'1'", set_ready)
+        << "if " << valid_condition << " then" << endl
+        << "   memif_write(i_ram,o_ram,i_memif,o_memif," << local_addr << "," << addr << "," << len << ",done);" << endl
+        << "   $next" << endl
+        << "end if;";
+  }
 
   addSequentialState(state_name)
     .vhdl
       << "memif_write(i_ram,o_ram,i_memif,o_memif," << local_addr << "," << addr << "," << len << ",done);" << endl
       << "if done then" << endl
+      << prefixAllLines("  ", replace("$value", "'0'", set_ready))
       << "  $next" << endl
       << "end if;" << endl;
 }
@@ -543,4 +560,81 @@ void ReconOSOperator::addAckState() {
       << "--  iterations <= iterations - X\"00000001\";" << endl
       << "--  goto_read(0);" << endl
       << "--end if;" << endl;
+}
+
+
+LocalFakeRam::LocalFakeRam() { }
+
+unsigned int LocalFakeRam::addChannel(ChannelP channel) {
+  unsigned int addr = channels.size();
+
+  std::vector<std::string> parts;
+  ReconOSOperator::splitAccessIntoWords(channel->data_signal, channel->width, parts);
+
+  BOOST_FOREACH(const std::string& part, parts) {
+    MemoryWordInfo mwi = { channel, part, (part == parts.back()) };
+    channels.push_back(mwi);
+  }
+
+  return addr;
+}
+
+void LocalFakeRam::generateCode(std::ostream& stream) const {
+  stream
+    << "  local_fake_ram_ctrl : process (clk) is\n"
+    << "  begin\n"
+    << "    if (rising_edge(clk)) then\n"
+    << "      if (o_RAMWE = '1') then\n"
+    << "        case conv_integer(o_RAMAddr) is\n";
+
+  unsigned int addr = 0;
+  BOOST_FOREACH(const MemoryWordInfo& mwi, channels) {
+    if (ChannelDirection::matching_direction(mwi.channel->direction, ChannelDirection::IN)) {
+      stream << "          when " << std::setw(2) << addr << " =>\n"
+             << "            " << mwi.part << " <= o_RAMData";
+      if ((mwi.channel->width%32) != 0 && mwi.isLastPart)
+        stream << "(" << (mwi.channel->width%32-1) << " downto 0)";
+      stream << ";\n";
+      if (!mwi.isLastPart)
+        stream << "            " << mwi.channel->valid_signal << " <= '1';\n";
+    }
+
+    addr++;
+  }
+
+  stream
+    << "          when others => -- do nothing\n"
+    << "        end case;\n"
+    << "      else\n"
+    << "        case conv_integer(o_RAMAddr) is\n";
+
+  addr = 0;
+  BOOST_FOREACH(const MemoryWordInfo& mwi, channels) {
+    if (ChannelDirection::matching_direction(mwi.channel->direction, ChannelDirection::OUT)) {
+      stream << "          when " << std::setw(2) << addr << " =>\n"
+             << "            if " << mwi.channel->valid_signal << " = '1' then\n"
+             << "              i_RAMData <= ";
+
+      if ((mwi.channel->width%32) != 0 && mwi.isLastPart) {
+        stream << "\"";
+        for (unsigned int i=0;i<32-mwi.channel->width%32;i++)
+          stream << '0';
+        stream << "\" & ";
+      }
+      stream << mwi.part << ";\n";
+
+      stream  << "            else\n"
+              << "              i_RAMData <= (others => 'U');\n"
+              << "            end if;\n";
+    }
+
+    addr++;
+  }
+
+  stream
+    << "          when others => i_RAMData <= (others => 'U');\n"
+    << "        end case;\n"
+    << "      end if;\n"
+    << "    end if;\n"
+    << "  end process;\n";
 }

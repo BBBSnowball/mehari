@@ -54,6 +54,8 @@ struct Channel {
 
   static ChannelP make_variable(::Operator* op, const std::string& name, unsigned int width);
 
+  static ChannelP make_part(const std::string& data_channel_part, unsigned int part_width, ChannelP channel);
+
   void addTo(::Operator* op);
 
   void generateSignal(MyOperator* op, UniqueNameSet& usedVariableNames);
