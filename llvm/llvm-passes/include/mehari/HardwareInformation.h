@@ -44,10 +44,16 @@ private:
 
 class DeviceInformation {
 public:
-	DeviceInformation(std::string deviceName);
+	enum DeviceType {
+		CPU_LINUX,
+		FPGA_RECONOS
+	};
+
+	DeviceInformation(std::string deviceName, DeviceType deviceType);
 	~DeviceInformation();
 
 	std::string getName(void);
+	DeviceType  getType();
 
 	void addInstructionInfo(std::string opcodeName, unsigned int cycles);
 	InstructionInformation *getInstructionInfo(llvm::Instruction *instr);
@@ -57,6 +63,7 @@ public:
 
 private:
 	std::string name;
+	DeviceType  type;
 	std::map<std::string, InstructionInformation*> *instrInfoMap;
 	std::map<std::string, CommunicationInformation*> *comInfoMap;
 

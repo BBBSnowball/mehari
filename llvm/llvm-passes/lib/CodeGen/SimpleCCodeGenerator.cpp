@@ -90,6 +90,16 @@ SimpleCCodeGenerator::~SimpleCCodeGenerator() {
     delete backend;
 }
 
+template <typename T>
+T* convertAddressStringToPointer(const std::string& address) {
+  std::stringstream ss;
+  assert(address.substr(0, 2) == "0x");
+  ss << address.substr(2);
+  size_t tmp(0);
+  if(!(ss >> std::hex >> tmp))
+   throw "Failed - invalid address!";
+  return reinterpret_cast<T*>(tmp);
+}
 
 void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, const std::vector<Instruction*> &instructions) {
   
@@ -224,6 +234,8 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
              || functionName == "_get_bool" || functionName == "_get_intptr") {
               std::string tgtOperand = cast<MDString>(instr->getMetadata("targetop")->getOperand(0))->getString();
               dataDependencies[tgtOperand] = tmpVar;
+
+              backend->addDataDependency(convertAddressStringToPointer<Value>(tgtOperand), tmpVar);
             }
           }
         }
@@ -349,6 +361,8 @@ std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opStrin
 CodeGeneratorBackend::~CodeGeneratorBackend() {}
 
 void CodeGeneratorBackend::generateEndOfMethod() { }
+
+void CodeGeneratorBackend::addDataDependency(Value *valueFromOtherThread, const std::string& isSavedHere) { }
 
 
 CCodeBackend::CCodeBackend()

@@ -76,6 +76,7 @@ public:
   virtual void addVariable(Value *addr, std::string name, std::string index) =0;
   virtual void copyVariable(Value *source, Value *target) =0;
   virtual void addIndexToVariable(Value *source, Value *target, std::string index) =0;
+  virtual void addDataDependency(Value *valueFromOtherThread, const std::string& isSavedHere);
 };
 
 class CCodeBackend : public CodeGeneratorBackend {

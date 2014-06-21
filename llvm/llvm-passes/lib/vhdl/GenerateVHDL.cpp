@@ -189,6 +189,13 @@ unsigned int getWidthOfElementType(Type* type) {
   return w;
 }
 
+void VHDLBackend::addDataDependency(Value *valueFromOtherThread, const std::string& isSavedHere) {
+  debug_print("addDataDependency(" << valueFromOtherThread << ", " << isSavedHere << ")");
+  return_if_dry_run();
+
+  vs_factory->set(valueFromOtherThread, vs_factory->getTemporaryVariable(isSavedHere));
+}
+
 void VHDLBackend::generateCall(std::string funcName,
     std::string tmpVar, std::vector<Value*> args) {
   debug_print("generateCall(" << funcName << ", " << tmpVar << ", args)");
@@ -603,6 +610,10 @@ void VHDLBackend::addVariable(Value *addr, std::string name) {
 void VHDLBackend::addParameter(Value *addr, std::string name) {
   debug_print("addParameter(" << addr << ", " << name << ")");
   return_if_dry_run();
+
+  // undo hack for C code backend
+  if (name == "*status")
+    name = "status";
 
   usedVariableNames.addUsedName(name);
 

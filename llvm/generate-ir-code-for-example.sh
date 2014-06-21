@@ -49,10 +49,10 @@ run "$LLVM_BIN/opt" -always-inline -S "$EXAMPLE_FILE.2.ll" > "$EXAMPLE_FILE.3.ll
 
 mkdir -p "$PARTITIONING_RESULTS_DIR"
 
-run "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
+run gdb --args "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
 	-partitioning \
 	-template-dir "$TEMPLATE_DIR" \
-	-partitioning-methods clustering \
+	-partitioning-methods k-lin \
 	-partitioning-functions "$PARTITIONING_TARGET_FUNCTIONS" \
 	-partitioning-devices "$PARTITIONING_DEVICES" \
 	-partitioning-output-dir "$PARTITIONING_RESULTS_DIR" \

@@ -45,7 +45,7 @@ HardwareInformation::HardwareInformation() {
 
 
 	// add timinigs for the ARM Cortex-A9 @ 800MHz
-	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9");
+	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9", DeviceInformation::CPU_LINUX);
 	cortexA9->addInstructionInfo("ret",    0);
 	cortexA9->addInstructionInfo("br",     0);
 	cortexA9->addInstructionInfo("fadd",   4);
@@ -72,7 +72,7 @@ HardwareInformation::HardwareInformation() {
 	devices->insert(std::pair<std::string, DeviceInformation*>(cortexA9->getName(), cortexA9));
 
 	// add timinigs for the FPGA
-	DeviceInformation *fpga = new DeviceInformation("xc7z020-1");
+	DeviceInformation *fpga = new DeviceInformation("xc7z020-1", DeviceInformation::FPGA_RECONOS);
 	fpga->addInstructionInfo("ret",           fpgaClockMultiplier * 0);
 	fpga->addInstructionInfo("br",            fpgaClockMultiplier * 0);
 	fpga->addInstructionInfo("fadd",          fpgaClockMultiplier * 13);
@@ -141,8 +141,9 @@ unsigned int HardwareInformation::getDeviceIndependentCommunicationCost(Communic
 
 // DeviceInformation
 // -----------------
-DeviceInformation::DeviceInformation(std::string deviceName) {
+DeviceInformation::DeviceInformation(std::string deviceName, DeviceType deviceType) {
 	name = deviceName;
+	type = deviceType;
 	instrInfoMap = new std::map<std::string, InstructionInformation*>();
 	comInfoMap = new std::map<std::string, CommunicationInformation*>();
 }
@@ -162,6 +163,11 @@ DeviceInformation::~DeviceInformation() {
 
 std::string DeviceInformation::getName(void) {
 	return name;
+}
+
+
+DeviceInformation::DeviceType DeviceInformation::getType(void) {
+	return type;
 }
 
 

@@ -50,6 +50,7 @@ public:
   void addVariable(Value *addr, std::string name, std::string index);
   void copyVariable(Value *source, Value *target);
   void addIndexToVariable(Value *source, Value *target, std::string index);
+  void addDataDependency(Value *valueFromOtherThread, const std::string& isSavedHere);
 
 private:
   boost::shared_ptr<Channel> getChannel(Value* addr, ChannelDirection::Direction direction);
