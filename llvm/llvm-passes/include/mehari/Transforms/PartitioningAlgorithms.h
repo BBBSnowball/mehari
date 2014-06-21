@@ -137,7 +137,7 @@ private:
 	void unlockAllVertices(void);
 	boost::tuple<int, unsigned int> getMaxCostRecution(std::vector<int> &costReductions);
 	void applyInterchanges(std::vector<boost::tuple<unsigned int, unsigned int> > &interchanges, 
-		unsigned int iterationCount, PartitioningGraph &result);
+		unsigned int maxTotalGainIndex, PartitioningGraph &result);
 };
 
 #endif /*PARTITIONING_ALGORITHMS_H*/

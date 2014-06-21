@@ -84,8 +84,7 @@ public:
 	unsigned int getDeviceIndependentCommunicationCost(VertexDescriptor vd1, VertexDescriptor vd2);
 	unsigned int getExecutionTime(VertexDescriptor vd, std::string &targetDevice);
 
-	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(
-		VertexDescriptor vd, std::vector<std::string> &partitioningDevices);
+	boost::tuple<unsigned int, unsigned int> getInternalExternalCommunicationCost(VertexDescriptor vd);
 
 	unsigned int getCriticalPathCost(std::vector<std::string> &partitioningDevices);
 

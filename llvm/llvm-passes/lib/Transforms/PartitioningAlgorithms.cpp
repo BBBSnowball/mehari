@@ -444,7 +444,7 @@ void KernighanLin::createInitialCostDifferences(PartitioningGraph &pGraph) {
 	for(it = additionalVertexInformation.begin(); it != additionalVertexInformation.end(); ++it) {
 		unsigned int internalCosts, externalCosts;
 		boost::tie(internalCosts, externalCosts) = pGraph.getInternalExternalCommunicationCost(
-			(it-additionalVertexInformation.begin()), devices);
+			(it-additionalVertexInformation.begin()));
 		it->costDifference = externalCosts - internalCosts;
 	}
 }
@@ -515,8 +515,8 @@ void KernighanLin::unlockAllVertices(void) {
 
 
 void KernighanLin::applyInterchanges(std::vector<boost::tuple<unsigned int, unsigned int> > &interchanges, 
-	unsigned int iterationCount, PartitioningGraph &result) {
-	for (unsigned int i=0; i<=iterationCount; i++) {
+	unsigned int maxTotalGainIndex, PartitioningGraph &result) {
+	for (unsigned int i=0; i<=maxTotalGainIndex; i++) {
 		unsigned int v1, v2;
 		boost::tie(v1, v2) = interchanges[i];
 		unsigned int tmpPartition = result.getPartition(v1);

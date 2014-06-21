@@ -340,8 +340,7 @@ unsigned int PartitioningGraph::getExecutionTime(VertexDescriptor vd, std::strin
 }
 
 
-boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalCommunicationCost(
-	VertexDescriptor vd, std::vector<std::string> &partitioningDevices) {
+boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalCommunicationCost(VertexDescriptor vd) {
 	Graph::out_edge_iterator oeIt, oeEnd;
 	Graph::in_edge_iterator ieIt, ieEnd;
 	boost::tie(oeIt, oeEnd) = boost::out_edges(vd, pGraph);
@@ -350,20 +349,16 @@ boost::tuple<unsigned int, unsigned int> PartitioningGraph::getInternalExternalC
 	for (; oeIt != oeEnd; ++oeIt) {
 		VertexDescriptor u = boost::source(*oeIt, pGraph), v = boost::target(*oeIt, pGraph);
 		if (pGraph[u].partition == pGraph[v].partition)
-			intCosts += calcEdgeCost(*oeIt, partitioningDevices[pGraph[u].partition], 
-				partitioningDevices[pGraph[v].partition]);
+			intCosts += calcDeviceIndependentEdgeCost(*oeIt);
 		else
-			extCosts += calcEdgeCost(*oeIt, partitioningDevices[pGraph[u].partition], 
-				partitioningDevices[pGraph[v].partition]);
+			extCosts += calcDeviceIndependentEdgeCost(*oeIt);
 	}
 	for (; ieIt != ieEnd; ++ieIt) {
 		VertexDescriptor u = boost::source(*ieIt, pGraph), v = boost::target(*ieIt, pGraph);
 		if (pGraph[u].partition == pGraph[v].partition)
-			intCosts += calcEdgeCost(*ieIt, partitioningDevices[pGraph[u].partition], 
-				partitioningDevices[pGraph[v].partition]);
+			intCosts += calcDeviceIndependentEdgeCost(*ieIt);
 		else
-			extCosts += calcEdgeCost(*ieIt, partitioningDevices[pGraph[u].partition], 
-				partitioningDevices[pGraph[v].partition]);;
+			extCosts += calcDeviceIndependentEdgeCost(*ieIt);
 	}
 	return boost::make_tuple(intCosts, extCosts);
 }
