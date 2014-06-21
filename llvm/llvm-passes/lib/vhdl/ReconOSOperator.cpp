@@ -8,7 +8,7 @@
 #include <iomanip>
 
 
-ReconOSOperator::ReconOSOperator() : calculation(NULL), stateNameGenerator("STATE") {
+BasicReconOSOperator::BasicReconOSOperator() : calculation(NULL), stateNameGenerator("STATE") {
   addInput ("OSIF_FIFO_Sw2Hw_Data", 32);
   addInput ("OSIF_FIFO_Sw2Hw_Fill", 16);
   addInput ("OSIF_FIFO_Sw2Hw_Empty");
@@ -80,13 +80,13 @@ ReconOSOperator::ReconOSOperator() : calculation(NULL), stateNameGenerator("STAT
     << std::endl;
 }
 
-ReconOSOperator::~ReconOSOperator() {
+BasicReconOSOperator::~BasicReconOSOperator() {
   BOOST_FOREACH(State* state, states) {
     delete state;
   }
 }
 
-void ReconOSOperator::setCalculation(::Operator* calc) {
+void BasicReconOSOperator::setCalculation(::Operator* calc) {
   assert(!this->calculation);
 
   this->calculation = calc;
@@ -96,7 +96,7 @@ void ReconOSOperator::setCalculation(::Operator* calc) {
   }
 }
 
-void ReconOSOperator::addCalculationPort(Signal* sig) {
+void BasicReconOSOperator::addCalculationPort(Signal* sig) {
   assert(this->calculation);
   assert(this->calculation->getSignalByName(sig->getName()) == sig);
 
@@ -121,47 +121,53 @@ void ReconOSOperator::addCalculationPort(Signal* sig) {
     assert(false);
 }
 
-void ReconOSOperator::instantiateCalculation() {
+void BasicReconOSOperator::instantiateCalculation() {
   assert(this->calculation);
 
   vhdl << instance(calculation, "calculation");
 }
 
-ReconOSOperator::State& ReconOSOperator::addSequentialState(const std::string& state_name) {
-  State& state = internalAddState(state_name);
+BasicReconOSOperator::State& BasicReconOSOperator::addSequentialState(const std::string& state_name, unsigned int pos) {
+  State& state = internalAddState(state_name, pos);
   
-  sequential_states.push_back(&state);
+  if (pos >= sequential_states.size())
+    sequential_states.push_back(&state);
+  else
+    sequential_states.insert(sequential_states.begin()+pos, &state);
 
   return state;
 }
 
-ReconOSOperator::State& ReconOSOperator::addOutOfBandState(const std::string& state_name) {
+BasicReconOSOperator::State& BasicReconOSOperator::addOutOfBandState(const std::string& state_name) {
   return internalAddState(state_name);
 }
 
-ReconOSOperator::State& ReconOSOperator::internalAddState(const std::string& state_name) {
+BasicReconOSOperator::State& BasicReconOSOperator::internalAddState(const std::string& state_name, unsigned int pos) {
   assert(!contains(states_by_name, state_name));
 
   State* state = new State();
   state->name = state_name;
 
-  states.push_back(state);
+  if (pos > states.size())
+    states.push_back(state);
+  else
+    states.insert(states.begin()+pos, state);
   states_by_name[state_name] = state;
 
   return *state;
 }
 
-bool ReconOSOperator::isValidOfInputSignal(Signal* sig) {
+bool BasicReconOSOperator::isValidOfInputSignal(Signal* sig) {
   return (endsWith(sig->getName(), "_valid") || endsWith(sig->getName(), "_tvalid"))
     && (sig->type() == Signal::in);
 }
 
-bool ReconOSOperator::isReadyOfOutputSignal(Signal* sig) {
+bool BasicReconOSOperator::isReadyOfOutputSignal(Signal* sig) {
   return (endsWith(sig->getName(), "_ready") || endsWith(sig->getName(), "_tready"))
     && (sig->type() == Signal::in); // ready signal of an output is an input.
 }
 
-void ReconOSOperator::stdLibs(std::ostream& o) {
+void BasicReconOSOperator::stdLibs(std::ostream& o) {
   o << "library ieee;" << endl;
   o << "use ieee.std_logic_1164.all;" << endl;
   o << "use ieee.std_logic_unsigned.all;" << endl;
@@ -178,7 +184,7 @@ void ReconOSOperator::stdLibs(std::ostream& o) {
 }
 
 
-void ReconOSOperator::outputVHDLEntity(std::ostream& o) {
+void BasicReconOSOperator::outputVHDLEntity(std::ostream& o) {
   o << "entity " << uniqueName_ << " is" << endl;
 
   if (!ioList_.empty()) {
@@ -203,7 +209,7 @@ void ReconOSOperator::outputVHDLEntity(std::ostream& o) {
   o << "end entity;" << endl << endl;
 }
 
-void ReconOSOperator::outputStateDeclarations(std::ostream& o) {
+void BasicReconOSOperator::outputStateDeclarations(std::ostream& o) {
   o << "   type STATE_TYPE is (";
   int i = 0;
   Seperator comma(", ");
@@ -239,7 +245,7 @@ void ReconOSOperator::outputStateDeclarations(std::ostream& o) {
   o << "   signal i_RAMData : std_logic_vector(0 to 31);" << endl;
 }
 
-void ReconOSOperator::outputStatemachine(std::ostream& o) {
+void BasicReconOSOperator::outputStatemachine(std::ostream& o) {
   assert(calculation);
 
   BOOST_FOREACH(Signal* valid_sig, *calculation->getIOList()) {
@@ -342,7 +348,7 @@ void ReconOSOperator::outputStatemachine(std::ostream& o) {
     << "   end process;" << endl;
 }
 
-void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
+void BasicReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
   licence(o, copyrightString_);
   stdLibs(o);
   outputVHDLEntity(o);
@@ -357,8 +363,8 @@ void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
   endArchitecture(o);
 }
 
-void ReconOSOperator::addInitialState() {
-  State& state = addSequentialState("GET_ADDR")
+void BasicReconOSOperator::addInitialState() {
+  State& state = addSequentialState("INIT", 0)
     .addComment("get address via mbox: the data will be copied from this address to the local ram in the next states");
   
   state.vhdl
@@ -386,7 +392,7 @@ void ReconOSOperator::addInitialState() {
   }
 }
 
-void ReconOSOperator::addThreadExitState() {
+void BasicReconOSOperator::addThreadExitState() {
   State state;
   addOutOfBandState("THREAD_EXIT")
     .addComment("thread exit")
@@ -394,7 +400,7 @@ void ReconOSOperator::addThreadExitState() {
       << "osif_thread_exit(i_osif,o_osif);" << endl;
 }
 
-void ReconOSOperator::addReadIterationsState() {
+void BasicReconOSOperator::addReadIterationsState() {
   declare("iterations", 32);
 
   State state;
@@ -414,11 +420,11 @@ void ReconOSOperator::addReadIterationsState() {
       << "end if;" << endl;
 }
 
-std::string ReconOSOperator::getUniqueStateName(const std::string& suggested_name) {
+std::string BasicReconOSOperator::getUniqueStateName(const std::string& suggested_name) {
   return usedStateNames.makeUnique(suggested_name);
 }
 
-std::string ReconOSOperator::getUniqueStateName() {
+std::string BasicReconOSOperator::getUniqueStateName() {
   return getUniqueStateName(stateNameGenerator.next());
 }
 
@@ -428,7 +434,7 @@ std::string addressToVHDLString(unsigned int local_ram_addr) {
   return s.str();
 }
 
-void ReconOSOperator::readMemory(const std::string& state_name, const std::string& ready_condition,
+void BasicReconOSOperator::readMemory(const std::string& state_name, const std::string& ready_condition,
     const std::string& addr, const std::string& len, unsigned int local_ram_addr) {
   std::string local_addr = addressToVHDLString(local_ram_addr);
 
@@ -449,7 +455,7 @@ void ReconOSOperator::readMemory(const std::string& state_name, const std::strin
       << "end if;" << endl;
 }
 
-void ReconOSOperator::readMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel) {
+void BasicReconOSOperator::readMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel) {
   assert(channel && ChannelDirection::matching_direction(ChannelDirection::IN, channel->direction));
 
   unsigned width = channel->width;
@@ -474,7 +480,7 @@ void ReconOSOperator::readMbox(const std::string& state_name, unsigned int mbox,
   }
 }
 
-void ReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel) {
+void BasicReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel) {
   assert(channel && ChannelDirection::matching_direction(ChannelDirection::OUT, channel->direction));
 
   unsigned width = channel->width;
@@ -506,7 +512,7 @@ void ReconOSOperator::writeMbox(const std::string& state_name, unsigned int mbox
   }
 }
 
-void ReconOSOperator::splitAccessIntoWords(const std::string& data_signal, unsigned width, std::vector<std::string>& parts) {
+void BasicReconOSOperator::splitAccessIntoWords(const std::string& data_signal, unsigned width, std::vector<std::string>& parts) {
   for (unsigned i=0;i<width || i==0;i+=32) {
     std::ostringstream s;
     if (width - i >= 32) {
@@ -524,7 +530,7 @@ void ReconOSOperator::splitAccessIntoWords(const std::string& data_signal, unsig
   }
 }
 
-void ReconOSOperator::writeMemory(const std::string& state_name,
+void BasicReconOSOperator::writeMemory(const std::string& state_name,
     const std::string& addr, const std::string& len, unsigned int local_ram_addr,
     const std::string& valid_condition, const std::string& set_ready) {
   std::string local_addr = addressToVHDLString(local_ram_addr);
@@ -548,7 +554,7 @@ void ReconOSOperator::writeMemory(const std::string& state_name,
       << "end if;" << endl;
 }
 
-void ReconOSOperator::addAckState() {
+void BasicReconOSOperator::addAckState() {
   addSequentialState(getUniqueStateName("FINISH"))
     .vhdl
       << "--if iterations = X\"00000000\" then" << endl
@@ -569,7 +575,7 @@ unsigned int LocalFakeRam::addChannel(ChannelP channel) {
   unsigned int addr = channels.size();
 
   std::vector<std::string> parts;
-  ReconOSOperator::splitAccessIntoWords(channel->data_signal, channel->width, parts);
+  BasicReconOSOperator::splitAccessIntoWords(channel->data_signal, channel->width, parts);
 
   BOOST_FOREACH(const std::string& part, parts) {
     MemoryWordInfo mwi = { channel, part, (part == parts.back()) };
@@ -637,4 +643,40 @@ void LocalFakeRam::generateCode(std::ostream& stream) const {
     << "      end if;\n"
     << "    end if;\n"
     << "  end process;\n";
+}
+
+
+void ReconOSOperator::readMbox(unsigned int mbox, const ChannelP channel) {
+  BasicReconOSOperator::readMbox(getUniqueStateName("MBOX_READ_" + channel->data_signal), mbox, channel);
+}
+
+void ReconOSOperator::writeMbox(unsigned int mbox, const ChannelP channel) {
+  BasicReconOSOperator::writeMbox(getUniqueStateName("MBOX_WRITE_" + channel->data_signal), mbox, channel);
+}
+
+void ReconOSOperator::readMemory(const std::string& address, const ChannelP channel) {
+  BasicReconOSOperator::readMemory(getUniqueStateName("MEM_READ_" + channel->data_signal), channel->ready_signal + " = '1'",
+    address, "std_logic_vector(to_unsigned(" + toString(channel->width/8) + ", 24))",
+    ram.addChannel(channel));
+}
+
+void ReconOSOperator::writeMemory(const std::string& address, const ChannelP channel) {
+  BasicReconOSOperator::writeMemory(getUniqueStateName("MEM_WRITE_" + channel->data_signal), address,
+    "std_logic_vector(to_unsigned(" + toString(channel->width/8) + ", 24))",
+    ram.addChannel(channel),
+    channel->valid_signal + " = '1'", channel->ready_signal + " <= $value;\n");
+}
+
+ReconOSOperator::ReconOSOperator() {
+}
+
+void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
+  addInitialState();
+  addThreadExitState();
+
+  addAckState();
+
+  *this << ram;
+
+  BasicReconOSOperator::outputVHDL(o, name);
 }

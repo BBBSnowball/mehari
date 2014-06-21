@@ -9,15 +9,16 @@
 
 #include <string>
 #include <vector>
+#include <limits.h>
 
-class ReconOSOperator : public MyOperator {
+class BasicReconOSOperator : public MyOperator {
   ::Operator* calculation;
 
   UniqueNameSource stateNameGenerator;
   UniqueNameSet usedStateNames;
 public:
-  ReconOSOperator();
-  ~ReconOSOperator();
+  BasicReconOSOperator();
+  ~BasicReconOSOperator();
 
   void setCalculation(::Operator* calc);
   void addCalculationPort(Signal* sig);
@@ -91,10 +92,11 @@ protected:
   std::vector<State*> sequential_states;
   std::map<std::string, State*> states_by_name;
 
-  State& addSequentialState(const std::string& state_name);
+  State& addSequentialState(const std::string& state_name, unsigned int pos = UINT_MAX);
   State& addOutOfBandState(const std::string& state_name);
-  State& internalAddState(const std::string& state_name);
+  State& internalAddState(const std::string& state_name, unsigned int pos = UINT_MAX);
 };
+
 
 class LocalFakeRam {
   struct MemoryWordInfo {
@@ -115,5 +117,21 @@ inline static std::ostream& operator << (std::ostream& stream, const LocalFakeRa
   ram.generateCode(stream);
   return stream;
 }
+
+
+class ReconOSOperator : public BasicReconOSOperator {
+  LocalFakeRam ram;
+public:
+  ReconOSOperator();
+
+  void readMemory(const std::string& address, const ChannelP channel);
+  void readMbox(unsigned int mbox, const ChannelP channel);
+  void writeMbox(unsigned int mbox, const ChannelP channel);
+  void writeMemory(const std::string& address, const ChannelP channel);
+
+  // internal methods
+
+  void outputVHDL(std::ostream& o, std::string name);
+};
 
 #endif /*RECONOS_OPERATOR_H*/
