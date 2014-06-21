@@ -18,10 +18,10 @@ LLVM_BIN="$INSTALL_DIR/llvm/bin"
 CFLAGS_FOR_EXAMPLE="-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
 LLVM_PASSES="$DIR/llvm-passes"
 LLVM_PASSES_INSTALL="$INSTALL_DIR/llvm-passes"
-LLVM_PASSES_LIB="$LLVM_PASSES_INSTALL/lib/libmeharipasses.so"
+LLVM_PASSES_LIB="$DIR/_build/llvm-passes/libmeharipasses.so"
 
 PARTITIONING_TARGET_FUNCTIONS="evalND evalS"
-PARTITIONING_COUNT=2
+PARTITIONING_DEVICES="Cortex-A9 xc7z020-1"
 
 TEMPLATE_DIR="$DIR/examples/templates"
 MEHARI_SOURCES="$DIR/examples/mehari"
@@ -52,9 +52,9 @@ mkdir -p "$PARTITIONING_RESULTS_DIR"
 run "$LLVM_BIN/opt" -load "$LLVM_PASSES_LIB" \
 	-partitioning \
 	-template-dir "$TEMPLATE_DIR" \
-	-partitioning-method clustering \
+	-partitioning-methods clustering \
 	-partitioning-functions "$PARTITIONING_TARGET_FUNCTIONS" \
-	-partitioning-count $PARTITIONING_COUNT \
+	-partitioning-devices "$PARTITIONING_DEVICES" \
 	-partitioning-output-dir "$PARTITIONING_RESULTS_DIR" \
 	-partitioning-graph-output-dir "$PARTITIONING_RESULTS_DIR" \
 	-S "$EXAMPLE_FILE.3.ll"
