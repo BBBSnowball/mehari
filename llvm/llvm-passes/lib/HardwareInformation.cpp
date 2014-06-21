@@ -39,6 +39,11 @@ namespace {
 HardwareInformation::HardwareInformation() {
 	devices = new std::map<std::string, DeviceInformation*>();
 
+	// the FPGA runs @  100MHz instead of 800MHz, so we need to corrent 
+	// the timinigs for a comparison with the ARM processor
+	unsigned int fpgaClockMultiplier = 8;
+
+
 	// add timinigs for the ARM Cortex-A9 @ 800MHz
 	DeviceInformation *cortexA9 = new DeviceInformation("Cortex-A9");
 	cortexA9->addInstructionInfo("ret",    0);
@@ -59,17 +64,12 @@ HardwareInformation::HardwareInformation() {
 	cortexA9->addInstructionInfo("phi",    0);
 	cortexA9->addInstructionInfo("call",  50); // NOTE: approximation
 
-	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency,  1400);
-	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 1380);
-	cortexA9->addCommunicationInfo("xc7z020-1", DataDependency,  1400);
-	cortexA9->addCommunicationInfo("xc7z020-1", OrderDependency, 1380);
+	cortexA9->addCommunicationInfo("Cortex-A9", DataDependency,  455);
+	cortexA9->addCommunicationInfo("Cortex-A9", OrderDependency, 220);
+	cortexA9->addCommunicationInfo("xc7z020-1", DataDependency,  fpgaClockMultiplier * 275);
+	cortexA9->addCommunicationInfo("xc7z020-1", OrderDependency, fpgaClockMultiplier * 115);
 
 	devices->insert(std::pair<std::string, DeviceInformation*>(cortexA9->getName(), cortexA9));
-
-
-	// the FPGA runs @  100MHz instead of 800MHz, so we need to corrent 
-	// the timinigs for a comparison with the ARM processor
-	unsigned int fpgaClockMultiplier = 8;
 
 	// add timinigs for the FPGA
 	DeviceInformation *fpga = new DeviceInformation("xc7z020-1");
@@ -93,10 +93,10 @@ HardwareInformation::HardwareInformation() {
 	fpga->addInstructionInfo("call#sin",      fpgaClockMultiplier * (7+54+8));
 	fpga->addInstructionInfo("call#cos",      fpgaClockMultiplier * (7+54+8));
 
-	fpga->addCommunicationInfo("Cortex-A9", DataDependency,  1400);
-	fpga->addCommunicationInfo("Cortex-A9", OrderDependency, 1380);
-	fpga->addCommunicationInfo("xc7z020-1", DataDependency,  1400);
-	fpga->addCommunicationInfo("xc7z020-1", OrderDependency, 1380);
+	fpga->addCommunicationInfo("Cortex-A9", DataDependency,  fpgaClockMultiplier * 315);
+	fpga->addCommunicationInfo("Cortex-A9", OrderDependency, fpgaClockMultiplier * 240);
+	fpga->addCommunicationInfo("xc7z020-1", DataDependency,  fpgaClockMultiplier * 1);
+	fpga->addCommunicationInfo("xc7z020-1", OrderDependency, fpgaClockMultiplier * 1);
 
 	devices->insert(std::pair<std::string, DeviceInformation*>(fpga->getName(), fpga));
 
