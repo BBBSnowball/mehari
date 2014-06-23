@@ -463,7 +463,7 @@ unsigned int PartitioningGraph::getCriticalPathCost(std::vector<std::string> &pa
 }
 
 
-void PartitioningGraph::printGraph(std::string &name) {
+void PartitioningGraph::printGraph(const std::string &name) {
 	errs() << "Partitioning Graph: " << name << "\n";
 	errs() << "\nVERTICES:\n";
 	Graph::vertex_iterator vertexIt, vertexEnd;
@@ -493,7 +493,7 @@ void PartitioningGraph::printGraph(std::string &name) {
 }
 
 
-void PartitioningGraph::printGraphviz(Function &func, std::string &name, std::string &outputDir) {
+void PartitioningGraph::printGraphviz(Function &func, const std::string &name, std::string &outputDir) {
 	// set some node colors to visualize the different partitions
 	const char *nodeColors[] = { "greenyellow", "gold", "cornflowerblue", "darkorange", "aquamarine1" };
 

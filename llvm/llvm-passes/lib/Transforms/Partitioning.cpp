@@ -131,38 +131,41 @@ bool Partitioning::runOnModule(Module &M) {
 
 			if (pMethod == "nop") {
 				partitioningNumbers[functionName] = 1;
-				continue;
+			}
+			else {
+				AbstractPartitioningMethod *PM;
+				
+				if (pMethod == "random")
+					PM = new RandomPartitioning();
+				else if (pMethod == "clustering")
+					PM = new HierarchicalClustering();
+				else if (pMethod == "sa")
+					PM = new SimulatedAnnealing();
+				else if (pMethod == "k-lin")
+					PM = new KernighanLin();
+				else
+					throw std::runtime_error("Invalid partitioning method!");
+
+				clock_t start = std::clock();
+				partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
+				clock_t ends = std::clock();
+				delete PM;
+
+				double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
+				errs() << "Runtime for partitioning " << functionName << " using " << pMethod << ": " 
+					<< format("%4.4f", runtime) << " ms\n";
 			}
 
-			AbstractPartitioningMethod *PM;
-			
-			if (pMethod == "random")
-				PM = new RandomPartitioning();
-			else if (pMethod == "clustering")
-				PM = new HierarchicalClustering();
-			else if (pMethod == "sa")
-				PM = new SimulatedAnnealing();
-			else if (pMethod == "k-lin")
-				PM = new KernighanLin();
-			else
-				throw std::runtime_error("Invalid partitioning method!");
-
-			clock_t start = std::clock();
-			partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
-			clock_t ends = std::clock();
-			delete PM;
-
-			double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
-			errs() << "Runtime for partitioning " << functionName << " using " << pMethod << ": " 
-				<< format("%4.4f", runtime) << " ms\n";
+			// print partitioning graph results
+			pGraph->printGraphviz(*func, functionName + "_" + pMethod, GraphOutputDir);
 		}
+
+		// print critical path of partitioning graph to evaluate the partitioning result
+		errs() << "Critical path of the partitioning result: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
 		handleDependencies(M, *func, *pGraph, dependencies);
-		
-		// print partitioning graph results
-		pGraph->printGraphviz(*func, functionName, GraphOutputDir);
 
 		// save partitioning function and graph
 		partitioningFunctions[functionName] = func;
