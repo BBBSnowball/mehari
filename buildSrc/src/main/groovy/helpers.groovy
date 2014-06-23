@@ -309,6 +309,11 @@ class HelpersPluginConvention {
 	}
 
 
+	PartitioningProcessing partitioningProcessing(File example, String partitioningMethod, Callable closure=null) {
+		return new PartitioningProcessing(project, example, partitioningMethod, closure)
+	}
+
+
 	private def addExtensions() {
 		addMethodForSomeTasks("environmentFromConfig", { task-> task instanceof Exec }) { task ->
 			task.recommendedProperties names: ["xilinx_version", "xilinx_settings_script"]
