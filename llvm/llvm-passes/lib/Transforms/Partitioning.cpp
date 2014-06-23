@@ -125,6 +125,11 @@ bool Partitioning::runOnModule(Module &M) {
 					rPM.apply(*pGraph, partitioningDevices);
 			}
 
+			if (pMethod == "nop") {
+				partitioningNumbers[functionName] = 1;
+				continue;
+			}
+
 			AbstractPartitioningMethod *PM;
 			
 			if (pMethod == "random")

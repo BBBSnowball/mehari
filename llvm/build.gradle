@@ -31,11 +31,12 @@ ext {
 	PARTITIONING_TARGET_FUNCTIONS = "evalND evalS"
 
 	// valid partitioning methods (sperated by '+'):
+	// - nop		(no partitioning)
 	// - random 	(random partitioning)
 	// - clustering (hierarchical clustering)
 	// - sa 		(simulated annealing)
 	// - k-lin 		(kernighan-lin)
-	PARTITIONING_METHODS = ["k-lin", "clustering", "sa"]
+	PARTITIONING_METHODS = ["nop", "clustering", "sa", "k-lin"]
 
 	// valid devices (sepearted by whitespace): 
 	// - Cortex-A9 	(ARMv7 core + FPU; one core for each entry!)
