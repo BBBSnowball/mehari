@@ -79,14 +79,7 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
 
 
   if (value1->kind == ValueStorage::GLOBAL_VARIABLE || value1->kind == ValueStorage::FUNCTION_PARAMETER) {
-    //r_op->readMemory(value1);
-
-    ChannelDirection::Direction backup = ch1->direction;
-    ch1->direction = (ChannelDirection::Direction) (backup | ChannelDirection::OUT);
-    r_op->writeMbox(1, ch1);
-    ch1->direction = backup;
-
-    interface_ccode << value1->ccode << " = mbox_get_double(1);\n";
+    mboxPut(1, ch1, value1);
   }
 }
 
@@ -227,6 +220,49 @@ void VHDLBackend::generateCall(std::string funcName,
     std::string tmpVar, std::vector<Value*> args) {
   debug_print("generateCall(" << funcName << ", " << tmpVar << ", args)");
   return_if_dry_run();
+
+  if (funcName == "_get_real") {
+    assert(!tmpVar.empty());
+    assert(args.size() == 1);
+    assert(isa<llvm::ConstantInt>(args[0]));
+
+    ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
+
+    const llvm::APInt& mbox_apint = cast<llvm::ConstantInt>(args[0])->getValue();
+    assert(mbox_apint.isIntN(32));
+    unsigned int mbox = 2 + (unsigned int)mbox_apint.getZExtValue();
+
+    ChannelP mbox_channel = Channel::make_input(tmp->name + "_mbox", tmp->width());
+    mbox_channel->addTo(op.get());
+
+    mboxGetWithoutInterface(mbox, mbox_channel);
+
+
+    ChannelP ch1 = tmp->getWriteChannel(op.get());
+    ch1->connectToOutput(mbox_channel, op.get(), usedVariableNames, *ready_signals);
+
+    return;
+  } else if (funcName == "_put_real") {
+    assert(tmpVar.empty());
+    assert(args.size() == 2);
+    assert(isa<llvm::ConstantInt>(args[1]));
+
+    ValueStorageP value = vs_factory->get(args[0]);
+    ChannelP value_read = read(value);
+
+    const llvm::APInt& mbox_apint = cast<llvm::ConstantInt>(args[1])->getValue();
+    assert(mbox_apint.isIntN(32));
+    unsigned int mbox = 2 + (unsigned int)mbox_apint.getZExtValue();
+
+    ChannelP mbox_channel = Channel::make_output(value->name + "_mbox", value->width());
+    mbox_channel->addTo(op.get());
+
+    mboxPutWithoutInterface(mbox, mbox_channel);
+
+    mbox_channel->connectToOutput(value_read, op.get(), usedVariableNames, *ready_signals);
+
+    return;
+  }
 
   // create an operator for this function
   ::Operator* func = new ::Operator();
@@ -591,11 +627,7 @@ void VHDLBackend::generateReturn(Value *retVal) {
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 
 
-  ChannelDirection::Direction backup = ch1->direction;
-  ch1->direction = (ChannelDirection::Direction) (backup | ChannelDirection::OUT);
-  r_op->writeMbox(1, ch1);
-  ch1->direction = backup;
-
+  mboxPutWithoutInterface(1, ch1);
   interface_ccode << "return mbox_get_double(1);\n";
 }
 
@@ -706,15 +738,38 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
   ChannelP read_channel = value->getReadChannel(op.get());
 
   if (value->kind == ValueStorage::GLOBAL_VARIABLE || value->kind == ValueStorage::FUNCTION_PARAMETER) {
-    //r_op->readMemory(value);
-
-    ChannelDirection::Direction backup = read_channel->direction;
-    read_channel->direction = (ChannelDirection::Direction) (backup | ChannelDirection::IN);
-    r_op->readMbox(0, read_channel);
-    read_channel->direction = backup;
-
-    interface_ccode << "mbox_put_double(0, " << value->ccode << ");\n";
+    mboxGet(0, read_channel, value);
   }
 
   return read_channel;
+}
+
+void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
+  mboxGetWithoutInterface(mbox, channel_of_op);
+
+  interface_ccode << "mbox_put_double(" << toString(mbox) << ", " << value->ccode << ");\n";
+}
+
+void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
+  mboxPutWithoutInterface(mbox, channel_of_op);
+
+  interface_ccode << value->ccode << " = mbox_get_double(" << mbox << ");\n";
+}
+
+void VHDLBackend::mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {
+  // channel_of_op is the input channel of the calculation, so we have to revert its
+  // direction to use it as a dummy output channel for the ReconOS FSM.
+  ChannelDirection::Direction backup = channel_of_op->direction;
+  channel_of_op->direction = (ChannelDirection::Direction) (backup | ChannelDirection::IN);
+  r_op->readMbox(mbox, channel_of_op);
+  channel_of_op->direction = backup;
+}
+
+void VHDLBackend::mboxPutWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {
+  // channel_of_op is the output channel of the calculation, so we have to revert its
+  // direction to use it as a dummy input channel for the ReconOS FSM.
+  ChannelDirection::Direction backup = channel_of_op->direction;
+  channel_of_op->direction = (ChannelDirection::Direction) (backup | ChannelDirection::OUT);
+  r_op->writeMbox(mbox, channel_of_op);
+  channel_of_op->direction = backup;
 }

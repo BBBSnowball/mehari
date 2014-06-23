@@ -68,6 +68,11 @@ private:
   ValueStorageP remember(ValueStorageP value);
 
   ChannelP read(ValueStorageP value);
+
+  void mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value);
+  void mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value);
+  void mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op);
+  void mboxPutWithoutInterface(unsigned int mbox, ChannelP channel_of_op);
 };
 
 #endif /*GENERAGE_VHDL_H*/

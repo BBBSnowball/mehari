@@ -14,10 +14,10 @@ protected:
 
   std::string GenerateCode();
 
-  void CheckResult(const std::string &ExpectedResult, bool printResults = false,
+  std::string CheckResult(const std::string &ExpectedResult, bool printResults = false,
     const std::string &ExpectedResultFile = "");
-  void CheckResultFromFile(const std::string& filename, bool printResults = false);
-  void CheckResultFromFile();
+  std::string CheckResultFromFile(const std::string& filename, bool printResults = false);
+  std::string CheckResultFromFile();
 
   static void link(const std::string& source, const std::string& target);
 

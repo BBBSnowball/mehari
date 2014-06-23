@@ -22,6 +22,8 @@ public:
   SimpleCCodeGenerator(CodeGeneratorBackend* backend = NULL);
   ~SimpleCCodeGenerator();
 
+  void setIgnoreDataDependencies(bool ignoreThem);
+
   typedef struct {
     std::string name;
     std::string type;
@@ -41,6 +43,7 @@ public:
 
 private:
   std::map<std::string, std::string> dataDependencies;
+  bool ignoreDataDependencies;
 
   CodeGeneratorBackend* backend;
 

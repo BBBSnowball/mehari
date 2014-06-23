@@ -83,11 +83,16 @@ namespace CCodeMaps {
 
 
 SimpleCCodeGenerator::SimpleCCodeGenerator(CodeGeneratorBackend* backend)
-    : backend(backend ? backend : new CCodeBackend()) { }
+    : ignoreDataDependencies(false),
+      backend(backend ? backend : new CCodeBackend()) { }
 
 SimpleCCodeGenerator::~SimpleCCodeGenerator() {
   if (backend)
     delete backend;
+}
+
+void SimpleCCodeGenerator::setIgnoreDataDependencies(bool ignoreThem) {
+  ignoreDataDependencies = ignoreThem;
 }
 
 template <typename T>
@@ -232,10 +237,12 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
              || functionName == "_get_bool" || functionName == "_get_intptr") {
-              std::string tgtOperand = cast<MDString>(instr->getMetadata("targetop")->getOperand(0))->getString();
-              dataDependencies[tgtOperand] = tmpVar;
+              if (ignoreDataDependencies) {
+                std::string tgtOperand = cast<MDString>(instr->getMetadata("targetop")->getOperand(0))->getString();
+                dataDependencies[tgtOperand] = tmpVar;
 
-              backend->addDataDependency(convertAddressStringToPointer<Value>(tgtOperand), tmpVar);
+                backend->addDataDependency(convertAddressStringToPointer<Value>(tgtOperand), tmpVar);
+              }
             }
           }
         }

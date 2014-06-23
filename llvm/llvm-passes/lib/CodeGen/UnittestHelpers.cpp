@@ -99,7 +99,7 @@ std::string CodeGeneratorTest::GenerateCode() {
 }
 
 
-void CodeGeneratorTest::CheckResult(const std::string &ExpectedResult, bool printResults, const std::string &ExpectedResultFile) {
+std::string CodeGeneratorTest::CheckResult(const std::string &ExpectedResult, bool printResults, const std::string &ExpectedResultFile) {
   std::string CodeGenResult = GenerateCode();
 
   if (printResults) {
@@ -121,6 +121,8 @@ void CodeGeneratorTest::CheckResult(const std::string &ExpectedResult, bool prin
 
   // compare results
   EXPECT_EQ(ExpectedResult, CodeGenResult);
+
+  return CodeGenResult;
 }
 
 void CodeGeneratorTest::link(const std::string& source, const std::string& target) {
@@ -158,8 +160,8 @@ void CodeGeneratorTest::writeFile(const std::string& filename, const std::string
   file.close();
 }
 
-void CodeGeneratorTest::CheckResultFromFile(const std::string& filename, bool printResults) {
-  CheckResult(fromFile(filename), printResults, "CodeGen_data/" + filename);
+std::string CodeGeneratorTest::CheckResultFromFile(const std::string& filename, bool printResults) {
+  return CheckResult(fromFile(filename), printResults, "CodeGen_data/" + filename);
 }
 
 
@@ -169,4 +171,6 @@ std::string CodeGeneratorTest::getCurrentTestName() {
   return test_info->name();
 }
 
-void CodeGeneratorTest::CheckResultFromFile() { CheckResultFromFile(getCurrentTestName() + ".vhdl"); }
+std::string CodeGeneratorTest::CheckResultFromFile() {
+  return CheckResultFromFile(getCurrentTestName() + ".vhdl");
+}

@@ -71,6 +71,33 @@ protected:
     return ((VHDLBackend*)backend)->getInterfaceCode();
   }
 
+  std::string CheckReconOSOperator(const std::string &ExpectedResult, const std::string &ExpectedResultFile = "") {
+    std::ostringstream CodeGenResult;
+    getGeneratedReconOSOperator()->outputVHDL(CodeGenResult, "reconos");
+
+    if (ExpectedResult != CodeGenResult.str()) {
+      if (ExpectedResultFile.empty()) {
+        remove("expected-reconos");
+        writeFile("expected-reconos", ExpectedResult);
+      } else
+        link(ExpectedResultFile, "expected-reconos");
+      writeFile("actual-reconos", CodeGenResult.str());
+    }
+
+    // compare results
+    EXPECT_EQ(ExpectedResult, CodeGenResult.str());
+
+    return CodeGenResult.str();
+  }
+
+  std::string CheckReconOSOperatorFromFile(const std::string& filename) {
+    return CheckReconOSOperator(fromFile(filename), "CodeGen_data/" + filename);
+  }
+
+  std::string CheckReconOSOperatorFromFile() {
+    return CheckReconOSOperatorFromFile(getCurrentTestName() + "-ReconOS.vhdl");
+  }
+
 public:
   SimpleVHDLGeneratorTest() : testOp(NULL) { }
 
@@ -449,3 +476,89 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
     "return mbox_get_double(1);\n",
     getInterfaceCode());
 }
+
+
+TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
+  ParseC(
+    "void _put_real(double, unsigned int);"
+    "double _get_real(unsigned int);"
+    "void test(double a) {"
+    "  _put_real(a, 1);"
+    "  a = _get_real(0);"
+    "}");
+  std::string vhdl_code = CheckResultFromFile();
+  std::string reconos_code = CheckReconOSOperatorFromFile();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", vhdl_code);
+  writeFile(getCurrentTestName() + "/reconos.vhdl", reconos_code);
+
+  EXPECT_EQ(
+    "mbox_put_double(0, a);\n"
+    "a = mbox_get_double(1);\n",
+    getInterfaceCode());
+}
+
+/*
+TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
+  ParseC(
+    "void _put_int(int, unsigned int);"
+    "int _get_int(unsigned int);"
+    "void test(int a) {"
+    "  _put_int(a, 1);"
+    "  a = _get_int(0);"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "",
+    getInterfaceCode());
+}
+
+
+TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
+  ParseC(
+    "void _put_bool(int, unsigned int);"
+    "int _get_bool(unsigned int);"
+    "void test(int a) {"
+    "  _put_bool(1, a);"
+    "  a = _get_bool(0);"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "",
+    getInterfaceCode());
+}
+
+
+TEST_F(ReconOSVHDLGeneratorTest, SemaphoreTest) {
+  ParseC(
+    "void _sem_wait(unsigned int);"
+    "void _sem_post(unsigned int);"
+    "void test(void) {"
+    "  _sem_wait(23);"
+    "  _sem_post(42);"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "",
+    getInterfaceCode());
+}
+*/
