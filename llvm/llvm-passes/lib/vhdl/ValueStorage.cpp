@@ -205,6 +205,7 @@ ValueStorageP ValueStorageFactory::makeParameter(Value* value, const std::string
   x->kind = ValueStorage::FUNCTION_PARAMETER;
   x->name = name;
   x->type = value->getType();
+  x->ccode = name;
 
   by_llvm_value[value] = x;
   by_name[name] = x;
@@ -497,6 +498,7 @@ ValueStorageP ValueStorageFactory::getGlobalVariable(const std::string& name, Ty
     x->kind = ValueStorage::GLOBAL_VARIABLE;
     x->name = name;
     x->type = type;
+    x->ccode = name;
 
     by_name[name] = x;
   }
@@ -521,6 +523,7 @@ ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, std::strin
     pointee->type = ptr->type->getSequentialElementType();
     pointee->parent = ptr;
     pointee->offset = str_index;
+    pointee->ccode = ptr->ccode + "[" + str_index + "]";
 
     by_index[ValueAndIndex(ptr, str_index)] = pointee;
   }

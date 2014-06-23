@@ -67,6 +67,10 @@ protected:
     return ((VHDLBackend*)backend)->getReconOSOperator();
   }
 
+  std::string getInterfaceCode() {
+    return ((VHDLBackend*)backend)->getInterfaceCode();
+  }
+
 public:
   SimpleVHDLGeneratorTest() : testOp(NULL) { }
 
@@ -436,21 +440,12 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   mkdir(getCurrentTestName().c_str(), 0755);
   writeFile(getCurrentTestName() + "/calculation.vhdl", code);
 
-  boost::scoped_ptr<ReconOSOperator> r_op(new ReconOSOperator());
-  r_op->setName("GlobalArrayReconOS");
-  ::Operator* calculation = getGeneratedOperator();
-  r_op->setCalculation(calculation);
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
-  std::string address_of_x = "44";
-  std::string address_of_x_1 = "std_logic_vector(to_unsigned(" + address_of_x + "+1*8" + ", 32))";
-  std::string address_of_x_2 = "std_logic_vector(to_unsigned(" + address_of_x + "+2*8" + ", 32))";
-
-  r_op->readMbox(0, Channel::make_component_input(calculation, "a_in"));
-  r_op->writeMemory(address_of_x_2, Channel::make_component_output(calculation, "x_2_out"));
-  r_op->readMemory(address_of_x_1, Channel::make_component_output(calculation, "x_1_in"));
-  r_op->writeMbox(1, Channel::make_component_output(calculation, "return"));
-
-  saveOperator(getCurrentTestName() + "/reconos.vhdl", r_op.get());
-
-  saveOperator(getCurrentTestName() + "/reconos2.vhdl", getGeneratedReconOSOperator());
+  EXPECT_EQ(
+    "mbox_put_double(0, a);\n"
+    "x[2] = mbox_get_double(1);\n"
+    "mbox_put_double(0, x[1]);\n"
+    "return mbox_get_double(1);\n",
+    getInterfaceCode());
 }

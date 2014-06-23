@@ -388,9 +388,7 @@ void BasicReconOSOperator::addInitialState() {
     if (isValidOfInputSignal(sig))
       state.vhdl << sig->getName() << " <= '0';" << endl;
     else if (isReadyOfOutputSignal(sig))
-      //state.vhdl << sig->getName() << " <= '0';" << endl;
-      //DEBUG
-      state.vhdl << sig->getName() << " <= '1';" << endl;
+      state.vhdl << sig->getName() << " <= '0';" << endl;
   }
 }
 
@@ -683,7 +681,7 @@ void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
   instantiateCalculation();
 
   addInitialState();
-  addReadParamsState();
+  //addReadParamsState();
   addThreadExitState();
 
   addAckState();

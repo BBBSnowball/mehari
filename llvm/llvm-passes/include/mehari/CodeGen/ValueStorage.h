@@ -31,6 +31,7 @@ struct ValueStorage {
   llvm::Type* type;
   ValueStorageP parent;
   std::string offset;
+  std::string ccode;
 
   ValueStorage();
 

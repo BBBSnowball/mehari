@@ -22,7 +22,7 @@ end GlobalArrayTest;
 
 architecture behavior of GlobalArrayTest is
 
-	component GlobalArrayReconOS is
+	component reconos is
 		port (
 			-- OSIF FIFO ports
 			OSIF_FIFO_Sw2Hw_Data    : in  std_logic_vector(31 downto 0);
@@ -50,7 +50,7 @@ architecture behavior of GlobalArrayTest is
 			HWT_Rst   : in  std_logic
 		);
 
-	end component GlobalArrayReconOS;
+	end component reconos;
 
 	-- OSIF FIFO ports
 	signal OSIF_FIFO_Sw2Hw_Data     : std_logic_vector(31 downto 0);
@@ -176,7 +176,7 @@ begin
 		MEMIF_FIFO_Hwt2Mem_WE
 	);
 
-	uut : GlobalArrayReconOS
+	uut : reconos
 	port map (
 		OSIF_FIFO_Sw2Hw_Data     => OSIF_FIFO_Sw2Hw_Data,
 		OSIF_FIFO_Sw2Hw_Fill     => OSIF_FIFO_Sw2Hw_Fill,
@@ -228,23 +228,19 @@ begin
 		rst <= '0';
 
 		report "Sending address to slave...";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(16, 32));
-
-		--real_value_to_ram(3.7, ram, 0);
-		--ram(2) := CONV_STD_LOGIC_VECTOR(44, 32);
-		--expect_memif_read(clk, i_memif_test, o_memif_test, 16, 0, ram);
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(44, 32));
 
 		report "mbox_get for a_in";
 		expect_mbox_get_double(MBOX_RECV, 3.7);
 
 		report "writing to x[2]";
-		expect_memif_write_double(44+2*8, 3.7);
+		expect_mbox_put_double(MBOX_SEND, 3.7);
 
 		report "reading from x[1]";
-		expect_memif_read_double(44+1*8, 4.2);
+		expect_mbox_get_double(MBOX_RECV, 4.2);
 
 		report "mbox_put for return value";
-		expect_mbox_put_double(MBOX_SEND, 3.7+2.0);
+		expect_mbox_put_double(MBOX_SEND, 4.2);
 
 		report "Reading 'done' message from slave...";
 		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(44, 32));

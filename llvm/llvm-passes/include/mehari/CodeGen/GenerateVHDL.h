@@ -23,11 +23,13 @@ class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   boost::scoped_ptr<ReconOSOperator> r_op;
   boost::scoped_ptr<class ValueStorageFactory> vs_factory;
   boost::scoped_ptr<class ReadySignals> ready_signals;
+  std::ostringstream interface_ccode;
 public:
   VHDLBackend();
 
   MyOperator* getOperator();
   ReconOSOperator* getReconOSOperator();
+  std::string getInterfaceCode();
 
   void init(SimpleCCodeGenerator* generator, std::ostream& stream);
 

@@ -39,6 +39,10 @@ ReconOSOperator* VHDLBackend::getReconOSOperator() {
   return r_op.get();
 }
 
+std::string VHDLBackend::getInterfaceCode() {
+  return interface_ccode.str();
+}
+
 void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;
   this->stream = &stream;
@@ -47,6 +51,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   instanceNameGenerator.reset();
   usedVariableNames.reset();
   ready_signals->clear();
+  interface_ccode.str("");
 
   op.reset(new MyOperator());
   op->setName("test");
@@ -63,12 +68,25 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   debug_print("generateStore(" << op1 << ", " << op2 << ")");
   return_if_dry_run();
 
-  ChannelP ch1 = vs_factory->getForWriting(op1)->getWriteChannel(op.get());
+  ValueStorageP value1 = vs_factory->getForWriting(op1);
+  ChannelP ch1 = value1->getWriteChannel(op.get());
   ChannelP ch2 = read(vs_factory->get(op2));
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 
   vs_factory->get(op1)->replaceBy(ch2);
+
+
+  if (value1->kind == ValueStorage::GLOBAL_VARIABLE || value1->kind == ValueStorage::FUNCTION_PARAMETER) {
+    //r_op->readMemory(value1);
+
+    ChannelDirection::Direction backup = ch1->direction;
+    ch1->direction = (ChannelDirection::Direction) (backup | ChannelDirection::OUT);
+    r_op->writeMbox(1, ch1);
+    ch1->direction = backup;
+
+    interface_ccode << value1->ccode << " = mbox_get_double(1);\n";
+  }
 }
 
 OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
@@ -570,6 +588,14 @@ void VHDLBackend::generateReturn(Value *retVal) {
   ChannelP ch2 = read(retVal_vs);
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
+
+
+  ChannelDirection::Direction backup = ch1->direction;
+  ch1->direction = (ChannelDirection::Direction) (backup | ChannelDirection::OUT);
+  r_op->writeMbox(1, ch1);
+  ch1->direction = backup;
+
+  interface_ccode << "return mbox_get_double(1);\n";
 }
 
 
@@ -582,6 +608,11 @@ void VHDLBackend::generateEndOfMethod() {
   *op << s.str();
 
   op->outputVHDL(*stream);
+
+
+  BOOST_FOREACH(Signal* signal, *op->getIOList()) {
+    r_op->addCalculationPort(signal);
+  }
 }
 
 std::string VHDLBackend::createTemporaryVariable(Value *addr) {
@@ -674,7 +705,14 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
   ChannelP read_channel = value->getReadChannel(op.get());
 
   if (value->kind == ValueStorage::GLOBAL_VARIABLE || value->kind == ValueStorage::FUNCTION_PARAMETER) {
-    r_op->readMemory(value);
+    //r_op->readMemory(value);
+
+    ChannelDirection::Direction backup = read_channel->direction;
+    read_channel->direction = (ChannelDirection::Direction) (backup | ChannelDirection::IN);
+    r_op->readMbox(0, read_channel);
+    read_channel->direction = backup;
+
+    interface_ccode << "mbox_put_double(0, " << value->ccode << ");\n";
   }
 
   return read_channel;
