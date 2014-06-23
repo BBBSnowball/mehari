@@ -14,21 +14,17 @@ ext {
 	DEFAULT_LLVM_VERSION = "3.4"
 
 	IPANEMA = file("$projectDir/../private/ipanema")
-	IPANEMA_INCLUDES_SYSLAYER = file("$IPANEMA/include/syslayer/linux")
-	IPANEMA_INCLUDES_SIM = file("$IPANEMA/include/sim")
 	IPANEMA_PYTHON_LIB_DIR = file("$projectDir/../private/python/lib")
 
-	EXAMPLE_FILE = file("$projectDir/examples/dc_motor.c")
+	EXAMPLE_DIR = file("$projectDir/examples")
 	CFLAGS_FOR_EXAMPLE = "-DDOUBLE_FLOAT -D__POSIX__ -D_DSC_EVENTQUEUE -D__RESET -DEXEC_SEQ"
-
-	EXAMPLE_NAME = EXAMPLE_FILE.name.lastIndexOf('.').with {it != -1 ? EXAMPLE_FILE.name[0..<it] : EXAMPLE_FILE.name}
 
 	CODEGEN_PREPARATION_SCRIPT = file("$projectDir/../private/python/scripts/prepare_example_for_code_generation.py")
 
 	PARTITIONED_EXAMPLE_BUILD_SCRIPT = file("$projectDir/../private/build_ipanema_and_example-mehari.sh")
 	PARTITIONED_EXAMPLE_TEST_SCRIPT = file("$projectDir/../private/python/tests/partitioned_example_test.py")
 
-	// valid function names for partitioning (seperated by whitespace):
+	// valid function names for partitioning (compined methods must be seperated by whitespace):
 	// - evalD
 	// - evalND
 	// - evalS
@@ -39,12 +35,12 @@ ext {
 	// - clustering (hierarchical clustering)
 	// - sa 		(simulated annealing)
 	// - k-lin 		(kernighan-lin)
-	PARTITIONING_METHODS = "sa+k-lin"
+	PARTITIONING_METHODS = ["k-lin", "clustering", "sa"]
 
 	// valid devices (sepearted by whitespace): 
 	// - Cortex-A9 	(ARMv7 core + FPU; one core for each entry!)
 	// - xc7z020-1 	(FPGA on Xilinx Zynq-7000: Z-7010)
-	PARTITIONING_DEVICES = "Cortex-A9 xc7z020-1"
+	PARTITIONING_DEVICES = "Cortex-A9 Cortex-A9"
 
 	TEMPLATE_DIR = file("$projectDir/examples/templates")
 	MEHARI_SOURCES = file("$projectDir/examples/mehari")
@@ -52,9 +48,6 @@ ext {
 	OUTPUT_DIR = file("$projectDir/_output")
 	OUTPUT_GRAPH_DIR = file("$OUTPUT_DIR/graph")
 	PARTITIONING_RESULTS_DIR = file("$OUTPUT_DIR/partitioning")
-
-	PARTITIONING_TARGET_NAME = "$EXAMPLE_NAME"+"_partitioned_"+"$PARTITIONING_METHODS"
-	PARTITIONING_TARGET_FILE = file("$PARTITIONING_RESULTS_DIR/$PARTITIONING_TARGET_NAME"+".c")
 
 	PRIVATE_BUILD_DIR = file("$projectDir/../private/build")
 
@@ -218,113 +211,7 @@ task installLLVMPasses(type: Exec) {
 
 
 task compile {
-	dependsOn installLLVMPasses
-}
-
-
-task prepareExample(type: Exec) {
-	doFirst {
-		OUTPUT_DIR.mkdirs()
-	}
-
-	def target_file = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
-
-	inputs.file EXAMPLE_FILE
-	outputs.file target_file
-
-	// remove redundant function calles from example
-	commandLine "bash", "-c", """sed '/^\\s*if\\s*(\\s*!\\s*(\\*status.*\$/ d' $EXAMPLE_FILE > $target_file"""
-}
-
-
-task createIR(type: Exec) {
-	dependsOn installLLVM, prepareExample
-
-	def tmp_source_file = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
-	def irfile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".ll")
-
-	inputs.file tmp_source_file
-	outputs.file irfile
-
-	commandLine "bash", "-c", "$LLVM_BIN/clang " +
-	"$CFLAGS_FOR_EXAMPLE " +
-	"-S -emit-llvm " +
-	"-I$IPANEMA_INCLUDES_SYSLAYER -I$IPANEMA_INCLUDES_SIM " + 
-	"$tmp_source_file " +
-	"-o $irfile"
-}
-
-
-task prepareInlining(type: Exec) {
-	dependsOn installLLVMPasses, createIR
-
-	def sourcefile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".ll")
-	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-prepare-inline"+".ll")
-
-	commandLine "bash", "-c", "$LLVM_BIN/opt " +
-	"-load $LLVM_PASSES_LIB " + 
-	"-add-attr-always-inline " +
-	"-inline-functions \"evalParameterCouplings\" " +
-	"-S $sourcefile > $targetfile"
-}
-
-task applyInlining(type: Exec) {
-	dependsOn prepareInlining
-
-	def sourcefile = file("$OUTPUT_DIR/$EXAMPLE_NAME-prepare-inline"+".ll")
-	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
-
-	commandLine "bash", "-c", "$LLVM_BIN/opt -always-inline -S $sourcefile > $targetfile"
-}
-
-
-task speedUpAnalysis(type: Exec) {
-	dependsOn installLLVMPasses, createIR, applyInlining
-
-	doFirst {
-		OUTPUT_GRAPH_DIR.mkdirs()
-	}
-
-	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
-
-	commandLine "bash", "-c", "$LLVM_BIN/opt " +
-	"-load $LLVM_PASSES_LIB " +
-	"-speedup " +
-	"-dot " +
-	"-speedup-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
-	"-speedup-output-dir \"$OUTPUT_GRAPH_DIR\" " +
-	"-S $targetfile > /dev/null"
-}
-
-
-task createIRGraphs(type: Exec) {
-	dependsOn installLLVMPasses, createIR, applyInlining
-
-	doFirst {
-		OUTPUT_GRAPH_DIR.mkdirs()
-	}
-
-	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
-
-	commandLine "bash", "-c", "$LLVM_BIN/opt " +
-	"-load $LLVM_PASSES_LIB " +
-	"-dfg " +
-	"-graph-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
-	"-irgraph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
-	"-S $targetfile > /dev/null"
-}
-
-
-task prepareCodeGenerationResult(type: Exec) {
-	dependsOn prepareExample
-
-	doFirst {
-		PARTITIONING_RESULTS_DIR.mkdirs()
-	}
-
-	def inputfile = file("$OUTPUT_DIR/$EXAMPLE_NAME"+".c")
-
-	commandLine "python", CODEGEN_PREPARATION_SCRIPT, inputfile, PARTITIONING_TARGET_FILE, PARTITIONING_TARGET_FUNCTIONS
+	dependsOn buildLLVMPasses
 }
 
 
@@ -338,36 +225,29 @@ task copyMehariSources(type: Copy) {
 }
 
 
-task applyPartitioning(type: Exec) {
-	dependsOn installLLVMPasses, createIR, applyInlining, prepareCodeGenerationResult, copyMehariSources
+// create the processing task for each example
+def examples = fileTree(EXAMPLE_DIR) {
+	include "*.c"
+}
 
-	doFirst {
-		OUTPUT_GRAPH_DIR.mkdirs()
+examples.each { File example ->
+	PARTITIONING_METHODS.each { String pMethod ->
+		partitioningProcessing(example, pMethod)
 	}
-	
-	def targetfile = file("$OUTPUT_DIR/$EXAMPLE_NAME-inlined"+".ll")
-
-	commandLine "bash", "-c", "$LLVM_BIN/opt " +
-	"-load $LLVM_PASSES_LIB " +
-	"-partitioning " +
-	"-template-dir \"$TEMPLATE_DIR\" " +
-	"-partitioning-methods \"$PARTITIONING_METHODS\" " +
-	"-partitioning-functions \"$PARTITIONING_TARGET_FUNCTIONS\" " +
-	"-partitioning-devices \"$PARTITIONING_DEVICES\" " +
-	"-partitioning-output-dir \"$PARTITIONING_RESULTS_DIR\" " +
-	"-partitioning-graph-output-dir \"$OUTPUT_GRAPH_DIR\" " +
-	"-S $targetfile > /dev/null"
 }
 
 
-task runOptimizationPasses {
-	dependsOn speedUpAnalysis, createIRGraphs, applyPartitioning
+task testOptimizationPasses(type: Exec) {
+	dependsOn buildLLVMPasses
+
+	def build_dir = file("$BUILD_DIR/llvm-passes")
+	workingDir build_dir
+
+	commandLine "./MehariUnittests"
 }
 
 
 task createGraphImages() {
-	dependsOn runOptimizationPasses
-
 	def dot_files = fileTree(OUTPUT_DIR) {
 		include "**/*.dot"
 	}
@@ -383,48 +263,11 @@ task createGraphImages() {
 	}
 }
 
-
 task createResults() {
 	dependsOn createGraphImages
 }
 
 
-task runOptimizationPassesUnittests(type: Exec) {
-	dependsOn installLLVMPasses
-
-	// environment "LD_LIBRARY_PATH", LLVM_PASSES_LIB_DIR
-	// workingDir file("$LLVM_PASSES_INSTALL/unittests")
-
-	def build_dir = file("$BUILD_DIR/llvm-passes")
-	workingDir build_dir
-
-	commandLine "./MehariUnittests"
-}
-
-
-task compilePartitionedExample(type: Exec) {
-	dependsOn applyPartitioning
-	commandLine PARTITIONED_EXAMPLE_BUILD_SCRIPT, PARTITIONING_TARGET_FILE
-}
-
-
-task testPartitionedExample(type: Exec) {
-	dependsOn compilePartitionedExample, ":private:compile"
-
-	environment "PYTHONPATH", IPANEMA_PYTHON_LIB_DIR
-
-	workingDir PRIVATE_BUILD_DIR
-	commandLine "python", 
-		PARTITIONED_EXAMPLE_TEST_SCRIPT,
-		rootPath(PRIVATE_BUILD_DIR, EXAMPLE_NAME),
-		rootPath(PRIVATE_BUILD_DIR, PARTITIONING_TARGET_NAME),
-		EXAMPLE_SIMULATION_CONFIG
-}
-
-
 task test() {
-	dependsOn runOptimizationPasses
-	dependsOn runOptimizationPassesUnittests
-	dependsOn createResults
-	dependsOn testPartitionedExample
+	dependsOn testOptimizationPasses
 }
