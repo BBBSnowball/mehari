@@ -37,7 +37,7 @@ public:
     return stream.str();
   }
 
-  std::string getDataDependencyOrDefault(std::string opString, std::string defaultValue);
+  std::string *getDataDependencyOrNull(Value *operand);
 
 private:
   std::map<std::string, std::string> dataDependencies;

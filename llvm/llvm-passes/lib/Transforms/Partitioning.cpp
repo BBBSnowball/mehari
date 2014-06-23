@@ -43,6 +43,10 @@ static cl::opt<std::string> TemplateDir("template-dir",
             cl::value_desc("template-dir"));
 
 
+// Use data dependencies for all communication with the FPGA
+static bool useDataDepForAllFPGACom = true;
+
+
 Partitioning::Partitioning() : ModulePass(ID) {
 	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 	// read command line arguments
@@ -258,6 +262,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
 			Instruction *depInstr = depValIt->depInstruction;
+			Type *instrType = depInstr->getType();
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
@@ -269,28 +274,53 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				Value *depNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), depNumber);
 				Value *semNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), semNumber);
 
+				// determine partition hardware types
+				HardwareInformation hInfo;
+				DeviceInformation::DeviceType t1, t2;
+				t1 =hInfo.getDeviceInfo(
+					partitioningDevices[pGraph.getPartition(instrVertex)])->getType();
+				t2 =hInfo.getDeviceInfo(
+					partitioningDevices[pGraph.getPartition(depVertex)])->getType();
+
+				// determine whether to use mboxes or semaphores
+				// currently we do not use semaphores for the communication with the FPGA, only for control flow
+				// so we use data dependency methods every time we communicate with the FPGA
+				// or we communicate between two processor cores and the current dependency is a register dependency
+				bool useSemaphores;
+				if (useDataDepForAllFPGACom)
+					useSemaphores = depValIt->isCtrlDep
+					|| (t1 != DeviceInformation::FPGA_RECONOS && t2 != DeviceInformation::FPGA_RECONOS && depValIt->isMemDep);
+				else
+					useSemaphores = depValIt->isCtrlDep || depValIt->isMemDep;
+
+				// determine whether we handle a calculation instruction (return type int/real) or a load/store instruction (void)
+				bool isVoidInstr = instrType->isVoidTy();
+				Type *operandType = NULL;
+				if (isVoidInstr)
+					operandType = depInstr->getOperand(0)->getType();
+
 				// add function calls to handle dependencies between partitions
 				std::vector<Instruction*> tgtInstrList = pGraph.getInstructions(instrVertex);
 				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), tgtinstr);
-				Type *instrType = depInstr->getType();
 				if (instrIt != tgtInstrList.end()) {
 					CallInst *newInstr;
-					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+					// create the new function depending on the target hardware and the communication type
+					if (useSemaphores) {
 						newInstr = CallInst::Create(newSemWaitFunc, semNumberVal);
 						semNumberUsed = true;
 					}
-					else if (depValIt->isRegdep) {
-						if (instrType->isIntegerTy()) {
+					else { // we use data dependencies
+						if (instrType->isIntegerTy() || (isVoidInstr && operandType->isIntegerTy())) {
 							if (instrType->getIntegerBitWidth() == 1)
 								newInstr = CallInst::Create(newGetBoolFunc, depNumberVal, "data");
 							else
 								newInstr = CallInst::Create(newGetIntFunc, depNumberVal, "data");
 							dataDependencies.push_back("IntT");
 						}
-						else if (instrType->isFloatingPointTy()) {
+						else if (instrType->isFloatingPointTy() || (isVoidInstr && operandType->isFloatingPointTy())) {
 							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
 							dataDependencies.push_back("RealT");
-						}					
+						}
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -300,9 +330,10 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						depNumberUsed = true;
 					}
 					// add metadata to specify the target operand for the get_data call
+					// for load/store add the operand to the metadata, else we can use the instruction itself
 					std::stringstream ss;
-					ss << depInstr;
-					LLVMContext& context = tgtinstr->getContext();
+					isVoidInstr ? ss << tgtinstr : ss << depInstr;
+					LLVMContext &context = tgtinstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
 					// add instruction to function
@@ -316,22 +347,27 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depInstr);
 				if (depIt != tgtInstrList.end()) {
 					CallInst *newInstr;
-					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+					if (useSemaphores) {
 						newInstr = CallInst::Create(newSemPostFunc, semNumberVal);
 						semNumberUsed = true;
 					}
-					else if (depValIt->isRegdep) {							
+					else { // we use data dependencies
 						std::vector<Value*> params;
 						params.push_back(depNumberVal);
-						params.push_back(depInstr);
-						if (instrType->isIntegerTy()) {
+						// for load/store add the operand to the parameter list, else we can use the instruction itself
+						if (isVoidInstr)
+							params.push_back(depInstr->getOperand(0));
+						else
+							params.push_back(depInstr);
+						if (instrType->isIntegerTy() || (isVoidInstr && operandType->isIntegerTy())) {
 							if (instrType->getIntegerBitWidth() == 1)
 								newInstr = CallInst::Create(newPutBoolFunc, params);
 							else
 								newInstr = CallInst::Create(newPutIntFunc, params);
 						}
-						else if (instrType->isFloatingPointTy())
+						else if (instrType->isFloatingPointTy() || (isVoidInstr && operandType->isFloatingPointTy())) {
 							newInstr = CallInst::Create(newPutFloatFunc, params);
+						}
 						else {
 							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
 									<< instrType->getTypeID() << "\n";

@@ -353,8 +353,9 @@ void SimpleCCodeGenerator::extractFunctionParameters(Function &func) {
   }
 }
 
-std::string SimpleCCodeGenerator::getDataDependencyOrDefault(std::string opString, std::string defaultValue) {
-  return getValueOrDefault(dataDependencies, opString, defaultValue);
+std::string *SimpleCCodeGenerator::getDataDependencyOrNull(Value *operand) {
+  std::string opString = toString(operand);
+  return getValueOrNull(dataDependencies, opString);
 }
 
 
@@ -394,8 +395,12 @@ std::string CCodeBackend::generateBranchLabel(Value *target) {
 
 
 std::string CCodeBackend::getOperandString(Value* addr) {
+  // if the value was got from another thread by the get_data function, return it
+  if (std::string *operand = generator->getDataDependencyOrNull(addr))
+    return *operand;
+
   // return operand if it is a variable and already known
-  if (const std::string* str = getValueOrNull(variables, addr))
+  else if (const std::string* str = getValueOrNull(variables, addr))
     return *str;
 
   // handle global value operands
@@ -426,10 +431,8 @@ std::string CCodeBackend::getOperandString(Value* addr) {
     return os.str();
   }
 
-  // convert operand address to string
-  std::string opString = toString(addr);
-  // if the value was got from another thread by the get_data function, return it
-  return generator->getDataDependencyOrDefault(opString, "## " + opString + " ##");
+  else
+    return "## " + toString(addr) + " ##";
 }
 
 
