@@ -259,9 +259,9 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 	// loop over dependencies and insert appropriate function calls to handle dependencies between partitions
 	for (InstructionDependencyList::iterator listIt = dependencies.begin(); listIt != dependencies.end(); ++listIt) {
 		InstructionDependencyEntry depEntry = *listIt;
-		Instruction *tgtinstr = depEntry.tgtInstruction;
+		Instruction *tgtInstr = depEntry.tgtInstruction;
 		std::vector<InstructionDependency> instrDep = depEntry.dependencies;
-		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtinstr);
+		PartitioningGraph::VertexDescriptor instrVertex = pGraph.getVertexForInstruction(tgtInstr);
 		if (instrVertex == NO_SUCH_VERTEX)
 			// the instruction is not part of the Graph -> continue with the next instruction
 			continue;
@@ -306,7 +306,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 
 				// add function calls to handle dependencies between partitions
 				std::vector<Instruction*> tgtInstrList = pGraph.getInstructions(instrVertex);
-				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), tgtinstr);
+				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), tgtInstr);
 				if (instrIt != tgtInstrList.end()) {
 					CallInst *newInstr;
 					// create the new function depending on the target hardware and the communication type
@@ -338,14 +338,14 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 					// for load/store add the operand to the metadata, else we can use the instruction itself
 					std::stringstream ss;
 					if(isVoidInstr)
-						ss << tgtinstr
+						ss << tgtInstr;
 					else
 						ss << depInstr;
-					LLVMContext &context = tgtinstr->getContext();
+					LLVMContext &context = tgtInstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
 					// add instruction to function
-					tgtinstr->getParent()->getInstList().insert(tgtinstr, newInstr);
+					tgtInstr->getParent()->getInstList().insert(tgtInstr, newInstr);
 					// add instruction to vertex instruction list
 					tgtInstrList.insert(instrIt, newInstr);
 					pGraph.setInstructions(instrVertex, tgtInstrList);
