@@ -542,7 +542,7 @@ TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
     getInterfaceCode());
 }
 
-/*
+
 TEST_F(ReconOSVHDLGeneratorTest, SemaphoreTest) {
   ParseC(
     "void _sem_wait(unsigned int);"
@@ -562,4 +562,3 @@ TEST_F(ReconOSVHDLGeneratorTest, SemaphoreTest) {
     "",
     getInterfaceCode());
 }
-*/

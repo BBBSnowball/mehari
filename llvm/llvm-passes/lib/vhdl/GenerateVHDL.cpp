@@ -262,6 +262,30 @@ void VHDLBackend::generateCall(std::string funcName,
     mbox_channel->connectToOutput(value_read, op.get(), usedVariableNames, *ready_signals);
 
     return;
+  } else if (funcName == "_sem_wait") {
+    assert(tmpVar.empty());
+    assert(args.size() == 1);
+    assert(isa<llvm::ConstantInt>(args[0]));
+
+    const llvm::APInt& sem_apint = cast<llvm::ConstantInt>(args[0])->getValue();
+    assert(sem_apint.isIntN(32));
+    unsigned int sem = 2 + (unsigned int)sem_apint.getZExtValue();
+
+    r_op->semWait("sem" + toString(sem) + "_wait", sem);
+
+    return;
+  } else if (funcName == "_sem_post") {
+    assert(tmpVar.empty());
+    assert(args.size() == 1);
+    assert(isa<llvm::ConstantInt>(args[0]));
+
+    const llvm::APInt& sem_apint = cast<llvm::ConstantInt>(args[0])->getValue();
+    assert(sem_apint.isIntN(32));
+    unsigned int sem = 2 + (unsigned int)sem_apint.getZExtValue();
+
+    r_op->semPost("sem" + toString(sem) + "_post", sem);
+
+    return;
   }
 
   // create an operator for this function

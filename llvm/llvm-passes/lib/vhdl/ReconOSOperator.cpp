@@ -557,6 +557,28 @@ void BasicReconOSOperator::writeMemory(const std::string& state_name,
       << "end if;" << endl;
 }
 
+void BasicReconOSOperator::semWait(const std::string& state_name, unsigned int sem) {
+  addSequentialState(getUniqueStateName(state_name))
+    .vhdl
+      << "osif_sem_wait(i_osif, o_osif, std_logic_vector(to_unsigned(" << sem << ", 32)), "
+        << "ignore, done);" << endl
+      << "if done then" << endl
+      << "  $next" << endl
+      << "end if;" << endl;
+
+}
+
+void BasicReconOSOperator::semPost(const std::string& state_name, unsigned int sem) {
+  addSequentialState(getUniqueStateName(state_name))
+    .vhdl
+      << "osif_sem_post(i_osif, o_osif, std_logic_vector(to_unsigned(" << sem << ", 32)), "
+        << "ignore, done);" << endl
+      << "if done then" << endl
+      << "  $next" << endl
+      << "end if;" << endl;
+
+}
+
 void BasicReconOSOperator::addAckState() {
   addSequentialState(getUniqueStateName("FINISH"))
     .vhdl

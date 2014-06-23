@@ -52,6 +52,9 @@ public:
     const std::string& addr, const std::string& len, unsigned int local_ram_addr,
     const std::string& valid_condition, const std::string& set_ready);
 
+  void semWait(const std::string& state_name, unsigned int sem);
+  void semPost(const std::string& state_name, unsigned int sem);
+
   void addAckState();
 
   // internal methods
