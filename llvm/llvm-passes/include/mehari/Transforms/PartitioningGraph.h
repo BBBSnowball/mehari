@@ -90,8 +90,8 @@ public:
 
 	VertexDescriptor getVertexForInstruction(Instruction *instruction);
 
-	void printGraph(std::string &name);
-	void printGraphviz(Function &func, std::string &name, std::string &outputDir);
+	void printGraph(const std::string &name);
+	void printGraphviz(Function &func, const std::string &name, std::string &outputDir);
 	void printPartitions(void);
 
 private:

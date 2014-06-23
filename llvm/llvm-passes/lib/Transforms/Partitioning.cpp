@@ -43,6 +43,10 @@ static cl::opt<std::string> TemplateDir("template-dir",
             cl::value_desc("template-dir"));
 
 
+// Use data dependencies for all communication with the FPGA
+static bool useDataDepForAllFPGACom = true;
+
+
 Partitioning::Partitioning() : ModulePass(ID) {
 	initializeInstructionDependencyAnalysisPass(*PassRegistry::getPassRegistry());
 	// read command line arguments
@@ -125,35 +129,43 @@ bool Partitioning::runOnModule(Module &M) {
 					rPM.apply(*pGraph, partitioningDevices);
 			}
 
-			AbstractPartitioningMethod *PM;
-			
-			if (pMethod == "random")
-				PM = new RandomPartitioning();
-			else if (pMethod == "clustering")
-				PM = new HierarchicalClustering();
-			else if (pMethod == "sa")
-				PM = new SimulatedAnnealing();
-			else if (pMethod == "k-lin")
-				PM = new KernighanLin();
-			else
-				throw std::runtime_error("Invalid partitioning method!");
+			if (pMethod == "nop") {
+				partitioningNumbers[functionName] = 1;
+			}
+			else {
+				AbstractPartitioningMethod *PM;
+				
+				if (pMethod == "random")
+					PM = new RandomPartitioning();
+				else if (pMethod == "clustering")
+					PM = new HierarchicalClustering();
+				else if (pMethod == "sa")
+					PM = new SimulatedAnnealing();
+				else if (pMethod == "k-lin")
+					PM = new KernighanLin();
+				else
+					throw std::runtime_error("Invalid partitioning method!");
 
-			clock_t start = std::clock();
-			partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
-			clock_t ends = std::clock();
-			delete PM;
+				clock_t start = std::clock();
+				partitioningNumbers[functionName] = PM->apply(*pGraph, partitioningDevices);
+				clock_t ends = std::clock();
+				delete PM;
 
-			double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
-			errs() << "Runtime for partitioning " << functionName << " using " << pMethod << ": " 
-				<< format("%4.4f", runtime) << " ms\n";
+				double runtime = (double) (ends - start) / CLOCKS_PER_SEC * 1000;
+				errs() << "Runtime for partitioning " << functionName << " using " << pMethod << ": " 
+					<< format("%4.4f", runtime) << " ms\n";
+			}
+
+			// print partitioning graph results
+			pGraph->printGraphviz(*func, functionName + "_" + pMethod, GraphOutputDir);
 		}
+
+		// print critical path of partitioning graph to evaluate the partitioning result
+		errs() << "Critical path of the partitioning result: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
 		handleDependencies(M, *func, *pGraph, dependencies);
-		
-		// print partitioning graph results
-		pGraph->printGraphviz(*func, functionName, GraphOutputDir);
 
 		// save partitioning function and graph
 		partitioningFunctions[functionName] = func;
@@ -253,6 +265,7 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 			continue;
 		for (std::vector<InstructionDependency>::iterator depValIt = instrDep.begin(); depValIt != instrDep.end(); ++depValIt) {
 			Instruction *depInstr = depValIt->depInstruction;
+			Type *instrType = depInstr->getType();
 			PartitioningGraph::VertexDescriptor depVertex = pGraph.getVertexForInstruction(depInstr);
 			bool depNumberUsed = false;
 			bool semNumberUsed = false;
@@ -264,28 +277,53 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				Value *depNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), depNumber);
 				Value *semNumberVal = ConstantInt::get(Type::getInt32Ty(M.getContext()), semNumber);
 
+				// determine partition hardware types
+				HardwareInformation hInfo;
+				DeviceInformation::DeviceType t1, t2;
+				t1 =hInfo.getDeviceInfo(
+					partitioningDevices[pGraph.getPartition(instrVertex)])->getType();
+				t2 =hInfo.getDeviceInfo(
+					partitioningDevices[pGraph.getPartition(depVertex)])->getType();
+
+				// determine whether to use mboxes or semaphores
+				// currently we do not use semaphores for the communication with the FPGA, only for control flow
+				// so we use data dependency methods every time we communicate with the FPGA
+				// or we communicate between two processor cores and the current dependency is a register dependency
+				bool useSemaphores;
+				if (useDataDepForAllFPGACom)
+					useSemaphores = depValIt->isCtrlDep
+					|| (t1 != DeviceInformation::FPGA_RECONOS && t2 != DeviceInformation::FPGA_RECONOS && depValIt->isMemDep);
+				else
+					useSemaphores = depValIt->isCtrlDep || depValIt->isMemDep;
+
+				// determine whether we handle a calculation instruction (return type int/real) or a load/store instruction (void)
+				bool isVoidInstr = instrType->isVoidTy();
+				Type *operandType = NULL;
+				if (isVoidInstr)
+					operandType = depInstr->getOperand(0)->getType();
+
 				// add function calls to handle dependencies between partitions
 				std::vector<Instruction*> tgtInstrList = pGraph.getInstructions(instrVertex);
 				std::vector<Instruction*>::iterator instrIt = std::find(tgtInstrList.begin(), tgtInstrList.end(), tgtinstr);
-				Type *instrType = depInstr->getType();
 				if (instrIt != tgtInstrList.end()) {
 					CallInst *newInstr;
-					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+					// create the new function depending on the target hardware and the communication type
+					if (useSemaphores) {
 						newInstr = CallInst::Create(newSemWaitFunc, semNumberVal);
 						semNumberUsed = true;
 					}
-					else if (depValIt->isRegdep) {
-						if (instrType->isIntegerTy()) {
+					else { // we use data dependencies
+						if (instrType->isIntegerTy() || (isVoidInstr && operandType->isIntegerTy())) {
 							if (instrType->getIntegerBitWidth() == 1)
 								newInstr = CallInst::Create(newGetBoolFunc, depNumberVal, "data");
 							else
 								newInstr = CallInst::Create(newGetIntFunc, depNumberVal, "data");
 							dataDependencies.push_back("IntT");
 						}
-						else if (instrType->isFloatingPointTy()) {
+						else if (instrType->isFloatingPointTy() || (isVoidInstr && operandType->isFloatingPointTy())) {
 							newInstr = CallInst::Create(newGetFloatFunc, depNumberVal, "data");
 							dataDependencies.push_back("RealT");
-						}					
+						}
 						else {
 							errs() 	<< "ERROR: unhandled type while using get_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -295,9 +333,10 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						depNumberUsed = true;
 					}
 					// add metadata to specify the target operand for the get_data call
+					// for load/store add the operand to the metadata, else we can use the instruction itself
 					std::stringstream ss;
-					ss << depInstr;
-					LLVMContext& context = tgtinstr->getContext();
+					isVoidInstr ? ss << tgtinstr : ss << depInstr;
+					LLVMContext &context = tgtinstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
 					// add instruction to function
@@ -311,22 +350,27 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 				std::vector<Instruction*>::iterator depIt = std::find(depInstrList.begin(), depInstrList.end(), depInstr);
 				if (depIt != tgtInstrList.end()) {
 					CallInst *newInstr;
-					if (depValIt->isMemDep || depValIt->isCtrlDep) {
+					if (useSemaphores) {
 						newInstr = CallInst::Create(newSemPostFunc, semNumberVal);
 						semNumberUsed = true;
 					}
-					else if (depValIt->isRegdep) {							
+					else { // we use data dependencies
 						std::vector<Value*> params;
 						params.push_back(depNumberVal);
-						params.push_back(depInstr);
-						if (instrType->isIntegerTy()) {
+						// for load/store add the operand to the parameter list, else we can use the instruction itself
+						if (isVoidInstr)
+							params.push_back(depInstr->getOperand(0));
+						else
+							params.push_back(depInstr);
+						if (instrType->isIntegerTy() || (isVoidInstr && operandType->isIntegerTy())) {
 							if (instrType->getIntegerBitWidth() == 1)
 								newInstr = CallInst::Create(newPutBoolFunc, params);
 							else
 								newInstr = CallInst::Create(newPutIntFunc, params);
 						}
-						else if (instrType->isFloatingPointTy())
+						else if (instrType->isFloatingPointTy() || (isVoidInstr && operandType->isFloatingPointTy())) {
 							newInstr = CallInst::Create(newPutFloatFunc, params);
+						}
 						else {
 							errs() 	<< "ERROR: unhandled type while using put_data: TypeID "
 									<< instrType->getTypeID() << "\n";
@@ -418,6 +462,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	// write partitioning for each function
 	unsigned int functionIndex = 0;
 	unsigned int putParamStart = 0;
+	unsigned int hwThreadCount = 0;
 	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt, functionIndex++) {
 		std::string currentFunction = funcIt->first;
 		std::string currentFunctionUppercase = boost::to_upper_copy(currentFunction);
@@ -481,59 +526,67 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 		// generate C code for each partition of this function and write it into template
 		for (unsigned int i=0; i<partitioningNumbers[currentFunction]; i++) {
-			if (deviceTypes[i] == DeviceInformation::CPU_LINUX) {
-				std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
-				std::string functionName = currentFunction + "_" + partitionNumber;
+			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+			std::string functionName = currentFunction + "_" + partitionNumber;
 
-				SimpleCCodeGenerator codeGen;
-				std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
-				// create a new thread for the evaluation functions 1+
-				if (i > 0) {
-					// add thread declaration
-					tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", functionName + "_THREAD_DECL",
-						"FUNCTION_NAME", functionName);
-					// add thread creation
-					std::string threadNumberStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadNumber))->str();
-					tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
-						"FUNCTION_NAME", functionName);
-					tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
-						"THREAD_NUMBER", threadNumberStr);
-					// add thread implementation
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"FUNCTION_NAME", functionName);
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"FUNCTION", currentFunction);
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"THREAD_NUMBER", threadNumberStr);
-					std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"TARGET_CORE", targetCoreStr);
-					// NOTE: this call sets a sub-template in a sub-template!
-					tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
-						"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
-					
-					// increment thread number for next thread creation
-					threadNumber++;
-				}
-				// create new function
-				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
-					"FUNCTION_NUMBER", partitionNumber);
+			SimpleCCodeGenerator codeGen;
+			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
+			// create a new thread for the evaluation functions 1+
+			if (i > 0) {
+				// add thread declaration
+				tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", functionName + "_THREAD_DECL",
+					"FUNCTION_NAME", functionName);
+				// add thread creation
+				std::string threadNumberStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadNumber))->str();
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
+					"FUNCTION_NAME", functionName);
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
+					"THREAD_NUMBER", threadNumberStr);
+				// add thread implementation
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"FUNCTION_NAME", functionName);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"FUNCTION", currentFunction);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"THREAD_NUMBER", threadNumberStr);
+				std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"TARGET_CORE", targetCoreStr);
+				// NOTE: this call sets a sub-template in a sub-template!
+				tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
+					"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
+				
+				// increment thread number for next thread creation
+				threadNumber++;
+			}
+			// create new function
+			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
+				"FUNCTION_NUMBER", partitionNumber);
+			if (deviceTypes[i] == DeviceInformation::CPU_LINUX) {
 				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 					"FUNCTION_BODY", functionBody);
 			} else {
-				SimpleCCodeGenerator codeGen(new VHDLBackend("calculation"));
+				VHDLBackend *backend = new VHDLBackend("calculation");
+				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 				writeFile(OutputDir + "/calculation.vhdl", vhdl_calculation);
 
 				//TODO save ReconOS state machine
 
 				//TODO add function to initiate calculation in hardware
+
+				// increment hardware thread count to write it to template
+				hwThreadCount++;
 			}
 		}
 
 		// update parameter start index for the next function
 		putParamStart += (partitioningNumbers[currentFunction]-1);
 	}
+
+	// after counting all hardware threads now we can insert the number into the template
+	std::string hwThreadCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << hwThreadCount))->str();
+	tWriter.setValue("THREAD_COUNT_HW", hwThreadCountStr);
 
 	// expand and save template
 	tWriter.expandTemplate(mehariTemplate);
