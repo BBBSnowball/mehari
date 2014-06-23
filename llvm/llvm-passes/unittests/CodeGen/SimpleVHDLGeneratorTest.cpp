@@ -109,6 +109,10 @@ private:
     return backend;
   }
 
+  void configureCodeGenerator() {
+    codeGen->setIgnoreDataDependencies(true);
+  }
+
 }; // end class SimpleVHDLGeneratorTest
 
 } // end anonymous namespace
