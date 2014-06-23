@@ -221,7 +221,7 @@ void VHDLBackend::generateCall(std::string funcName,
   debug_print("generateCall(" << funcName << ", " << tmpVar << ", args)");
   return_if_dry_run();
 
-  if (funcName == "_get_real") {
+  if (funcName == "_get_real" || funcName == "_get_int" || funcName == "_get_bool") {
     assert(!tmpVar.empty());
     assert(args.size() == 1);
     assert(isa<llvm::ConstantInt>(args[0]));
@@ -242,7 +242,7 @@ void VHDLBackend::generateCall(std::string funcName,
     ch1->connectToOutput(mbox_channel, op.get(), usedVariableNames, *ready_signals);
 
     return;
-  } else if (funcName == "_put_real") {
+  } else if (funcName == "_put_real" || funcName == "_put_int" || funcName == "_put_bool") {
     assert(tmpVar.empty());
     assert(args.size() == 2);
     assert(isa<llvm::ConstantInt>(args[1]));
@@ -628,7 +628,7 @@ void VHDLBackend::generateReturn(Value *retVal) {
 
 
   mboxPutWithoutInterface(1, ch1);
-  interface_ccode << "return mbox_get_double(1);\n";
+  interface_ccode << "return _get_real(1);\n";
 }
 
 
@@ -747,13 +747,28 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
 void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
   mboxGetWithoutInterface(mbox, channel_of_op);
 
-  interface_ccode << "mbox_put_double(" << toString(mbox) << ", " << value->ccode << ");\n";
+  std::string type;
+  switch (value->width()) {
+    case 16: // We shouldn't ever get 16, but we do. We use int in that case.
+    case 32: type = "int";  break;
+    case 64: type = "real"; break;
+    default: std::cerr << "width: " << value->width() << "\n"; assert(false);
+  }
+
+  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << value->ccode << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
   mboxPutWithoutInterface(mbox, channel_of_op);
 
-  interface_ccode << value->ccode << " = mbox_get_double(" << mbox << ");\n";
+  std::string type;
+  switch (value->width()) {
+    case 32: type = "int";  break;
+    case 64: type = "real"; break;
+    default: assert(false);
+  }
+
+  interface_ccode << value->ccode << " = _get_" << type << "(" << mbox << ");\n";
 }
 
 void VHDLBackend::mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {

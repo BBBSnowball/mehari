@@ -470,10 +470,10 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "mbox_put_double(0, a);\n"
-    "x[2] = mbox_get_double(1);\n"
-    "mbox_put_double(0, x[1]);\n"
-    "return mbox_get_double(1);\n",
+    "_put_real(0, a);\n"
+    "x[2] = _get_real(1);\n"
+    "_put_real(0, x[1]);\n"
+    "return _get_real(1);\n",
     getInterfaceCode());
 }
 
@@ -494,12 +494,12 @@ TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
   writeFile(getCurrentTestName() + "/reconos.vhdl", reconos_code);
 
   EXPECT_EQ(
-    "mbox_put_double(0, a);\n"
-    "a = mbox_get_double(1);\n",
+    "_put_real(0, a);\n"
+    "a = _get_real(1);\n",
     getInterfaceCode());
 }
 
-/*
+
 TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   ParseC(
     "void _put_int(int, unsigned int);"
@@ -516,11 +516,12 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "",
+    "_put_int(0, a);\n"
+    "a = _get_int(1);\n",
     getInterfaceCode());
 }
 
-
+/*
 TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   ParseC(
     "void _put_bool(int, unsigned int);"
