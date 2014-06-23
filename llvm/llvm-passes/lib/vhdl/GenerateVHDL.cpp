@@ -245,12 +245,12 @@ void VHDLBackend::generateCall(std::string funcName,
   } else if (funcName == "_put_real" || funcName == "_put_int" || funcName == "_put_bool") {
     assert(tmpVar.empty());
     assert(args.size() == 2);
-    assert(isa<llvm::ConstantInt>(args[1]));
+    assert(isa<llvm::ConstantInt>(args[0]));
 
-    ValueStorageP value = vs_factory->get(args[0]);
+    ValueStorageP value = vs_factory->get(args[1]);
     ChannelP value_read = read(value);
 
-    const llvm::APInt& mbox_apint = cast<llvm::ConstantInt>(args[1])->getValue();
+    const llvm::APInt& mbox_apint = cast<llvm::ConstantInt>(args[0])->getValue();
     assert(mbox_apint.isIntN(32));
     unsigned int mbox = 2 + (unsigned int)mbox_apint.getZExtValue();
 
@@ -773,13 +773,14 @@ void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorag
 
   std::string type;
   switch (value->width()) {
+    case  1: // Boolean type in LLVM. Represented by an int.
     case 16: // We shouldn't ever get 16, but we do. We use int in that case.
     case 32: type = "int";  break;
     case 64: type = "real"; break;
     default: std::cerr << "width: " << value->width() << "\n"; assert(false);
   }
 
-  interface_ccode << "_put_" << type << "(" << value->ccode << ", " << toString(mbox) << ");\n";
+  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << value->ccode << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
@@ -787,6 +788,8 @@ void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorag
 
   std::string type;
   switch (value->width()) {
+    case  1: // Boolean type in LLVM. Represented by an int.
+    case 16: // We shouldn't ever get 16, but we do. We use int in that case.
     case 32: type = "int";  break;
     case 64: type = "real"; break;
     default: assert(false);

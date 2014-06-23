@@ -470,9 +470,9 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_real(a, 0);\n"
+    "_put_real(0, a);\n"
     "x[2] = _get_real(1);\n"
-    "_put_real(x[1], 0);\n"
+    "_put_real(0, x[1]);\n"
     "return _get_real(1);\n",
     getInterfaceCode());
 }
@@ -480,10 +480,10 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
 
 TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
   ParseC(
-    "void _put_real(double, unsigned int);"
+    "void _put_real(unsigned int, double);"
     "double _get_real(unsigned int);"
     "void test(double a) {"
-    "  _put_real(a, 1);"
+    "  _put_real(1, a);"
     "  a = _get_real(0);"
     "}");
   std::string vhdl_code = CheckResultFromFile();
@@ -494,7 +494,7 @@ TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
   writeFile(getCurrentTestName() + "/reconos.vhdl", reconos_code);
 
   EXPECT_EQ(
-    "_put_real(a, 0);\n"
+    "_put_real(0, a);\n"
     "a = _get_real(1);\n",
     getInterfaceCode());
 }
@@ -502,10 +502,10 @@ TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
 
 TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   ParseC(
-    "void _put_int(int, unsigned int);"
+    "void _put_int(unsigned int, unsigned int);"
     "int _get_int(unsigned int);"
     "void test(int a) {"
-    "  _put_int(a, 1);"
+    "  _put_int(1, a);"
     "  a = _get_int(0);"
     "}");
   std::string code = GenerateCode();
@@ -516,7 +516,7 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(a, 0);\n"
+    "_put_int(0, a);\n"
     "a = _get_int(1);\n",
     getInterfaceCode());
 }
@@ -524,10 +524,10 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
 
 TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   ParseC(
-    "void _put_bool(int, unsigned int);"
+    "void _put_bool(unsigned int, unsigned int);"
     "int _get_bool(unsigned int);"
     "void test(int a) {"
-    "  _put_bool(a, 1);"
+    "  _put_bool(1, a);"
     "  a = _get_bool(0);"
     "}");
   std::string code = GenerateCode();
@@ -538,7 +538,8 @@ TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(a, 0);\na = _get_int(1);\n",
+    "_put_int(0, a);\n"
+    "a = _get_int(1);\n",
     getInterfaceCode());
 }
 
