@@ -462,6 +462,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	// write partitioning for each function
 	unsigned int functionIndex = 0;
 	unsigned int putParamStart = 0;
+	unsigned int hwThreadCount = 0;
 	for (std::map<std::string, Function*>::iterator funcIt = functions.begin(); funcIt != functions.end(); ++funcIt, functionIndex++) {
 		std::string currentFunction = funcIt->first;
 		std::string currentFunctionUppercase = boost::to_upper_copy(currentFunction);
@@ -525,59 +526,67 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 		// generate C code for each partition of this function and write it into template
 		for (unsigned int i=0; i<partitioningNumbers[currentFunction]; i++) {
-			if (deviceTypes[i] == DeviceInformation::CPU_LINUX) {
-				std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
-				std::string functionName = currentFunction + "_" + partitionNumber;
+			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+			std::string functionName = currentFunction + "_" + partitionNumber;
 
-				SimpleCCodeGenerator codeGen;
-				std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
-				// create a new thread for the evaluation functions 1+
-				if (i > 0) {
-					// add thread declaration
-					tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", functionName + "_THREAD_DECL",
-						"FUNCTION_NAME", functionName);
-					// add thread creation
-					std::string threadNumberStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadNumber))->str();
-					tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
-						"FUNCTION_NAME", functionName);
-					tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
-						"THREAD_NUMBER", threadNumberStr);
-					// add thread implementation
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"FUNCTION_NAME", functionName);
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"FUNCTION", currentFunction);
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"THREAD_NUMBER", threadNumberStr);
-					std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
-					tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
-						"TARGET_CORE", targetCoreStr);
-					// NOTE: this call sets a sub-template in a sub-template!
-					tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
-						"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
-					
-					// increment thread number for next thread creation
-					threadNumber++;
-				}
-				// create new function
-				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
-					"FUNCTION_NUMBER", partitionNumber);
+			SimpleCCodeGenerator codeGen;
+			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
+			// create a new thread for the evaluation functions 1+
+			if (i > 0) {
+				// add thread declaration
+				tWriter.setValueInSubTemplate(threadDeclTemplate, "THREAD_DECLARATIONS", functionName + "_THREAD_DECL",
+					"FUNCTION_NAME", functionName);
+				// add thread creation
+				std::string threadNumberStr = static_cast<std::ostringstream*>( &(std::ostringstream() << threadNumber))->str();
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
+					"FUNCTION_NAME", functionName);
+				tWriter.setValueInSubTemplate(threadCreationTemplate, "THREAD_CREATIONS", functionName + "_THREAD_CREATION",
+					"THREAD_NUMBER", threadNumberStr);
+				// add thread implementation
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"FUNCTION_NAME", functionName);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"FUNCTION", currentFunction);
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"THREAD_NUMBER", threadNumberStr);
+				std::string targetCoreStr = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
+				tWriter.setValueInSubTemplate(threadImplTemplate, currentFunctionUppercase + "_THREADS", functionName + "_THREADS",
+					"TARGET_CORE", targetCoreStr);
+				// NOTE: this call sets a sub-template in a sub-template!
+				tWriter.setValueInSubTemplate(funcCallTemplate, "FUNCTION_CALL", functionName + "_THREADS_CALL",
+					"FUNCTION_NUMBER", partitionNumber, functionName + "_THREADS");
+				
+				// increment thread number for next thread creation
+				threadNumber++;
+			}
+			// create new function
+			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
+				"FUNCTION_NUMBER", partitionNumber);
+			if (deviceTypes[i] == DeviceInformation::CPU_LINUX) {
 				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 					"FUNCTION_BODY", functionBody);
 			} else {
-				SimpleCCodeGenerator codeGen(new VHDLBackend());
+				VHDLBackend *backend = new VHDLBackend();
+				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 				writeFile(OutputDir + "/calculation.vhdl", vhdl_calculation);
 
 				//TODO save ReconOS state machine
 
 				//TODO add function to initiate calculation in hardware
+
+				// increment hardware thread count to write it to template
+				hwThreadCount++;
 			}
 		}
 
 		// update parameter start index for the next function
 		putParamStart += (partitioningNumbers[currentFunction]-1);
 	}
+
+	// after counting all hardware threads now we can insert the number into the template
+	std::string hwThreadCountStr = static_cast<std::ostringstream*>( &(std::ostringstream() << hwThreadCount))->str();
+	tWriter.setValue("THREAD_COUNT_HW", hwThreadCountStr);
 
 	// expand and save template
 	tWriter.expandTemplate(mehariTemplate);
