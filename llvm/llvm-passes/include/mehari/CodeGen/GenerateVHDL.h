@@ -5,6 +5,7 @@
 
 #include "mehari/CodeGen/Channel.h"
 #include "mehari/CodeGen/ValueStorage.h"
+#include "mehari/CodeGen/ReconOSOperator.h"
 
 #include "Operator.hpp"
 
@@ -19,12 +20,14 @@ class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   std::ostream* stream;
 
   boost::scoped_ptr<MyOperator> op;
+  boost::scoped_ptr<ReconOSOperator> r_op;
   boost::scoped_ptr<class ValueStorageFactory> vs_factory;
   boost::scoped_ptr<class ReadySignals> ready_signals;
 public:
   VHDLBackend();
 
   MyOperator* getOperator();
+  ReconOSOperator* getReconOSOperator();
 
   void init(SimpleCCodeGenerator* generator, std::ostream& stream);
 
@@ -59,6 +62,8 @@ private:
   void generatePhiNode(ValueStorageP target, Value* condition, ValueStorageP trueValue, ValueStorageP falseValue);
 
   ValueStorageP remember(ValueStorageP value);
+
+  ChannelP read(ValueStorageP value);
 };
 
 #endif /*GENERAGE_VHDL_H*/

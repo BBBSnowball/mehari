@@ -35,7 +35,13 @@ unsigned int ValueStorage::width() const {
 }
 
 unsigned int ValueStorage::_widthWithoutErrorChecks() const {
-  return elementType()->getPrimitiveSizeInBits();
+  llvm::Type* type = elementType();
+
+  if (isa<SequentialType>(type))
+    // width of pointers on 32-bit ARM
+    return 32;
+  else
+    return type->getPrimitiveSizeInBits();
 }
 
 Type* ValueStorage::elementType() const {
@@ -129,12 +135,6 @@ std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind) {
 
 std::ostream& operator <<(std::ostream& stream, const ValueStorage& vs) {
   stream << "ValueStorage(kind = " << vs.kind << ", name = " << vs.name;
-  if (!vs.constant_indices.empty()) {
-    stream << ", indices = ";
-    BOOST_FOREACH(const std::string& index, vs.constant_indices) {
-      stream << "[" << index << "]";
-    }
-  }
   if (vs.type) {
     unsigned int width = vs._widthWithoutErrorChecks();
     if (width > 0)
@@ -519,6 +519,8 @@ ValueStorageP ValueStorageFactory::getAtConstIndex(ValueStorageP ptr, std::strin
     pointee->name = ptr->name + "_" + str_index;
     assert(ptr->type);
     pointee->type = ptr->type->getSequentialElementType();
+    pointee->parent = ptr;
+    pointee->offset = str_index;
 
     by_index[ValueAndIndex(ptr, str_index)] = pointee;
   }
@@ -550,7 +552,8 @@ ValueStorageP ValueStorageFactory::get2(Value* value) {
       for (User::op_iterator it = op->idx_begin(); it != op->idx_end(); ++it)
         index = *it;
       x = getAtConstIndex(x, index);
-    }
+    } else
+      x = getAtConstIndex(x, "0");
     
     return x;
   }

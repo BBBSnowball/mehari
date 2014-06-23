@@ -42,11 +42,14 @@ struct Channel {
   static ChannelP make_input(const std::string& name, unsigned int width);
   static ChannelP make_output(const std::string& name, unsigned int width);
   static ChannelP make_component_port(
-      ::Operator* component, const std::string& name, ChannelDirection::Direction direction, const OperatorInfo& op_info);
+      ::Operator* component, const std::string& name, ChannelDirection::Direction direction, const OperatorInfo& op_info,
+      unsigned int width = 0);
   static ChannelP make_component_port(
-      ::Operator* component, const std::string& name, ChannelDirection::Direction direction);
+      ::Operator* component, const std::string& name, ChannelDirection::Direction direction,
+      unsigned int width = 0);
   static ChannelP make_component_input(::Operator* component, const std::string& name, const OperatorInfo& op_info);
   static ChannelP make_component_input(::Operator* component, const std::string& name);
+  static ChannelP make_component_input_lazy(::Operator* component, const std::string& name, unsigned int width);
   static ChannelP make_component_output(::Operator* component, const std::string& name, const OperatorInfo& op_info);
   static ChannelP make_component_output(::Operator* component, const std::string& name);
 

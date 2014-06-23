@@ -17,6 +17,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+typedef boost::shared_ptr<struct ValueStorage> ValueStorageP;
+
 struct ValueStorage {
   enum Kind {
     FUNCTION_PARAMETER,
@@ -26,8 +28,9 @@ struct ValueStorage {
   };
   Kind kind;
   std::string name;
-  std::vector<std::string> constant_indices;
   llvm::Type* type;
+  ValueStorageP parent;
+  std::string offset;
 
   ValueStorage();
 
@@ -49,8 +52,6 @@ public:
   // Call this, if you write a value to channel_write.
   void replaceBy(ChannelP channel_read);
 };
-
-typedef boost::shared_ptr<ValueStorage> ValueStorageP;
 
 std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind);
 
@@ -75,8 +76,7 @@ struct IfBranch {
 };
 
 
-class PhiNodeSink {
-public:
+struct PhiNodeSink {
   virtual void generatePhiNode(ValueStorageP target, llvm::Value* condition, ValueStorageP trueValue, ValueStorageP falseValue) =0;
 };
 

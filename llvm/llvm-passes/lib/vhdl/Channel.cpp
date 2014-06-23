@@ -25,23 +25,24 @@ ChannelP Channel::make_output(const std::string& name, unsigned int width) {
   return make_port(name, IN, width);
 }
 ChannelP Channel::make_component_port(
-    ::Operator* component, const std::string& name, ChannelDirection::Direction direction, const OperatorInfo& op_info) {
+    ::Operator* component, const std::string& name, ChannelDirection::Direction direction, const OperatorInfo& op_info,
+    unsigned int width) {
   ChannelP ch(new Channel());
   ch->direction = direction;
   ch->component = component;
   ch->data_signal  = name + op_info.data_suffix;
   ch->valid_signal = name + op_info.valid_suffix;
   ch->ready_signal = name + op_info.ready_suffix;
-  ch->width = component->getSignalByName(ch->data_signal)->width();
+  ch->width = (width != 0 ? width : component->getSignalByName(ch->data_signal)->width());
   return ch;
 }
 ChannelP Channel::make_component_port(
-    ::Operator* component, const std::string& name, ChannelDirection::Direction direction) {
+    ::Operator* component, const std::string& name, ChannelDirection::Direction direction, unsigned int width) {
   OperatorInfo op_info;
   op_info.data_suffix = "_data";
   op_info.valid_suffix = "_valid";
   op_info.ready_suffix = "_ready";
-  return make_component_port(component, name, direction, op_info);
+  return make_component_port(component, name, direction, op_info, width);
 }
 ChannelP Channel::make_component_input(::Operator* component, const std::string& name, const OperatorInfo& op_info) {
   return make_component_port(component, name, IN, op_info);
@@ -54,6 +55,9 @@ ChannelP Channel::make_component_output(::Operator* component, const std::string
 }
 ChannelP Channel::make_component_output(::Operator* component, const std::string& name) {
   return make_component_port(component, name, OUT);
+}
+ChannelP Channel::make_component_input_lazy(::Operator* component, const std::string& name, unsigned int width) {
+  return make_component_port(component, name, IN, width);
 }
 
 ChannelP Channel::make_temp(::Operator* op, const std::string& name, unsigned int width) {

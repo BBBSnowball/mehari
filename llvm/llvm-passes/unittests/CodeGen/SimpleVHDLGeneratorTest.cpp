@@ -62,6 +62,11 @@ protected:
     return ((VHDLBackend*)backend)->getOperator();
   }
 
+  ReconOSOperator* getGeneratedReconOSOperator() {
+    assert(((VHDLBackend*)backend)->getReconOSOperator());
+    return ((VHDLBackend*)backend)->getReconOSOperator();
+  }
+
 public:
   SimpleVHDLGeneratorTest() : testOp(NULL) { }
 
@@ -435,7 +440,6 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   r_op->setName("GlobalArrayReconOS");
   ::Operator* calculation = getGeneratedOperator();
   r_op->setCalculation(calculation);
-  r_op->instantiateCalculation();
 
   std::string address_of_x = "44";
   std::string address_of_x_1 = "std_logic_vector(to_unsigned(" + address_of_x + "+1*8" + ", 32))";
@@ -447,4 +451,6 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   r_op->writeMbox(1, Channel::make_component_output(calculation, "return"));
 
   saveOperator(getCurrentTestName() + "/reconos.vhdl", r_op.get());
+
+  saveOperator(getCurrentTestName() + "/reconos2.vhdl", getGeneratedReconOSOperator());
 }

@@ -11,6 +11,12 @@ inline static bool contains(const std::map<KEY, VALUE>& map, const KEY& key) {
   return (found != map.end());
 }
 
+template<typename VALUE>
+inline static bool contains(const std::set<VALUE>& set, const VALUE& value) {
+  typename std::set<VALUE>::const_iterator found = set.find(value);
+  return (found != set.end());
+}
+
 template<typename KEY, typename VALUE>
 inline static const VALUE& getValueOrDefault(
     const std::map<KEY, VALUE>& map, const KEY& key, const VALUE& default_value) {

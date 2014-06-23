@@ -123,6 +123,18 @@ architecture behavior of GlobalArrayTest is
 		return ram;
 	end function;
 
+	procedure real_value_to_ram(
+			constant value : real;
+			ram : inout test_memory_t;
+			constant address : natural
+	) is
+		variable value_as_double : double;
+	begin
+		value_as_double := to_float(value);
+		ram(address+0) := value_as_double(31 downto 0);
+		ram(address+1) := value_as_double(63 downto 32);
+	end procedure;
+
 	procedure expect_memif_read_double(constant src_addr : in natural; constant value : real) is
 	begin
 		expect_memif_read(clk, i_memif_test, o_memif_test, src_addr, 8, real_value_to_ram(value));
@@ -205,6 +217,7 @@ begin
 		variable result     : osif_word;
 		variable a_in       : double;
 		variable return_out : double;
+		variable ram        : test_memory_t(0 to 9);
 	begin
 		rst <= '1';
 		osif_reset_test(o_osif_test);
@@ -215,7 +228,11 @@ begin
 		rst <= '0';
 
 		report "Sending address to slave...";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(44, 32));
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(16, 32));
+
+		--real_value_to_ram(3.7, ram, 0);
+		--ram(2) := CONV_STD_LOGIC_VECTOR(44, 32);
+		--expect_memif_read(clk, i_memif_test, o_memif_test, 16, 0, ram);
 
 		report "mbox_get for a_in";
 		expect_mbox_get_double(MBOX_RECV, 3.7);

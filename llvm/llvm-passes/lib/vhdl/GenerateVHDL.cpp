@@ -35,6 +35,10 @@ MyOperator* VHDLBackend::getOperator() {
   return op.get();
 }
 
+ReconOSOperator* VHDLBackend::getReconOSOperator() {
+  return r_op.get();
+}
+
 void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   this->generator = generator;
   this->stream = &stream;
@@ -49,6 +53,10 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   op->setCopyrightString("blub");
   op->addPort("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addPort("reset",1,1,0,1,0,0,0,0,0,0,0);
+
+  r_op.reset(new ReconOSOperator());
+  r_op->setName("reconos");
+  r_op->setCalculation(op.get());
 }
 
 void VHDLBackend::generateStore(Value *op1, Value *op2) {
@@ -56,7 +64,7 @@ void VHDLBackend::generateStore(Value *op1, Value *op2) {
   return_if_dry_run();
 
   ChannelP ch1 = vs_factory->getForWriting(op1)->getWriteChannel(op.get());
-  ChannelP ch2 = vs_factory->get(op2)->getReadChannel(op.get());
+  ChannelP ch2 = read(vs_factory->get(op2));
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 
@@ -167,9 +175,9 @@ void VHDLBackend::generateBinaryOperator(std::string tmpVar,
   ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2, op_info);
   ChannelP output = Channel::make_component_output(op_info.op, op_info.output, op_info);
 
-  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
-  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
-  output->connectToInput (tmp->getWriteChannel(op.get()),                 op.get(), usedVariableNames, *ready_signals);
+  input1->connectToOutput(read(vs_factory->get(op1)),     op.get(), usedVariableNames, *ready_signals);
+  input2->connectToOutput(read(vs_factory->get(op2)),     op.get(), usedVariableNames, *ready_signals);
+  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
 
   this->op->inPortMap(op_info.op, "aclk", "aclk");
 
@@ -233,7 +241,7 @@ void VHDLBackend::generateCall(std::string funcName,
   BOOST_FOREACH(Value* arg, args) {
     const std::string& argname = argnames[i++];
     ChannelP argchannel = Channel::make_component_input(func, argname);
-    argchannel->connectToOutput(vs_factory->get(arg)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+    argchannel->connectToOutput(read(vs_factory->get(arg)), op.get(), usedVariableNames, *ready_signals);
   }
 
   if (!tmpVar.empty()) {
@@ -439,9 +447,9 @@ void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
   ChannelP input2 = Channel::make_component_input (op_info.op, op_info.input2, op_info);
   ChannelP output = Channel::make_component_output(op_info.op, op_info.output, op_info);
 
-  input1->connectToOutput(vs_factory->get(op1)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
-  input2->connectToOutput(vs_factory->get(op2)->getReadChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
-  output->connectToInput (tmp->getWriteChannel(op.get()),                 op.get(), usedVariableNames, *ready_signals);
+  input1->connectToOutput(read(vs_factory->get(op1)),     op.get(), usedVariableNames, *ready_signals);
+  input2->connectToOutput(read(vs_factory->get(op2)),     op.get(), usedVariableNames, *ready_signals);
+  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
 
   this->op->inPortMap(op_info.op, "aclk", "aclk");
 
@@ -461,7 +469,7 @@ void VHDLBackend::generateIntegerExtension(std::string tmpVar, Value *value) {
   //TODO assert(isa<IntegerType>(value->getType()) && dyn_cast<IntegerType>(value->getType())->getSignBit() == 0);
 
   ChannelP write = vs_factory->getTemporaryVariable(tmpVar)->getWriteChannel(op.get());
-  ChannelP read  = vs_factory->get(value)->getReadChannel(op.get());
+  ChannelP read  = this->read(vs_factory->get(value));
 
   unsigned int added_zeros = write->width - read->width;
 
@@ -505,7 +513,7 @@ ValueStorageP VHDLBackend::remember(ValueStorageP value) {
   ValueStorageP remembered = vs_factory->makeAnonymousTemporaryVariable(value->type);
   ChannelP remembered_write = remembered->getWriteChannel(op.get());
 
-  ChannelP read = value->getReadChannel(op.get());
+  ChannelP read = this->read(value);
 
   if (read->direction == ChannelDirection::CONSTANT_OUT) {
     *op << "   " << remembered_write->valid_signal << " <= '1';\n"
@@ -559,7 +567,7 @@ void VHDLBackend::generateReturn(Value *retVal) {
   ValueStorageP retVal_vs = vs_factory->get(retVal);
   ChannelP ch1 = Channel::make_output("return", retVal_vs->width());
   ch1->addTo(op.get());
-  ChannelP ch2 = retVal_vs->getReadChannel(op.get());
+  ChannelP ch2 = read(retVal_vs);
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 }
@@ -660,4 +668,14 @@ void VHDLBackend::generateSelect(std::string tmpVar, Value *condition, Value *ta
 
   ValueStorageP tmp = vs_factory->getTemporaryVariable(tmpVar);
   vs_factory->makeSelect(tmp, condition, targetTrue, targetFalse, this);
+}
+
+ChannelP VHDLBackend::read(ValueStorageP value) {
+  ChannelP read_channel = value->getReadChannel(op.get());
+
+  if (value->kind == ValueStorage::GLOBAL_VARIABLE || value->kind == ValueStorage::FUNCTION_PARAMETER) {
+    r_op->readMemory(value);
+  }
+
+  return read_channel;
 }

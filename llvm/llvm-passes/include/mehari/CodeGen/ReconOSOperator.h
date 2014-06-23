@@ -3,15 +3,19 @@
 
 #include "mehari/CodeGen/MyOperator.h"
 #include "mehari/CodeGen/Channel.h"
+#include "mehari/CodeGen/ValueStorage.h"
 
 #include <Operator.hpp>
 #include <Signal.hpp>
 
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <limits.h>
 
 class BasicReconOSOperator : public MyOperator {
+protected:
   ::Operator* calculation;
 
   UniqueNameSource stateNameGenerator;
@@ -37,7 +41,8 @@ public:
 
 
   void readMemory(const std::string& state_name, const std::string& ready_condition,
-    const std::string& addr, const std::string& len, unsigned int local_ram_addr);
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr,
+    unsigned int state_pos = UINT_MAX);
 
   void readMbox(const std::string& state_name, unsigned int mbox, const ChannelP channel);
 
@@ -109,6 +114,7 @@ public:
   LocalFakeRam();
 
   unsigned int addChannel(ChannelP channel);
+  unsigned int getNextAddress();
 
   void generateCode(std::ostream& stream) const;
 };
@@ -121,17 +127,36 @@ inline static std::ostream& operator << (std::ostream& stream, const LocalFakeRa
 
 class ReconOSOperator : public BasicReconOSOperator {
   LocalFakeRam ram;
+
+  struct ExternalValue {
+    ValueStorage::Kind kind;
+    std::string name;
+    ValueStorageP vs;
+
+    inline bool operator <(const ExternalValue& other) const {
+      return kind << other.kind || (kind == other.kind && name < other.name);
+    }
+  };
+  std::set<ExternalValue> externalValues;
+
+  std::set<ValueStorageP> already_read;
 public:
   ReconOSOperator();
 
-  void readMemory(const std::string& address, const ChannelP channel);
   void readMbox(unsigned int mbox, const ChannelP channel);
   void writeMbox(unsigned int mbox, const ChannelP channel);
+
+  void readMemory(ValueStorageP vs);
+  void writeMemory(ValueStorageP vs);
+
+  void readMemory(const std::string& address, const ChannelP channel);
   void writeMemory(const std::string& address, const ChannelP channel);
 
   // internal methods
 
   void outputVHDL(std::ostream& o, std::string name);
+protected:
+  void addReadParamsState();
 };
 
 #endif /*RECONOS_OPERATOR_H*/

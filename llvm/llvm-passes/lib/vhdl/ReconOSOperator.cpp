@@ -293,7 +293,7 @@ void BasicReconOSOperator::outputStatemachine(std::ostream& o) {
     << "          osif_reset(o_osif);" << endl
     << "          memif_reset(o_memif);" << endl
     << "          ram_reset(o_ram);" << endl
-    << "          state <= STATE_GET_ADDR;" << endl
+    << "          state <= STATE_INIT;" << endl
     << "          done  := False;" << endl
     << "          addr <= (others => '0');" << endl
     << "          len <= (others => '0');" << endl
@@ -386,9 +386,11 @@ void BasicReconOSOperator::addInitialState() {
 
   BOOST_FOREACH(Signal* sig, *calculation->getIOList()) {
     if (isValidOfInputSignal(sig))
-      state.vhdl << "         " << sig->getName() << " <= '0';" << endl;
+      state.vhdl << sig->getName() << " <= '0';" << endl;
     else if (isReadyOfOutputSignal(sig))
-      state.vhdl << "         " << sig->getName() << " <= '0';" << endl;
+      //state.vhdl << sig->getName() << " <= '0';" << endl;
+      //DEBUG
+      state.vhdl << sig->getName() << " <= '1';" << endl;
   }
 }
 
@@ -435,19 +437,22 @@ std::string addressToVHDLString(unsigned int local_ram_addr) {
 }
 
 void BasicReconOSOperator::readMemory(const std::string& state_name, const std::string& ready_condition,
-    const std::string& addr, const std::string& len, unsigned int local_ram_addr) {
+    const std::string& addr, const std::string& len, unsigned int local_ram_addr,
+    unsigned int state_pos) {
   std::string local_addr = addressToVHDLString(local_ram_addr);
 
   if (!ready_condition.empty()) {
-    addSequentialState(getUniqueStateName(state_name + "_wait"))
+    addSequentialState(getUniqueStateName(state_name + "_wait"), state_pos)
       .vhdl
         << "if " << ready_condition << " then" << endl
         << "   memif_read(i_ram,o_ram,i_memif,o_memif," << addr << "," << local_addr << "," << len << ",done);" << endl
         << "   $next" << endl
         << "end if;";
+    if (state_pos != UINT_MAX)
+      state_pos++;
   }
 
-  addSequentialState(state_name)
+  addSequentialState(state_name, state_pos)
     .vhdl
       << "memif_read(i_ram,o_ram,i_memif,o_memif," << addr << "," << local_addr << "," << len << ",done);" << endl
       << "if done then" << endl
@@ -585,6 +590,10 @@ unsigned int LocalFakeRam::addChannel(ChannelP channel) {
   return addr;
 }
 
+unsigned int LocalFakeRam::getNextAddress() {
+  return channels.size();
+}
+
 void LocalFakeRam::generateCode(std::ostream& stream) const {
   stream
     << "  local_fake_ram_ctrl : process (clk) is\n"
@@ -671,7 +680,10 @@ ReconOSOperator::ReconOSOperator() {
 }
 
 void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
+  instantiateCalculation();
+
   addInitialState();
+  addReadParamsState();
   addThreadExitState();
 
   addAckState();
@@ -679,4 +691,65 @@ void ReconOSOperator::outputVHDL(std::ostream& o, std::string name) {
   *this << ram;
 
   BasicReconOSOperator::outputVHDL(o, name);
+}
+
+void ReconOSOperator::readMemory(ValueStorageP vs) {
+  if (contains(already_read, vs))
+    return;
+  already_read.insert(vs);
+
+  if (vs->parent) {
+    readMemory(vs->parent);
+    const std::string& address_variable = vs->parent->name + "_in_data";
+
+    std::ostringstream address;
+    address << address_variable << " + std_logic_vector(to_unsigned(" << toString(vs->offset) << "*" << (vs->width()/8) << ", 32))";
+
+    readMemory(address.str(), Channel::make_component_input_lazy(calculation, vs->name, vs->width()));
+  } else {
+    // We cannot read this value because we don't even know its address. Therefore, it must
+    // be passed in with the parameters.
+
+    ExternalValue ev = { vs->kind, vs->name, vs };
+    externalValues.insert(ev);
+  }
+}
+
+void ReconOSOperator::writeMemory(ValueStorageP vs) {
+  if (contains(already_read, vs))
+    return;
+  already_read.insert(vs);
+
+  if (vs->parent) {
+    readMemory(vs->parent);
+    const std::string& address_variable = vs->parent->getReadChannel(this)->data_signal;
+
+    std::ostringstream address;
+    address << address_variable << " + std_logic_vector(to_unsigned(" << toString(vs->offset) << "*" << (vs->width()/8) << ", 32))";
+
+    writeMemory(address.str(), Channel::make_component_input(calculation, vs->name));
+  } else {
+    // We cannot write this value because we don't even know its address. Therefore, its address must
+    // be passed in with the parameters.
+    //TODO At the moment, only pointers and arrays are supported.
+
+    ExternalValue ev = { vs->kind, vs->name, vs };
+    externalValues.insert(ev);
+  }
+}
+
+void ReconOSOperator::addReadParamsState() {
+  // The set automatically sorts the variables by kind and name.
+  unsigned int address = ram.getNextAddress();
+  unsigned int length = 0;
+  BOOST_FOREACH(const ExternalValue& ev, externalValues) {
+    ChannelP channel = ev.vs->getWriteChannel(this);
+    ram.addChannel(channel);
+    length += ev.vs->width() / 8;
+  }
+
+  BasicReconOSOperator::readMemory("READ_PARAMS", "",
+    "addr", "std_logic_vector(to_unsigned(" + toString(length) + ", 24))",
+    address,
+    1);
 }
