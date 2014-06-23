@@ -6,6 +6,8 @@
 #include "mehari/CodeGen/TemplateWriter.h"
 #include "mehari/CodeGen/GenerateVHDL.h"
 
+#include "mehari/utils/StringUtils.h"
+
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
 
@@ -335,7 +337,10 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 					// add metadata to specify the target operand for the get_data call
 					// for load/store add the operand to the metadata, else we can use the instruction itself
 					std::stringstream ss;
-					isVoidInstr ? ss << tgtinstr : ss << depInstr;
+					if(isVoidInstr)
+						ss << tgtinstr
+					else
+						ss << depInstr;
 					LLVMContext &context = tgtinstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
@@ -397,11 +402,19 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 }
 
 
+void saveOperator(const std::string& filename, ::Operator* op) {
+	std::ofstream file;
+	file.open(filename.c_str(), std::ios::out);
+	op->outputVHDL(file, op->getName());
+	file.close();
+}
+
+
 void writeFile(const std::string& filename, const std::string& contents) {
-  std::ofstream file;
-  file.open(filename.c_str(), std::ios::out);
-  file << contents;
-  file.close();
+	std::ofstream file;
+	file.open(filename.c_str(), std::ios::out);
+	file << contents;
+	file.close();
 }
 
 
@@ -529,8 +542,6 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 			std::string partitionNumber = static_cast<std::ostringstream*>( &(std::ostringstream() << i))->str();
 			std::string functionName = currentFunction + "_" + partitionNumber;
 
-			SimpleCCodeGenerator codeGen;
-			std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
 			// create a new thread for the evaluation functions 1+
 			if (i > 0) {
 				// add thread declaration
@@ -563,6 +574,8 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 			tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 				"FUNCTION_NUMBER", partitionNumber);
 			if (deviceTypes[i] == DeviceInformation::CPU_LINUX) {
+				SimpleCCodeGenerator codeGen;
+				std::string functionBody = codeGen.createCCode(*func, instructionsForPartition[i]);
 				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 					"FUNCTION_BODY", functionBody);
 			} else {
@@ -570,10 +583,15 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 				writeFile(OutputDir + "/calculation.vhdl", vhdl_calculation);
+				saveOperator(OutputDir + "/reconos.vhdl", backend->getReconOSOperator());
 
-				//TODO save ReconOS state machine
+				std::ostringstream body;
+				body << "\tmbox_put(&mbox_start, 42);\n\n"
+				     << prefixAllLines("\t", backend->getInterfaceCode()) << "\n"
+				     << "\t(void)mbox_get(&mbox_stop);\n";
 
-				//TODO add function to initiate calculation in hardware
+				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
+					"FUNCTION_BODY", body.str());
 
 				// increment hardware thread count to write it to template
 				hwThreadCount++;
