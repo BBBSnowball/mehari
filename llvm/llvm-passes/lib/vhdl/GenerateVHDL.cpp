@@ -755,7 +755,7 @@ void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorag
     default: std::cerr << "width: " << value->width() << "\n"; assert(false);
   }
 
-  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << value->ccode << ");\n";
+  interface_ccode << "_put_" << type << "(" << value->ccode << ", " << toString(mbox) << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {

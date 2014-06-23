@@ -470,9 +470,9 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_real(0, a);\n"
+    "_put_real(a, 0);\n"
     "x[2] = _get_real(1);\n"
-    "_put_real(0, x[1]);\n"
+    "_put_real(x[1], 0);\n"
     "return _get_real(1);\n",
     getInterfaceCode());
 }
@@ -494,7 +494,7 @@ TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
   writeFile(getCurrentTestName() + "/reconos.vhdl", reconos_code);
 
   EXPECT_EQ(
-    "_put_real(0, a);\n"
+    "_put_real(a, 0);\n"
     "a = _get_real(1);\n",
     getInterfaceCode());
 }
@@ -516,18 +516,18 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, a);\n"
+    "_put_int(a, 0);\n"
     "a = _get_int(1);\n",
     getInterfaceCode());
 }
 
-/*
+
 TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   ParseC(
     "void _put_bool(int, unsigned int);"
     "int _get_bool(unsigned int);"
     "void test(int a) {"
-    "  _put_bool(1, a);"
+    "  _put_bool(a, 1);"
     "  a = _get_bool(0);"
     "}");
   std::string code = GenerateCode();
@@ -538,11 +538,11 @@ TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "",
+    "_put_int(a, 0);\na = _get_int(1);\n",
     getInterfaceCode());
 }
 
-
+/*
 TEST_F(ReconOSVHDLGeneratorTest, SemaphoreTest) {
   ParseC(
     "void _sem_wait(unsigned int);"

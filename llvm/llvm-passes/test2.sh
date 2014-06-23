@@ -63,6 +63,16 @@ IntCommunicationTest() {
 	runTest $test.prj "work.$test"
 }
 
+BoolCommunicationTest() {
+	createProjectFile $test.prj           \
+		project.prj                       \
+		$test/calculation.vhdl            \
+		$test/reconos.vhdl                \
+		CodeGen_data/${test}ReconOS.vhdl  \
+		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
+	runTest $test.prj "work.$test"
+}
+
 for test in $TESTS ; do
 	$test
 done
