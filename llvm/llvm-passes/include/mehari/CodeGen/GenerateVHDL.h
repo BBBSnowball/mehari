@@ -13,6 +13,8 @@
 #include <boost/shared_ptr.hpp>
 
 class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
+  std::string name;
+
   UniqueNameSource instanceNameGenerator;
   UniqueNameSet usedVariableNames;
 
@@ -25,7 +27,7 @@ class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   boost::scoped_ptr<class ReadySignals> ready_signals;
   std::ostringstream interface_ccode;
 public:
-  VHDLBackend();
+  VHDLBackend(const std::string& name);
 
   MyOperator* getOperator();
   ReconOSOperator* getReconOSOperator();

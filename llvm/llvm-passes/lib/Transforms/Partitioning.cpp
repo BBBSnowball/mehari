@@ -521,7 +521,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 					"FUNCTION_BODY", functionBody);
 			} else {
-				SimpleCCodeGenerator codeGen(new VHDLBackend());
+				SimpleCCodeGenerator codeGen(new VHDLBackend("calculation"));
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 				writeFile(OutputDir + "/calculation.vhdl", vhdl_calculation);
 

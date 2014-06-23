@@ -26,8 +26,9 @@
 using namespace ChannelDirection;
 
 
-VHDLBackend::VHDLBackend()
-  : instanceNameGenerator("inst"),
+VHDLBackend::VHDLBackend(const std::string& name)
+  : name(name),
+    instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()),
     ready_signals(new ReadySignals()) { }
 
@@ -54,7 +55,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   interface_ccode.str("");
 
   op.reset(new MyOperator());
-  op->setName("test");
+  op->setName(name);
   op->setCopyrightString("blub");
   op->addPort("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addPort("reset",1,1,0,1,0,0,0,0,0,0,0);

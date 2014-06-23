@@ -78,7 +78,7 @@ private:
   TestOperator *testOp;
 
   CodeGeneratorBackend* createBackend() {
-    backend = new VHDLBackend();
+    backend = new VHDLBackend("test");
     return backend;
   }
 
