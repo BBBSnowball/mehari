@@ -237,7 +237,7 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
             // TODO: not very nice.. is there a better solution without asking for the function name?
             if (functionName == "_get_real" || functionName == "_get_int" 
              || functionName == "_get_bool" || functionName == "_get_intptr") {
-              if (ignoreDataDependencies) {
+              if (!ignoreDataDependencies) {
                 std::string tgtOperand = cast<MDString>(instr->getMetadata("targetop")->getOperand(0))->getString();
                 dataDependencies[tgtOperand] = tmpVar;
 

@@ -41,4 +41,5 @@ protected:
 
 protected:
   virtual CodeGeneratorBackend* createBackend() =0;
+  virtual void configureCodeGenerator();
 };

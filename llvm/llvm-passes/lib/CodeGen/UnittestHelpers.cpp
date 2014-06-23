@@ -27,10 +27,14 @@ SimpleCCodeGenerator* CodeGeneratorTest::getCodeGenerator() {
   if (!codeGen) {
     backend = createBackend();
     codeGen.reset(new SimpleCCodeGenerator(backend));
+
+    configureCodeGenerator();
   }
 
   return codeGen.get();
 }
+
+void CodeGeneratorTest::configureCodeGenerator() { }
 
 void CodeGeneratorTest::ParseAssembly(const char *Assembly) {
   this->assembly = assembly;
