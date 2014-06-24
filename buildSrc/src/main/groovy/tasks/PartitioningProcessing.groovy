@@ -126,7 +126,7 @@ class PartitioningProcessing {
 			commandLine "python", project.CODEGEN_PREPARATION_SCRIPT, inputfile, targetFile, project.PARTITIONING_TARGET_FUNCTIONS
 		}
 
-		copyMehariSourcesTask = project.task(getTaskName("copyMehariSourcesTo"), type: Copy) {
+		copyMehariSourcesTask = project.task(getTaskName("copyMehariSourcesTo"), type: SymLink) {
 			from project.MEHARI_SOURCES
 			into project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/linux")
 		}
