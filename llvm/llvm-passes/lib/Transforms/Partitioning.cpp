@@ -428,7 +428,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	std::string partitionCountTemplate = TemplateDir + "/partition_count_entry.tpl";
 	std::string dataDepInitTemplate = TemplateDir + "/dep_data_init.tpl";
 	std::string paramDepInitTemplate = TemplateDir + "/dep_param_init.tpl";
-	std::string outputFile = OutputDir + "/mehari.c";
+
+	std::string mehariOutput   = OutputDir + "/linux/"        + "mehari.c";
+	std::string fpgaCalcOutput = OutputDir + "/hwt/hdl/vhdl/" + "calculation.vhd";
+	std::string reconosOutput  = OutputDir + "/hwt/hdl/vhdl/" + "reconos.vhd";
 
 	// use the template write to fill template
 	TemplateWriter tWriter;
@@ -582,8 +585,8 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				VHDLBackend *backend = new VHDLBackend("calculation");
 				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
-				writeFile(OutputDir + "/calculation.vhdl", vhdl_calculation);
-				saveOperator(OutputDir + "/reconos.vhdl", backend->getReconOSOperator());
+				writeFile(fpgaCalcOutput, vhdl_calculation);
+				saveOperator(reconosOutput, backend->getReconOSOperator());
 
 				std::ostringstream body;
 				body << "\tmbox_put(&mbox_start, 42);\n\n"
@@ -608,7 +611,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 	// expand and save template
 	tWriter.expandTemplate(mehariTemplate);
-	tWriter.writeToFile(outputFile);
+	tWriter.writeToFile(mehariOutput);
 }
 
 

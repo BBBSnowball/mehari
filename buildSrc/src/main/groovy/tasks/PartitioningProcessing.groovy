@@ -112,13 +112,17 @@ class PartitioningProcessing {
 		prepareCodeGenerationTask = project.task(getTaskName("prepare", "codeGeneration"), type: Exec) {
 			dependsOn prepareTask
 
+			def partitioningLinux = project.file("${project.PARTITIONING_RESULTS_DIR}/linux")
+			def partitioningFpga  = project.file("${project.PARTITIONING_RESULTS_DIR}/hwt/hdl/vhdl")
+
 			doFirst {
-				project.PARTITIONING_RESULTS_DIR.mkdirs()
+				partitioningLinux.mkdirs()
+				partitioningFpga.mkdirs()
 			}
 
 			def inputfile = project.file("${project.OUTPUT_DIR}/$exampleName"+".c")
 			def targetName = "$exampleName"+"_partitioned_"+"$partitioningMethod"
-			def targetFile = project.file("${project.PARTITIONING_RESULTS_DIR}/$targetName"+".c")
+			def targetFile = project.file("$partitioningLinux/$targetName"+".c")
 
 			commandLine "python", project.CODEGEN_PREPARATION_SCRIPT, inputfile, targetFile, project.PARTITIONING_TARGET_FUNCTIONS
 		}
@@ -149,7 +153,7 @@ class PartitioningProcessing {
 		compilePartitioningResultTask = project.task(getTaskName("compile", "result"), type: Exec) {
 			dependsOn partitioningTask
 			def partitioningTargetName = "$exampleName"+"_partitioned_"+"$partitioningMethod"
-			commandLine project.PARTITIONED_EXAMPLE_BUILD_SCRIPT, project.file("${project.PARTITIONING_RESULTS_DIR}/$partitioningTargetName"+".c")
+			commandLine project.PARTITIONED_EXAMPLE_BUILD_SCRIPT, project.file("${project.PARTITIONING_RESULTS_DIR}/linux/$partitioningTargetName"+".c")
 		}
 
 		testPartitioningResultTask = project.task(getTaskName("test", "result"), type: Exec) {
