@@ -105,21 +105,21 @@ OperatorInfo getBinaryOperator(unsigned opcode, unsigned width) {
     name = "add";
     break;
   case Instruction::FSub:
-    name = "fpsub";
+    name = "float_sub";
     is_floating_point = true;
     break;
   case Instruction::Sub:
     name = "sub";
     break;
   case Instruction::FMul:
-    name = "fpmul";
+    name = "float_mul";
     is_floating_point = true;
     break;
   case Instruction::Mul:
     name = "mul";
     break;
   case Instruction::FDiv:
-    name = "fpdiv";
+    name = "float_div";
     is_floating_point = true;
     break;
   case Instruction::UDiv:
