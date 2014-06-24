@@ -32,7 +32,16 @@ test_sim*
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/netlist
 
 # symlinks created by test.sh script
-/reconos/hw/float_library_v1_00_a/hdl/vhdl/
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/cordic_sin.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_add.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_from_sin.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_to_sin.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_cmp.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_div.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_mul.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/float_sub.vhd
+
+
 
 *.o
 /reconos/linux/single_pendulum_simple
