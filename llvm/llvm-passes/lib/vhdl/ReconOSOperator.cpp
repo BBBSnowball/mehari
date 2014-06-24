@@ -124,7 +124,7 @@ void BasicReconOSOperator::addCalculationPort(Signal* sig) {
 void BasicReconOSOperator::instantiateCalculation() {
   assert(this->calculation);
 
-  vhdl << instance(calculation, "calculation");
+  vhdl << instance(calculation, "calculation_instance");
 }
 
 BasicReconOSOperator::State& BasicReconOSOperator::addSequentialState(const std::string& state_name, unsigned int pos) {
