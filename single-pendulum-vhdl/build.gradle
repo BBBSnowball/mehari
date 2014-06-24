@@ -31,25 +31,36 @@ task cleanTestSimpleSimulation(type: Delete) {
 	}
 }
 
-task createSinglePendulumSimpleMetaFiles(type: Exec) {
-	ext.hwtDir = rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c")
+task createFloatLibraryMetaFiles(type: Exec) {
+	ext.floatLibraryDir = rootPath("reconos", "hw", "float_library_v1_00_a")
 
-	commandLine "./create_pao_file.sh"
-	workingDir hwtDir
+	commandLine "./prepare.sh"
+	workingDir floatLibraryDir
 
 	environmentFromConfig()
 
-	inputs.files fileTree(hwtDir) {
+	inputs.files fileTree(floatLibraryDir) {
 		include "create_pao_file.sh"
 		include "**/*.tpl"
 	}
-	outputs.files fileTree(hwtDir) {
-		include "data/hwt_single_pendulum_simple_v2_1_0.bbd"
-		include "data/hwt_single_pendulum_simple_v2_1_0.pao"
+	outputs.files fileTree(floatLibraryDir) {
+		include "data/float_library_v1_1_0.bbd"
+		include "data/float_library_v1_1_0.pao"
 		include "netlist/**/*.ngc"
 	}
 
 	dependsOn "coregen"
+}
+
+task createSinglePendulumSimpleMetaFiles(type: Exec) {
+	ext.hwtDir = rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c")
+
+	commandLine "./prepare.sh"
+	workingDir hwtDir
+
+	environmentFromConfig()
+
+	dependsOn createFloatLibraryMetaFiles
 }
 
 task testReconosSimulation(type: Exec) {
@@ -66,7 +77,9 @@ task cleanTestReconosSimulation(type: Delete) {
 	fileTree("ipcore_dir").include("*.xco").each { xcoFile ->
 		def stem = xcoFile.name.replaceFirst(/\.xco$/, "")
 		delete rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c", "hdl", "vhdl", stem + ".vhd")
-		delete rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c", "netlist", stem + ".ngc")
+		delete rootPath("reconos", "hw", "hwt_single_pendulum_simple_v1_00_c", "netlist",     stem + ".ngc")
+		delete rootPath("reconos", "hw", "float_library_v1_00_c",              "hdl", "vhdl", stem + ".vhd")
+		delete rootPath("reconos", "hw", "float_library_v1_00_c",              "netlist",     stem + ".ngc")
 	}
 	delete(fileTree(rootPath("reconos", "test")) {
 		//include "Default.wcfg"
@@ -149,6 +162,13 @@ reconosHardwareTest("SinglePendulumSimpleHardware") {
 
 	prepare {
 		dependsOn coregen, createSinglePendulumSimpleMetaFiles
+
+		doLast {
+			exec {
+				commandLine "ln", "-s", "../../float_library_v1_00_a", "."
+				workingDir rootPath("reconos", "hw", "edk_${RECONOS_ARCH}_${RECONOS_OS}", "pcores")
+			}
+		}
 	}
 
 	downloadBitstream {

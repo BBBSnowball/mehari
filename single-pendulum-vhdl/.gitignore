@@ -26,17 +26,13 @@ test_sim*
 /reconos/hw/edk_*/
 
 # generated from a template
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/data/hwt_single_pendulum_simple_v2_1_0.pao
+/reconos/hw/float_library_v1_00_a/data/float_library_v2_1_0.pao
+/reconos/hw/float_library_v1_00_a/data/float_library_v2_1_0.bbd
 /reconos/hw/hwt_single_pendulum_simple_v1_00_c/data/hwt_single_pendulum_simple_v2_1_0.bbd
+/reconos/hw/hwt_single_pendulum_simple_v1_00_c/netlist
 
 # symlinks created by test.sh script
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/cordic_sin.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_add.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_div.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_from_sin.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_mul.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_sub.vhd
-/reconos/hw/hwt_single_pendulum_simple_v1_00_c/hdl/vhdl/float_to_sin.vhd
+/reconos/hw/float_library_v1_00_a/hdl/vhdl/
 
 *.o
 /reconos/linux/single_pendulum_simple
