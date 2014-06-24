@@ -55,6 +55,8 @@ ext {
 	EXAMPLE_SIMULATION_CONFIG = file("$projectDir/../private/examples/example_sim_config.yaml")
 }
 
+apply plugin: ReconosPlugin
+
 
 task cleanLLVM(type: Delete) {
 	delete LLVM_SOURCE

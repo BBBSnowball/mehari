@@ -12,6 +12,7 @@ class PartitioningProcessing {
 	private String partitioningMethod
 	private DefaultTask prepareTask, createIRTask, prepareInliningTask, applyInliningTask, speedUpAnalysisTask, createGraphsTask,
 	prepareCodeGenerationTask, copyMehariSourcesTask, partitioningTask, compilePartitioningResultTask, testPartitioningResultTask
+	private ReconosHardwareTest hardwareTasks
 
 	PartitioningProcessing(project, example, partitioningMethod, closure=null) {
 		this.project  = project
@@ -154,10 +155,14 @@ class PartitioningProcessing {
 			}
 		}
 
-		compilePartitioningResultTask = project.task(getTaskName("compile", "result"), type: Exec) {
+		compilePartitioningResultTask = project.task(getTaskName("compile", "Software"), type: Exec) {
 			dependsOn partitioningTask
 			def partitioningTargetName = "$exampleName"+"_partitioned_"+"$partitioningMethod"
 			commandLine project.PARTITIONED_EXAMPLE_BUILD_SCRIPT, project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/linux/$partitioningTargetName"+".c")
+		}
+
+		def compilePartitioningResultTaskAll = project.task(getTaskName("compile", "result")) {
+			dependsOn compilePartitioningResultTask
 		}
 
 		testPartitioningResultTask = project.task(getTaskName("test", "result"), type: Exec) {
@@ -175,6 +180,56 @@ class PartitioningProcessing {
 				project.EXAMPLE_SIMULATION_CONFIG
 		}
 
+		def withHardwareThread = project.PARTITIONING_DEVICES.contains("xc7")
+
+		if (withHardwareThread) {
+			def singlePendulumDir = project.rootProject.file(project.project(":single-pendulum-vhdl").projectDir)
+			def hwtFloatLibraryDir = project.path(singlePendulumDir, "reconos", "hw", "float_library_v1_00_a")
+			def hwtMehariDir = project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/hw/hwt_mehari_v1_00_a")
+			//TODO use symlink for symlinkNetlistFiles and symlinkBbdFile, but make sure that it really works
+			def symlinkNetlistFiles = project.task(getTaskName("symlink", "Netlists"), type: Copy) {
+				from hwtFloatLibraryDir
+				into hwtMehariDir
+				include "netlist/*.ngc"
+
+				dependsOn ":single-pendulum-vhdl:createFloatLibraryMetaFiles"
+			}
+
+			def symlinkBbdFile = project.task(getTaskName("symlink", "BlackBoxDescription"), type: SymLink) {
+				from project.path(hwtFloatLibraryDir, "data")
+				into project.path(hwtMehariDir, "data")
+
+				include "float_library_v2_1_0.bbd"
+				rename  "float_library_v2_1_0.bbd", "hwt_mehari_v2_1_0.bbd"
+
+				dependsOn ":single-pendulum-vhdl:createFloatLibraryMetaFiles"
+			}
+
+			hardwareTasks = project.reconosHardwareTest(getTaskName("", "Hardware")) {
+				def hwDir = "${project.PARTITIONING_RESULTS_DIR}/$exampleName/hw"
+				hardwareDir hwDir
+
+				prepare {
+					dependsOn ":single-pendulum-vhdl:createFloatLibraryMetaFiles",
+						symlinkNetlistFiles, symlinkBbdFile,
+						partitioningTask
+
+					doLast {
+						project.exec {
+							commandLine "ln", "-s", hwtFloatLibraryDir.toString(), "."
+							workingDir project.rootPath(hwDir, "edk_${RECONOS_ARCH}_${RECONOS_OS}", "pcores")
+						}
+					}
+				}
+
+				downloadBitstream {
+					mustRunAfter ":reconos:runDemo"
+				}
+			}
+
+			compilePartitioningResultTaskAll.dependsOn hardwareTasks.compileBitstream
+		}
+
 
 		configureTasks()
 
@@ -188,7 +243,7 @@ class PartitioningProcessing {
 		return task + exampleName.capitalize() + partitioningMethod.capitalize() + suffix.capitalize()
 	}
 
-	public def prepare(closure=null) {
+	public def prepareSource(closure=null) {
 		if (closure)
 			prepareTask.configure(closure)
 		return prepareTask

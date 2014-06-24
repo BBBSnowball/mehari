@@ -614,9 +614,10 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 				GenerateHardwareThreadFileFromTemplate ghtfft = { TemplateDir, hardwareThreadDir,
 						hardwareThreadName, hardwareThreadVersion };
-				ghtfft.generate("hwt.mpd.tpl", "data/" + hardwareThreadName + "_v2_1_0.mpd");
-				ghtfft.generate("hwt.pao.tpl", "data/" + hardwareThreadName + "_v2_1_0.pao");
-				ghtfft.generate("hwt.tcl.tpl", "data/" + hardwareThreadName + "_v2_1_0.tcl");
+				ghtfft.generate("hwt.mpd.tpl",    "data/" + hardwareThreadName + "_v2_1_0.mpd");
+				ghtfft.generate("hwt.pao.tpl",    "data/" + hardwareThreadName + "_v2_1_0.pao");
+				ghtfft.generate("hwt.tcl.tpl",    "data/" + hardwareThreadName + "_v2_1_0.tcl");
+				ghtfft.generate("setup_zynq.tpl", "../setup_zynq");
 
 				// increment hardware thread count to write it to template
 				hwThreadCount++;
