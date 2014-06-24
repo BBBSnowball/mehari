@@ -10,6 +10,7 @@ library="$(basename "$(pwd)")"
 DATA_DIR="data"
 PAO_FILE="$DATA_DIR/float_library_v2_1_0.pao"
 cat "$PAO_FILE.tpl" >"$PAO_FILE"
+mkdir -p hdl/vhdl/
 for vhd_file in ../../../ipcore_dir/*.vhd ; do
 	ln -sf "../../$vhd_file" hdl/vhdl/
 
