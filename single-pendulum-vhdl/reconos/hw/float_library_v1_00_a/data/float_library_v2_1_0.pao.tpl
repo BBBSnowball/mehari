@@ -17,5 +17,8 @@ lib float_library_v1_00_a float_neg vhdl
 lib float_library_v1_00_a float_sin vhdl
 lib float_library_v1_00_a float_cos vhdl
 
+# other cores
+lib float_library_v1_00_a dummy_mod vhdl
+
 # arithmetic cores by Xilinx (generated with coregen)
 # (added by test.sh script)

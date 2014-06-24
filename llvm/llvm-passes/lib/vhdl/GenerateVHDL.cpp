@@ -297,6 +297,11 @@ void VHDLBackend::generateCall(std::string funcName,
     return;
   }
 
+  if (funcName == "mod")
+    // not a valid identifier in VHDL -> change it
+    // Furthermore, we don't have a working implementation, so we call it 'dummy_mod'.
+    funcName = "dummy_mod";
+
   // create an operator for this function
   ::Operator* func = new ::Operator();
   func->setName(funcName);
