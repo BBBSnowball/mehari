@@ -6,7 +6,11 @@
 #include <ios>
 
 class MyOperator : public ::Operator {
+protected:
+  bool generateForTest;
 public:
+  MyOperator();
+
   template<typename T>
   inline MyOperator& operator <<(const T& x) {
     vhdl << x;
@@ -21,6 +25,8 @@ public:
   void licence(std::ostream& o, std::string authorsyears);
 
   void stdLibs(std::ostream& o);
+
+  void setTestMode();
 };
 
 #endif /*MY_OPERATOR_H*/

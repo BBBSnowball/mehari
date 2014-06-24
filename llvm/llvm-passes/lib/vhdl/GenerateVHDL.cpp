@@ -30,7 +30,9 @@ VHDLBackend::VHDLBackend(const std::string& name)
   : name(name),
     instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()),
-    ready_signals(new ReadySignals()) { }
+    ready_signals(new ReadySignals()),
+    generateForTest(false)
+{ }
 
 MyOperator* VHDLBackend::getOperator() {
   return op.get();
@@ -42,6 +44,11 @@ ReconOSOperator* VHDLBackend::getReconOSOperator() {
 
 std::string VHDLBackend::getInterfaceCode() {
   return interface_ccode.str();
+}
+
+VHDLBackend* VHDLBackend::setTestMode() {
+  generateForTest = true;
+  return this;
 }
 
 void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
@@ -59,6 +66,8 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   op->setCopyrightString("blub");
   op->addPort("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addPort("reset",1,1,0,1,0,0,0,0,0,0,0);
+  if (generateForTest)
+    op->setTestMode();
 
   r_op.reset(new ReconOSOperator());
   r_op->setName("reconos");

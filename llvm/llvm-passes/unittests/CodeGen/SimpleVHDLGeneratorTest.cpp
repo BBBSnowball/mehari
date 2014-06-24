@@ -105,7 +105,7 @@ private:
   TestOperator *testOp;
 
   CodeGeneratorBackend* createBackend() {
-    backend = new VHDLBackend("test");
+    backend = (new VHDLBackend("test"))->setTestMode();
     return backend;
   }
 
