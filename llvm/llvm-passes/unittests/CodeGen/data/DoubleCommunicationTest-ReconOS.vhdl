@@ -136,7 +136,7 @@ begin
      i_RAMData
    );
 
-   calculation: test
+   calculation_instance: test
       port map ( a_in_data => a_in_data,
                  a_in_ready => a_in_ready,
                  a_in_valid => a_in_valid_direct,

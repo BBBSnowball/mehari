@@ -403,10 +403,13 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 }
 
 
-void saveOperator(const std::string& filename, ::Operator* op) {
+void saveOperator(const std::string& filename, ::Operator* op, const std::string& operatorName) {
+	if (!operatorName.empty())
+		op->setName(operatorName);
+
 	std::ofstream file;
 	file.open(filename.c_str(), std::ios::out);
-	op->outputVHDL(file, op->getName());
+	op->outputVHDL(file, (operatorName.empty() ? op->getName() : operatorName));
 	file.close();
 }
 
@@ -444,7 +447,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	std::string mehariOutput      = OutputDir + "/linux/" + "mehari.c";
 	std::string hardwareThreadDir = OutputDir + "/hw/" + hardwareThreadName + "_" + hardwareThreadVersion;
 	std::string fpgaCalcOutput = hardwareThreadDir + "/hdl/vhdl/" + "calculation.vhd";
-	std::string reconosOutput  = hardwareThreadDir + "/hdl/vhdl/" + "reconos.vhd";
+	std::string reconosOutput  = hardwareThreadDir + "/hdl/vhdl/" + hardwareThreadName + ".vhd";
 
 	// use the template write to fill template
 	TemplateWriter tWriter;
@@ -601,7 +604,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 				// writeToFile creates the directory, if it doesn't exist
 				TemplateWriter::writeToFile(fpgaCalcOutput, vhdl_calculation);
-				saveOperator(reconosOutput, backend->getReconOSOperator());
+				saveOperator(reconosOutput, backend->getReconOSOperator(), hardwareThreadName);
 
 				std::ostringstream body;
 				body << "\tmbox_put(&mbox_start, 42);\n\n"
