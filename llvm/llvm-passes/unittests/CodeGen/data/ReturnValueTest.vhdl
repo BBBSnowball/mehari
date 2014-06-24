@@ -59,7 +59,7 @@ begin
                  s_axis_b_tvalid => '1');
    return_data <= t0_data;
    return_valid <= t0_valid;
-   t0_ready <= return_ready;
    a_in_ready <= a_in_ready_1;
+   t0_ready <= return_ready;
 end architecture;
 

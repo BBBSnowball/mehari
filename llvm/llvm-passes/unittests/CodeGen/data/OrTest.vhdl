@@ -59,7 +59,7 @@ begin
                  result_valid => t0_valid_1);
    b_out_data <= t0_data;
    b_out_valid <= t0_valid;
-   t0_ready <= b_out_ready;
    a_in_ready <= a_in_ready_1;
+   t0_ready <= b_out_ready;
 end architecture;
 

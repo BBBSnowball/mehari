@@ -31,7 +31,7 @@ begin
    t0_valid <= a_in_valid;
    return_data <= t0_data;
    return_valid <= t0_valid;
-   t0_ready <= return_ready;
    a_in_ready <= t0_ready;
+   t0_ready <= return_ready;
 end architecture;
 

@@ -54,7 +54,7 @@ begin
                  result_valid => t0_valid_1);
    a_out_data <= t0_data;
    a_out_valid <= t0_valid;
-   t0_ready <= a_out_ready;
    a_in_ready <= a_in_ready_1;
+   t0_ready <= a_out_ready;
 end architecture;
 

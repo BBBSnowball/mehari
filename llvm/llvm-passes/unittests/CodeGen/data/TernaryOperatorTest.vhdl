@@ -104,8 +104,8 @@ begin
       (others => 'X');
    c_out_data <= t1_data;
    c_out_valid <= t1_valid;
-   t1_ready <= c_out_ready;
    a_in_ready <= '1' and a_in_ready_1;
    t0_ready <= '1';
+   t1_ready <= c_out_ready;
 end architecture;
 

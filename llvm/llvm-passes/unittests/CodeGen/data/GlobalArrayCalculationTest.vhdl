@@ -54,7 +54,6 @@ begin
    a_0_out_valid <= '1';
    a_1_out_data <= b_0_in_data;
    a_1_out_valid <= b_0_in_valid;
-   b_0_in_ready <= a_1_out_ready;
    t0_data <= t0_data_1;
    t0_valid <= t0_valid_1;
    t0: float_add
@@ -68,6 +67,7 @@ begin
                  s_axis_b_tvalid => '1');
    b_2_out_data <= t0_data;
    b_2_out_valid <= t0_valid;
+   b_0_in_ready <= a_1_out_ready;
    t0_ready <= b_2_out_ready;
 end architecture;
 

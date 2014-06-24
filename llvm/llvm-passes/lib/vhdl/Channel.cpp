@@ -172,7 +172,7 @@ void Channel::connectToOutput(Channel* ch, MyOperator* op, UniqueNameSet& usedVa
       } else if (!component && !ch->component) {
         *op << "   " << data_signal  << " <= " << ch->data_signal << ";\n";
         *op << "   " << valid_signal << " <= " << ch->valid_signal << ";\n";
-        *op << "   " << ch->ready_signal << " <= " << ready_signal << ";\n";
+        rsignals.addConsumer(ch->ready_signal, ready_signal);
       } else {
         assert(false);
       }

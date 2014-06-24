@@ -35,12 +35,12 @@ signal t0_ready : std_logic;
 begin
    a_mbox_data <= a_in_data;
    a_mbox_valid <= a_in_valid;
-   a_in_ready <= a_mbox_ready;
    t0_data <= t0_mbox_data;
    t0_valid <= t0_mbox_valid;
-   t0_mbox_ready <= t0_ready;
    a_out_data <= t0_data;
    a_out_valid <= t0_valid;
+   a_in_ready <= a_mbox_ready;
+   t0_mbox_ready <= t0_ready;
    t0_ready <= a_out_ready;
 end architecture;
 

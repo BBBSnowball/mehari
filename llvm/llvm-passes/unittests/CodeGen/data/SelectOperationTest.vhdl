@@ -156,9 +156,9 @@ begin
       (others => 'X');
    return_data <= t1_data;
    return_valid <= t1_valid;
-   t1_ready <= return_ready;
    a_in_ready <= a_in_ready_1 and a_in_ready_2;
    t0_ready <= '1';
+   t1_ready <= return_ready;
    t2_ready <= '1';
    t3_ready <= '1';
 end architecture;
