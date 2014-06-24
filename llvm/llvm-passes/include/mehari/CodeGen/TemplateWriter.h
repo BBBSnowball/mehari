@@ -20,6 +20,7 @@ public:
 
   void expandTemplate(std::string tplFile);
   void writeToFile(std::string outFile);
+  static void writeToFile(const std::string& outFile, const std::string& contents);
 
 private:
   ctemplate::TemplateDictionary *dict;

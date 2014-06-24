@@ -1,5 +1,6 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Exec
 import org.gradle.api.GradleException
 import org.gradle.api.InvalidUserDataException
@@ -10,7 +11,7 @@ class PartitioningProcessing {
 	private String exampleName
 	private String partitioningMethod
 	private DefaultTask prepareTask, createIRTask, prepareInliningTask, applyInliningTask, speedUpAnalysisTask, createGraphsTask,
-	prepareCodeGenerationTask, partitioningTask, compilePartitioningResultTask, testPartitioningResultTask
+	prepareCodeGenerationTask, copyMehariSourcesTask, partitioningTask, compilePartitioningResultTask, testPartitioningResultTask
 
 	PartitioningProcessing(project, example, partitioningMethod, closure=null) {
 		this.project  = project
@@ -112,12 +113,10 @@ class PartitioningProcessing {
 		prepareCodeGenerationTask = project.task(getTaskName("prepare", "codeGeneration"), type: Exec) {
 			dependsOn prepareTask
 
-			def partitioningLinux = project.file("${project.PARTITIONING_RESULTS_DIR}/linux")
-			def partitioningFpga  = project.file("${project.PARTITIONING_RESULTS_DIR}/hwt/hdl/vhdl")
+			def partitioningLinux = project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/linux")
 
 			doFirst {
 				partitioningLinux.mkdirs()
-				partitioningFpga.mkdirs()
 			}
 
 			def inputfile = project.file("${project.OUTPUT_DIR}/$exampleName"+".c")
@@ -127,8 +126,13 @@ class PartitioningProcessing {
 			commandLine "python", project.CODEGEN_PREPARATION_SCRIPT, inputfile, targetFile, project.PARTITIONING_TARGET_FUNCTIONS
 		}
 
+		copyMehariSourcesTask = project.task(getTaskName("copyMehariSourcesTo"), type: Copy) {
+			from project.MEHARI_SOURCES
+			into project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/linux")
+		}
+
 		partitioningTask = project.task(getTaskName("partition"), type: Exec) {
-			dependsOn project.installLLVMPasses, applyInliningTask, prepareCodeGenerationTask, project.copyMehariSources
+			dependsOn project.installLLVMPasses, applyInliningTask, prepareCodeGenerationTask, copyMehariSourcesTask
 
 			doFirst {
 				project.OUTPUT_GRAPH_DIR.mkdirs()
@@ -144,7 +148,7 @@ class PartitioningProcessing {
 				"-partitioning-methods \"$partitioningMethod\" " +
 				"-partitioning-functions \"${project.PARTITIONING_TARGET_FUNCTIONS}\" " +
 				"-partitioning-devices \"${project.PARTITIONING_DEVICES}\" " +
-				"-partitioning-output-dir \"${project.PARTITIONING_RESULTS_DIR}\" " +
+				"-partitioning-output-dir \"${project.PARTITIONING_RESULTS_DIR}/$exampleName\" " +
 				"-partitioning-graph-output-dir \"${project.OUTPUT_GRAPH_DIR}\" " +
 				"-S $targetfile > /dev/null"
 			}
@@ -153,7 +157,7 @@ class PartitioningProcessing {
 		compilePartitioningResultTask = project.task(getTaskName("compile", "result"), type: Exec) {
 			dependsOn partitioningTask
 			def partitioningTargetName = "$exampleName"+"_partitioned_"+"$partitioningMethod"
-			commandLine project.PARTITIONED_EXAMPLE_BUILD_SCRIPT, project.file("${project.PARTITIONING_RESULTS_DIR}/linux/$partitioningTargetName"+".c")
+			commandLine project.PARTITIONED_EXAMPLE_BUILD_SCRIPT, project.file("${project.PARTITIONING_RESULTS_DIR}/$exampleName/linux/$partitioningTargetName"+".c")
 		}
 
 		testPartitioningResultTask = project.task(getTaskName("test", "result"), type: Exec) {

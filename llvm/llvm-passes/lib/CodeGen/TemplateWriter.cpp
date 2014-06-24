@@ -1,6 +1,7 @@
 #include "mehari/CodeGen/TemplateWriter.h"
 
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 
 TemplateWriter::TemplateWriter() {
@@ -63,6 +64,13 @@ void TemplateWriter::expandTemplate(std::string tplFile) {
 
 
 void TemplateWriter::writeToFile(std::string outFile) {
-	std::ofstream file(outFile.c_str());
-	file << output;
+	writeToFile(outFile, output);
+}
+
+void TemplateWriter::writeToFile(const std::string& outFile, const std::string& contents) {
+	boost::filesystem::path outFilePath(outFile);
+	boost::filesystem::create_directories(outFilePath.remove_filename());
+
+	std::ofstream file(outFile.c_str(), std::ios::out);
+	file << contents;
 }

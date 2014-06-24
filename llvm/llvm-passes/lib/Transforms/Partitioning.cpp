@@ -23,6 +23,7 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/foreach.hpp>
+#include <boost/assign.hpp>
 
 
 static cl::opt<std::string> TargetFunctions("partitioning-functions", 
@@ -410,12 +411,20 @@ void saveOperator(const std::string& filename, ::Operator* op) {
 }
 
 
-void writeFile(const std::string& filename, const std::string& contents) {
-	std::ofstream file;
-	file.open(filename.c_str(), std::ios::out);
-	file << contents;
-	file.close();
-}
+struct GenerateHardwareThreadFileFromTemplate {
+	std::string TemplateDir, hardwareThreadDir, hardwareThreadName, hardwareThreadVersion;
+
+	GenerateHardwareThreadFileFromTemplate& generate(const std::string& templateFile, const std::string& filename) {
+		TemplateWriter templateWriter;
+		templateWriter.setValue("HWT_NAME",    hardwareThreadName);
+		templateWriter.setValue("HWT_VERSION", hardwareThreadVersion);
+
+		templateWriter.expandTemplate(TemplateDir + "/" + templateFile);
+		templateWriter.writeToFile(hardwareThreadDir + "/" + filename);
+
+		return *this;
+	}
+};
 
 
 void Partitioning::savePartitioning(std::map<std::string, Function*> &functions, 
@@ -429,9 +438,13 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 	std::string dataDepInitTemplate = TemplateDir + "/dep_data_init.tpl";
 	std::string paramDepInitTemplate = TemplateDir + "/dep_param_init.tpl";
 
-	std::string mehariOutput   = OutputDir + "/linux/"        + "mehari.c";
-	std::string fpgaCalcOutput = OutputDir + "/hwt/hdl/vhdl/" + "calculation.vhd";
-	std::string reconosOutput  = OutputDir + "/hwt/hdl/vhdl/" + "reconos.vhd";
+	std::string hardwareThreadName    = "hwt_mehari";
+	std::string hardwareThreadVersion = "v1_00_a";
+
+	std::string mehariOutput      = OutputDir + "/linux/" + "mehari.c";
+	std::string hardwareThreadDir = OutputDir + "/hw/" + hardwareThreadName + "_" + hardwareThreadVersion;
+	std::string fpgaCalcOutput = hardwareThreadDir + "/hdl/vhdl/" + "calculation.vhd";
+	std::string reconosOutput  = hardwareThreadDir + "/hdl/vhdl/" + "reconos.vhd";
 
 	// use the template write to fill template
 	TemplateWriter tWriter;
@@ -585,7 +598,9 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 				VHDLBackend *backend = new VHDLBackend("calculation");
 				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
-				writeFile(fpgaCalcOutput, vhdl_calculation);
+
+				// writeToFile creates the directory, if it doesn't exist
+				TemplateWriter::writeToFile(fpgaCalcOutput, vhdl_calculation);
 				saveOperator(reconosOutput, backend->getReconOSOperator());
 
 				std::ostringstream body;
@@ -595,6 +610,13 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 
 				tWriter.setValueInSubTemplate(functionTemplate, currentFunctionUppercase + "_FUNCTIONS", functionName + "_FUNCTIONS",
 					"FUNCTION_BODY", body.str());
+
+
+				GenerateHardwareThreadFileFromTemplate ghtfft = { TemplateDir, hardwareThreadDir,
+						hardwareThreadName, hardwareThreadVersion };
+				ghtfft.generate("hwt.mpd.tpl", "data/" + hardwareThreadName + "_v2_1_0.mpd");
+				ghtfft.generate("hwt.pao.tpl", "data/" + hardwareThreadName + "_v2_1_0.pao");
+				ghtfft.generate("hwt.tcl.tpl", "data/" + hardwareThreadName + "_v2_1_0.tcl");
 
 				// increment hardware thread count to write it to template
 				hwThreadCount++;

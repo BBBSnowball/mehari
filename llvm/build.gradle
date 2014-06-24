@@ -216,17 +216,6 @@ task compile {
 }
 
 
-task copyMehariSources(type: Copy) {
-	def linuxResults = file("$PARTITIONING_RESULTS_DIR/linux")
-	doFirst {
-		linuxResults.mkdirs()
-	}
-
-	from MEHARI_SOURCES
-	into linuxResults
-}
-
-
 // create the processing task for each example
 def examples = fileTree(EXAMPLE_DIR) {
 	include "*.c"

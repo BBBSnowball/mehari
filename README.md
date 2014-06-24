@@ -65,7 +65,8 @@ I hope your are using a Linux distribution that uses deb packages. If you do, si
 ```
 # Tools used by the build scripts and/ or tests
 sudo apt-get install curl git build-essential python-yaml python-unipath bc python2.7-dev libctemplate-dev gawk \
-	build-essential cmake libboost-graph1.48-dev graphviz qemu-user-static swig realpath libsqlite3-dev
+	build-essential cmake libboost-graph1.48-dev graphviz qemu-user-static swig realpath libsqlite3-dev \
+    libboost-filesystem-dev
 # Optional tools
 sudo apt-get install sispmctl gdb-multiarch libncurses5-dev
 
