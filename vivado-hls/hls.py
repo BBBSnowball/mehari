@@ -1,4 +1,4 @@
-import os, json
+import os, json, md5
 from lxml import etree
 
 def mkdir_p(path):
@@ -27,18 +27,22 @@ class HLS(object):
 	def directive(self, directive):
 		self.directives.append(directive)
 
-	def csynth_design(self, solution=None):
-		if solution is None:
-			solution = "solution%d" % self.next_solution
-			self.next_solution += 1
-		self.solution = solution
+	def csynth_design(self):
+		project_script = self.get_project_script_template()
+		directives_script = "\n".join(self.directives) + "\n"
 
-		project_script = "%s/%s/script.tcl" % (self.project_name, self.solution)
-		self.write_project_script(project_script)
+		with open(self.example_cfile_processed, "r") as f:
+			example_cfile_contents = f.read()
 
-		self.write_solution_script("%s/%s/directives.tcl" % (self.project_name, self.solution))
+		info = {"project_script": project_script, "directives_script": directives_script, "cfile": example_cfile_contents}
+		self.solution = "solution_" + md5.new(json.dumps(info)).hexdigest()
 
-		self.run_vivado_hls(project_script)
+		project_script_filename = "%s/%s/script.tcl" % (self.project_name, self.solution)
+		self.write_project_script(project_script_filename, project_script)
+		self.write_solution_script("%s/%s/directives.tcl" % (self.project_name, self.solution), directives_script)
+
+		if not os.path.exists("%s/%s/syn/report/run_csynth.xml" % (self.project_name, self.solution)):
+			self.run_vivado_hls(project_script_filename)
 
 		result = HLSSolution(self)
 		self.solutions.append(result)
@@ -55,23 +59,31 @@ class HLS(object):
 			cflags += " -DSTEPS=%d" % self.steps
 		return cflags
 
-	def write_project_script(self, filename):
-		mkdir_p(os.path.dirname(filename))
-		with open(filename, "w") as f:
-			f.write("""open_project %s\n""" % self.project_name)
-			f.write("""set_top run\n""")
-			f.write("""add_files "%s" -cflags "%s"\n""" % (self.example_cfile_processed, self.get_cflags()))
-			f.write("""open_solution "%s"\n""" % self.solution)
-			f.write("""set_part {%s}\n""" % self.part)
-			f.write("""create_clock -period %s -name default\n""" % self.clock_period)
-			f.write("""source "./%s/%s/directives.tcl"\n""" % (self.project_name, self.solution))
-			f.write("""csynth_design\n""")
-			f.write("""exit\n""")
+	def get_project_script_template(self):
+		return (
+			"""open_project {{PROJECT_NAME}}\n""" +
+			"""set_top run\n""" +
+			"""add_files "{{CFILE}}" -cflags "%s"\n""" % (self.get_cflags()) +
+			"""open_solution "{{SOLUTION}}"\n""" +
+			"""set_part {%s}\n""" % self.part +
+			"""create_clock -period %s -name default\n""" % self.clock_period +
+			"""source "./{{PROJECT_NAME}}/{{SOLUTION}}/directives.tcl"\n""" +
+			"""csynth_design\n""" +
+			"""exit\n""")
 
-	def write_solution_script(self, filename):
+	def write_project_script(self, filename, template):
+		template = template.replace("{{PROJECT_NAME}}", self.project_name)
+		template = template.replace("{{SOLUTION}}",     self.solution)
+		template = template.replace("{{CFILE}}",        self.example_cfile_processed)
+
 		mkdir_p(os.path.dirname(filename))
 		with open(filename, "w") as f:
-			f.write("\n".join(self.directives) + "\n")
+			f.write(template)
+
+	def write_solution_script(self, filename, template):
+		mkdir_p(os.path.dirname(filename))
+		with open(filename, "w") as f:
+			f.write(template)
 
 	def process_example_cfile(self, example_cfile):
 		self.example_cfile_processed = os.path.basename(example_cfile)

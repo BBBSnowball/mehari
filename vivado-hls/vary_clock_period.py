@@ -5,18 +5,18 @@ import os, json
 example = "DC Motor"
 
 hls = HLS(mehari_private)
-hls.create_project(clean_for_filename(example + "clock-frequency"), examples[example])
+hls.create_project(clean_for_filename(example + "-clock-frequency"), examples[example])
 hls.directive("""set_directive_inline -recursive "run" """)
 hls.directive("""set_directive_dataflow "run" """)
 
 
 results = []
 
-for steps in [1]: #[1, 2, 10, 100]:
+for steps in [1, 2, 10, 100]:
 	print "STEPS = %d" % steps
 	hls.steps = steps
 
-	for clock_period in range(1, 3): # 21) + [30, 50, 100, 200, 500]:
+	for clock_period in range(1, 21) + [30, 50, 100, 200, 500]:
 		hls.clock_period = clock_period
 		result = hls.csynth_design()
 		print "%3d  %6.2f  (%s)" % (clock_period, result.runtime, result.solution)
