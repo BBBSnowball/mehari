@@ -40,7 +40,7 @@ task createFloatLibraryMetaFiles(type: Exec) {
 	environmentFromConfig()
 
 	inputs.files fileTree(floatLibraryDir) {
-		include "create_pao_file.sh"
+		include "prepare.sh"
 		include "**/*.tpl"
 	}
 	outputs.files fileTree(floatLibraryDir) {
