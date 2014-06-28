@@ -567,3 +567,21 @@ TEST_F(ReconOSVHDLGeneratorTest, SemaphoreTest) {
     "",
     getInterfaceCode());
 }
+
+
+TEST_F(ReconOSVHDLGeneratorTest, StatusPointerTest) {
+  ParseC(
+    "void test(int *status) {"
+    "  *status |= 7;"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "_put_int(0, *status);\n*status = _get_int(1);\n",
+    getInterfaceCode());
+}

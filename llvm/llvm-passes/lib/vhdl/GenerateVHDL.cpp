@@ -794,7 +794,12 @@ void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorag
     default: std::cerr << "width: " << value->width() << "\n"; assert(false);
   }
 
-  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << value->ccode << ");\n";
+  //TODO Why do we need this special case? The variable should have pointer type!
+  std::string ccode = value->ccode;
+  if (ccode == "status")
+    ccode = "*" + ccode;
+
+  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << ccode << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
@@ -809,7 +814,12 @@ void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorag
     default: assert(false);
   }
 
-  interface_ccode << value->ccode << " = _get_" << type << "(" << mbox << ");\n";
+  //TODO Why do we need this special case? The variable should have pointer type!
+  std::string ccode = value->ccode;
+  if (ccode == "status")
+    ccode = "*" + ccode;
+
+  interface_ccode << ccode << " = _get_" << type << "(" << mbox << ");\n";
 }
 
 void VHDLBackend::mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {
