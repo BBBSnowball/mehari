@@ -47,6 +47,8 @@ private:
 public:
   ChannelP getReadChannel(MyOperator* op);
   ChannelP getWriteChannel(MyOperator* op);
+  ChannelP getExternalWriteChannel();
+  bool hasBeenWrittenTo();
 
   void initWithChannels(ChannelP channel_read, ChannelP channel_write, llvm::Type* type);
 

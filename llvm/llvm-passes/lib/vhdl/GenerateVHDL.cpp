@@ -60,6 +60,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   usedVariableNames.reset();
   ready_signals->clear();
   interface_ccode.str("");
+  read_values.clear();
 
   op.reset(new MyOperator());
   op->setName(name);
@@ -776,7 +777,10 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
   ChannelP read_channel = value->getReadChannel(op.get());
 
   if (value->kind == ValueStorage::GLOBAL_VARIABLE || value->kind == ValueStorage::FUNCTION_PARAMETER) {
-    mboxGet(0, read_channel, value);
+    if (!value->hasBeenWrittenTo()) {
+      ChannelP external_channel = read_channel;
+      mboxGet(0, external_channel, value);
+    }
   }
 
   return read_channel;
@@ -784,6 +788,12 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
 
 void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
   mboxGetWithoutInterface(mbox, channel_of_op);
+
+  std::string key = channel_of_op->data_signal;
+  if (contains(read_values, key))
+    return;
+  else
+    read_values.insert(key);
 
   std::string type;
   switch (value->width()) {

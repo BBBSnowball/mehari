@@ -118,6 +118,29 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
 }
 
 
+ChannelP ValueStorage::getExternalWriteChannel() {
+  switch (kind) {
+    case FUNCTION_PARAMETER:
+    case GLOBAL_VARIABLE:
+      return Channel::make_output(name + "_out", width());
+      break;
+    case TEMPORARY_VARIABLE:
+      assert(false);
+      break;
+    default:
+      assert(false);
+      break;
+  }
+
+  return ChannelP((Channel*)NULL);
+}
+
+
+bool ValueStorage::hasBeenWrittenTo() {
+  return channel_write != NULL;
+}
+
+
 std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind) {
   switch (kind) {
     case ValueStorage::FUNCTION_PARAMETER:
