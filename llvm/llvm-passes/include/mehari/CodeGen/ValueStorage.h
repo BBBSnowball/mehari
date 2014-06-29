@@ -49,6 +49,7 @@ public:
   ChannelP getWriteChannel(MyOperator* op);
   ChannelP getExternalWriteChannel();
   bool hasBeenWrittenTo();
+  void markWrittenFromExternal();
 
   void initWithChannels(ChannelP channel_read, ChannelP channel_write, llvm::Type* type);
 
@@ -76,6 +77,7 @@ struct IfBranch {
 
   IfBranch(llvm::Value* condition, bool whichBranch, IfBranchP parent, llvm::BasicBlock* bb);
   ValueStorageP get(ValueStorageP vs);
+  ValueStorageP get(ValueStorageP vs, ValueStorageP ignore);
 };
 
 
@@ -106,6 +108,7 @@ class ValueStorageFactory {
   IfBranchP current_if_branch;
   std::map<llvm::Instruction*, std::vector<IfBranchP> > if_branches_for_instruction;
   bool last_instruction_was_branch;
+  ValueStorageP ignore;
 public:
   ValueStorageFactory();
 
@@ -116,8 +119,8 @@ public:
   ValueStorageP makeTemporaryVariable(llvm::Value* value);
 
   ValueStorageP makeAnonymousTemporaryVariable(llvm::Value* value);
-
   ValueStorageP makeAnonymousTemporaryVariable(llvm::Type* type);
+  ValueStorageP makeAnonymousTemporaryVariable(ValueStorageP value);
 
   ValueStorageP getOrCreateTemporaryVariable(llvm::Value* value);
 
@@ -134,6 +137,8 @@ public:
   void set(llvm::Value* target, ValueStorageP source);
 
   ValueStorageP getForWriting(llvm::Value* value);
+  ValueStorageP getForWriting(llvm::Value* value, IfBranchP current_if_branch);
+  ValueStorageP getForWriting(ValueStorageP value, IfBranchP current_if_branch);
 
 
   void makeUnconditionalBranch(llvm::Instruction *target);

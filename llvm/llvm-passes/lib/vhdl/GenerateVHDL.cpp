@@ -502,7 +502,7 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
   op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addInput (input_prefix  + "a"      + data_suffix, width, true);
   op->addInput (input_prefix  + "b"      + data_suffix, width, true);
-  op->addOutput(output_prefix + "result" + data_suffix, 1, 1, true);
+  op->addOutput(output_prefix + "result" + data_suffix, (is_floating_point ? 8 : 1), 1, true);
   op->addInput (input_prefix  + "a"      + valid_suffix);
   op->addInput (input_prefix  + "b"      + valid_suffix);
   op->addOutput(output_prefix + "result" + valid_suffix);
@@ -543,7 +543,19 @@ void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
 
   input1->connectToOutput(read(vs_factory->get(op1)),     op.get(), usedVariableNames, *ready_signals);
   input2->connectToOutput(read(vs_factory->get(op2)),     op.get(), usedVariableNames, *ready_signals);
-  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  if (output->width == 1) {
+    output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  } else {
+    ValueStorageP tmp_8bit = vs_factory->makeAnonymousTemporaryVariable(IntegerType::get(tmp->type->getContext(), 8));
+    output->connectToInput (tmp_8bit->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+
+    ChannelP tmp_write = tmp->getWriteChannel(op.get());
+    ChannelP tmp_8bit_read = tmp_8bit->getReadChannel(op.get());
+
+    *op << "   " << tmp_write->data_signal  << "(0) <= " << tmp_8bit_read->data_signal << "(0);\n";
+    *op << "   " << tmp_write->valid_signal << " <= " << tmp_8bit_read->valid_signal << ";\n";
+    ready_signals->addConsumer(tmp_8bit_read->ready_signal, tmp_write->ready_signal);
+  }
 
   this->op->inPortMap(op_info.op, "aclk", "aclk");
 

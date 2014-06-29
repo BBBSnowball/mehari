@@ -412,7 +412,35 @@ TEST_F(SimpleVHDLGeneratorTest, SelectOperationTest) {
     "}");
   CheckResultFromFile();
 
-  //TODO add VHDL test bench
+
+  TestOperator* test = makeTestOperator();
+
+  test->beginStimulusProcess();
+
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", 42);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("return", "1.0");
+
+  test->reset();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", -42);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("return", "-1.0");
+
+  // This test case cannot work due to a but in the SGN code which is copied from IPANEMA.
+  /*test->reset();
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", 0.0);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("return", "-0.0");*/
+
+  test->endStimulusProcess();
+
+  saveTestOperator();
 }
 
 
@@ -585,3 +613,118 @@ TEST_F(ReconOSVHDLGeneratorTest, StatusPointerTest) {
     "_put_int(0, *status);\n*status = _get_int(1);\n",
     getInterfaceCode());
 }
+
+
+TEST_F(ReconOSVHDLGeneratorTest, DCMotorTest) {
+  ParseC(
+    "double Vp[100], Vu[100], Vq[100], Vx[100], Vy[100];"
+    "int Vs[100];"
+    "void test(double* x, double t) {"
+    "  Vp[14] = Vp[0];"
+    "  Vp[15] = Vp[1];"
+    "  Vu[4] = 0.00000000000000000e+000;"
+    "  Vq[14] = t*Vp[10]+Vp[11]/3.60000000000000000e+002;"
+    "  Vx[0] = x[0];"
+    "  Vx[1] = x[1];"
+    "  Vx[2] = x[2];"
+    "  Vs[4] = Vq[14] > Vp[12];"
+    "  x[0] = Vx[0];"
+    "  Vy[4] = Vp[10]*Vx[0];"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "_put_real(0, Vp[0]);\n"
+    "Vp[14] = _get_real(1);\n"
+    "_put_real(0, Vp[1]);\n"
+    "Vp[15] = _get_real(1);\n"
+    "Vu[4] = _get_real(1);\n"
+    "_put_real(0, t);\n"
+    "_put_real(0, Vp[10]);\n"
+    "_put_real(0, Vp[11]);\n"
+    "Vq[14] = _get_real(1);\n"
+    "_put_real(0, x[0]);\n"
+    "Vx[0] = _get_real(1);\n"
+    "_put_real(0, x[1]);\n"
+    "Vx[1] = _get_real(1);\n"
+    "_put_real(0, x[2]);\n"
+    "Vx[2] = _get_real(1);\n"
+    "_put_real(0, Vp[12]);\n"
+    "Vs[4] = _get_int(1);\n"
+    "x[0] = _get_real(1);\n"
+    "Vy[4] = _get_real(1);\n",
+    getInterfaceCode());
+}
+
+/*
+TEST_F(ReconOSVHDLGeneratorTest, NestedIf) {
+  ParseC(
+    "void test(double* x, int* Vs, double t) {"
+    "  if (!Vs[6]) if (Vs[7])         x[65] = x[63]*0.00000000000000000e+000;"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "_put_int(0, Vs[6]);\n"
+    "_put_int(0, Vs[7]);\n"
+    "_put_real(0, Vq[63]);\n"
+    "_put_real(0, Vq[65]);\n"
+    "Vq[65] = _get_real(1);\n",
+    getInterfaceCode());
+}
+
+
+TEST_F(ReconOSVHDLGeneratorTest, TwoMassesBouncingTest) {
+  ParseC(
+    "double Vp[1000], Vu[1000], Vq[1000], Vx[1000], Vy[1000];"
+    "int Vs[1000];"
+    "void test(double* x, double t) {"
+    "  if (Vs[6])         Vq[53] = Vq[52]*0.00000000000000000e+000;"
+    "  if (Vs[6])         Vq[64] = Vq[63]*0.00000000000000000e+000;"
+    "  if (Vs[6])         Vq[75] = Vq[74]*(1.73205103309698990e-007/Vq[84]);"
+    "  if (!Vs[6]) if (Vs[7])         Vq[65] = Vq[63]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (Vs[7])         Vq[76] = Vq[74]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (Vs[7])         Vq[85] = Vq[84]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (Vs[8])         Vq[54] = Vq[52]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (Vs[8])         Vq[77] = Vq[74]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (Vs[8])         Vq[86] = Vq[84]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (!Vs[8]) if (Vs[9])         Vq[66] = Vq[63]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (!Vs[8]) if (Vs[9])         Vq[55] = Vq[52]*0.00000000000000000e+000;"
+    "  if (!Vs[6]) if (!Vs[7]) if (!Vs[8]) if (Vs[9])         Vq[87] = Vq[84]*(1.73205103309698990e-007/Vq[74]);"
+    "  if (Vs[14])         Vq[103] = Vq[102]*0.00000000000000000e+000;"
+    "  if (Vs[14])         Vq[114] = Vq[113]*0.00000000000000000e+000;"
+    "  if (Vs[14])         Vq[125] = Vq[124]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (Vs[15])         Vq[115] = Vq[113]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (Vs[15])         Vq[126] = Vq[124]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (Vs[15])         Vq[135] = Vq[134]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (Vs[16])         Vq[104] = Vq[102]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (Vs[16])         Vq[127] = Vq[124]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (Vs[16])         Vq[136] = Vq[134]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (!Vs[16]) if (Vs[17])         Vq[116] = Vq[113]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (!Vs[16]) if (Vs[17])         Vq[105] = Vq[102]*0.00000000000000000e+000;"
+    "  if (!Vs[14]) if (!Vs[15]) if (!Vs[16]) if (Vs[17])         Vq[137] = Vq[134]*0.00000000000000000e+000;"
+    "}");
+  std::string code = GenerateCode();
+
+  mkdir(getCurrentTestName().c_str(), 0755);
+  writeFile(getCurrentTestName() + "/calculation.vhdl", code);
+
+  saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
+
+  EXPECT_EQ(
+    "_put_int(0, Vs[6]);\n"
+    "_put_real(0, Vq[52]);\n"
+    "Vq[53] = _get_real(1);\n",
+    getInterfaceCode());
+}
+*/
