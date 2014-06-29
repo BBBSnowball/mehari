@@ -66,5 +66,12 @@ do
 	measure "${PREFIX}hw_1_10k_${operation}_mbox-size=256.perf.txt" 10   ./mbox_put_get 1 0  -m $ITERATIONS -o $operation -s 256 --dont-flush
 	measure "${PREFIX}sw_1_10k_${operation}_mbox-size=256.perf.txt" 10   ./mbox_put_get 0 1  -m $ITERATIONS -o $operation -s 256 --dont-flush
 done
+for operation in mem_read mem_write
+do
+	for size in 4 8 128
+	do
+		measure "${PREFIX}hw_1_10k_${operation}_size=${size}.perf.txt" 10   ./mbox_put_get 1 0  -m $ITERATIONS -o $operation --dont-flush -s $size
+	done
+done
 
 tar -cf mbox_put_get_results.tar ${PREFIX}*.perf.txt

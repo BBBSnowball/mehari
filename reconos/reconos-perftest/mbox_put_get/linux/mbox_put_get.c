@@ -152,6 +152,10 @@ TargetOperation parseOperation(const char *operation)
         return opSemPost;
     if (strcmp(operation, "sem_wait") == 0)
         return opSemWait;
+    if (strcmp(operation, "mem_read") == 0)
+        return opMemRead;
+    if (strcmp(operation, "mem_write") == 0)
+        return opMemWrite;
     assert(0);
 }
 
