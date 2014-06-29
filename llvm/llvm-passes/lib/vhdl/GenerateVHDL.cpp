@@ -371,44 +371,44 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
     case FCmpInst::FCMP_OEQ:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00010100'";
+      code = "\"00010100\"";
       break;
     case FCmpInst::FCMP_OGT:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00100100'";
+      code = "\"00100100\"";
       break;
     case FCmpInst::FCMP_OGE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00110100'";
+      code = "\"00110100\"";
       break;
     case FCmpInst::FCMP_OLT:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00001100'";
+      code = "\"00001100\"";
       break;
     case FCmpInst::FCMP_OLE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00011100'";
+      code = "\"00011100\"";
       break;
     case FCmpInst::FCMP_ONE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00101100'";
+      code = "\"00101100\"";
       break;
     case FCmpInst::FCMP_ORD:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00000100'";
+      code = "\"00000100\"";
       negate = true;  // not supported
       assert(false);
       break;
     case FCmpInst::FCMP_UNO:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00000100'";
+      code = "\"00000100\"";
       break;
     case FCmpInst::FCMP_UEQ:
       ignore("isnan || ==");
