@@ -53,21 +53,30 @@ architecture implementation of hwt_mbox_put_get is
 
 	type STATE_TYPE is (
 					STATE_START, STATE_ACK, STATE_PUT_N, STATE_GET_N,
-					STATE_POST_N, STATE_WAIT_N, STATE_THREAD_EXIT);
+					STATE_POST_N, STATE_WAIT_N, STATE_THREAD_EXIT,
+					STATE_GET_READ_ADDRESS, STATE_GET_READ_SIZE, STATE_READ,
+					STATE_GET_WRITE_ADDRESS, STATE_GET_WRITE_SIZE, STATE_WRITE);
 
 	constant MBOX_RECV  : std_logic_vector(31 downto 0) := x"00000000";
 	constant MBOX_SEND  : std_logic_vector(31 downto 0) := x"00000001";
 	constant MBOX_TEST  : std_logic_vector(31 downto 0) := x"00000002";
 	constant SEM_TEST   : std_logic_vector(31 downto 0) := x"00000003";
 
-	signal addr         : std_logic_vector(31 downto 0);
+	signal addr, addr2, size : std_logic_vector(31 downto 0);
 	signal len          : std_logic_vector(23 downto 0);
 	signal state        : STATE_TYPE;
 	signal i_osif       : i_osif_t;
 	signal o_osif       : o_osif_t;
 	signal i_memif      : i_memif_t;
 	signal o_memif      : o_memif_t;
+	signal i_ram        : i_ram_t;
+	signal o_ram        : o_ram_t;
 	
+	signal o_RAMAddr_reconos_2 : std_logic_vector(0 to 31);
+	signal o_RAMData_reconos   : std_logic_vector(0 to 31);
+	signal o_RAMWE_reconos     : std_logic;
+	signal i_RAMData_reconos   : std_logic_vector(0 to 31);
+
 	signal ignore   : std_logic_vector(31 downto 0);
 	signal ignore2  : std_logic_vector(31 downto 0);
 
@@ -103,6 +112,15 @@ begin
 		MEMIF_FIFO_Hwt2Mem_Data,
 		MEMIF_FIFO_Hwt2Mem_WE
 	);
+
+	ram_setup (
+		i_ram,
+		o_ram,
+		o_RAMAddr_reconos_2,
+		o_RAMWE_reconos,
+		o_RAMData_reconos,
+		i_RAMData_reconos
+	);
 		
 	-- os and memory synchronisation state machine
 	reconos_fsm: process (clk,rst,o_osif,o_memif) is
@@ -135,6 +153,10 @@ begin
 								state <= STATE_POST_N;
 							when X"04" =>
 								state <= STATE_WAIT_N;
+							when X"05" =>
+								state <= STATE_GET_READ_ADDRESS;
+							when X"06" =>
+								state <= STATE_GET_WRITE_ADDRESS;
 							when others =>
 								state <= STATE_START;
 						end case;
@@ -178,6 +200,52 @@ begin
 
 				when STATE_WAIT_N =>
 					osif_sem_wait(i_osif, o_osif, SEM_TEST, ignore, done);
+					if done then
+						if count /= X"000000" then
+							count <= count - X"000001";
+						else
+							state <= STATE_ACK;
+						end if;
+					end if;
+
+				when STATE_GET_READ_ADDRESS =>
+					osif_mbox_get(i_osif, o_osif, MBOX_RECV, addr2, done);
+					if done then
+						state <= STATE_GET_READ_SIZE;
+					end if;
+
+				when STATE_GET_READ_SIZE =>
+					osif_mbox_get(i_osif, o_osif, MBOX_RECV, size, done);
+					if done then
+						state <= STATE_READ;
+						len <= size(23 downto 0);
+					end if;
+
+				when STATE_READ =>
+					memif_read(i_ram,o_ram,i_memif,o_memif,addr2,X"00000000",len,done);
+					if done then
+						if count /= X"000000" then
+							count <= count - X"000001";
+						else
+							state <= STATE_ACK;
+						end if;
+					end if;
+
+				when STATE_GET_WRITE_ADDRESS =>
+					osif_mbox_get(i_osif, o_osif, MBOX_RECV, addr2, done);
+					if done then
+						state <= STATE_GET_WRITE_SIZE;
+					end if;
+
+				when STATE_GET_WRITE_SIZE =>
+					osif_mbox_get(i_osif, o_osif, MBOX_RECV, size, done);
+					if done then
+						state <= STATE_WRITE;
+						len <= size(23 downto 0);
+					end if;
+
+				when STATE_WRITE =>
+					memif_write(i_ram,o_ram,i_memif,o_memif,X"00000000",addr2,len,done);
 					if done then
 						if count /= X"000000" then
 							count <= count - X"000001";
