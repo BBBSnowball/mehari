@@ -677,9 +677,17 @@ void VHDLBackend::generateReturn(Value *retVal) {
 
   ch1->connectToOutput(ch2, op.get(), usedVariableNames, *ready_signals);
 
+  std::string type;
+  switch (retVal_vs->width()) {
+    case  1: // Boolean type in LLVM. Represented by an int.
+    case 16: // We shouldn't ever get 16, but we do. We use int in that case.
+    case 32: type = "int";  break;
+    case 64: type = "real"; break;
+    default: assert(false);
+  }
 
   mboxPutWithoutInterface(1, ch1);
-  interface_ccode << "return _get_real(1);\n";
+  interface_ccode << "return mbox_get_" << type << "(&mbox_stop);\n";
 }
 
 
@@ -821,7 +829,10 @@ void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorag
   if (ccode == "status")
     ccode = "*" + ccode;
 
-  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << ccode << ");\n";
+  if (mbox != 0)
+    interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << ccode << ");\n";
+  else
+    interface_ccode << "mbox_put_" << type << "(&mbox_start, " << ccode << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
@@ -841,7 +852,10 @@ void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorag
   if (ccode == "status")
     ccode = "*" + ccode;
 
-  interface_ccode << ccode << " = _get_" << type << "(" << mbox << ");\n";
+  if (mbox != 1)
+    interface_ccode << ccode << " = _get_" << type << "(" << mbox << ");\n";
+  else
+    interface_ccode << ccode << " = mbox_get_" << type << "(&mbox_stop);\n";
 }
 
 void VHDLBackend::mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {
