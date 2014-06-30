@@ -57,7 +57,7 @@ add_custom_target(MehariCustomLLVMPasses)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # set external dependencies for custom LLVM passes
-set(PASSES_REQUIRED_LIBS pivpav ctemplate boost_filesystem-mt)
+set(PASSES_REQUIRED_LIBS pivpav ctemplate boost_filesystem)
 
 # set source files for all custom LLVM passes
 set(MEHARI_COMMON_SOURCES HardwareInformation.cpp)
