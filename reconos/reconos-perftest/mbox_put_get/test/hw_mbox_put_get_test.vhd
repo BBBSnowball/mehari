@@ -78,6 +78,8 @@ architecture behavior of hwt_mbox_put_get_test is
 	signal HWT_Clk   : std_logic;
 	signal HWT_Rst   : std_logic;
 
+	shared variable ram : test_memory_t(0 to 20);
+
 	-- some constants from hwt_sort_demo.vhd
 	-- The values must be exactly the same as in hwt_sort_demo.vhd !
 	constant MBOX_RECV  : std_logic_vector(31 downto 0) := x"00000000";
@@ -236,9 +238,37 @@ begin
 		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
 		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
 		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
+		expect_osif_sem_wait(clk, i_osif_test, o_osif_test, SEM_TEST);
 
 		report "ack:   8x sem_wait";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"04000008");
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"04000007");
+
+
+		report "start: 2x memory read";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"05000001");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"00000010");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"00000008");
+
+		report "abc";
+		expect_memif_read(clk, i_memif_test, o_memif_test, 16, 8, ram);
+		report "abc";
+		expect_memif_read(clk, i_memif_test, o_memif_test, 16, 8, ram);
+
+		report "ack:   2x memory read";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"05000001");
+
+
+		report "start: 3x memory write";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"06000002");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"00000010");
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, X"00000008");
+
+		expect_memif_write(clk, i_memif_test, o_memif_test, 16, 8, ram);
+		expect_memif_write(clk, i_memif_test, o_memif_test, 16, 8, ram);
+		expect_memif_write(clk, i_memif_test, o_memif_test, 16, 8, ram);
+
+		report "ack:   3x memory write";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, X"06000002");
 
 
 		report "Terminating slave thread...";

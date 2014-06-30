@@ -51,11 +51,13 @@ sem_t sem_test;
 
 typedef enum
 {
-    opNOP     = 0x00000000,
-    opMboxPut = 0x01000000,
-    opMboxGet = 0x02000000,
-    opSemPost = 0x03000000,
-    opSemWait = 0x04000000,
+    opNOP      = 0x00000000,
+    opMboxPut  = 0x01000000,
+    opMboxGet  = 0x02000000,
+    opSemPost  = 0x03000000,
+    opSemWait  = 0x04000000,
+    opMemRead  = 0x05000000,
+    opMemWrite = 0x06000000,
 
     opCodeMask = 0xff000000,
     opArgMask  = 0x00ffffff
@@ -150,6 +152,10 @@ TargetOperation parseOperation(const char *operation)
         return opSemPost;
     if (strcmp(operation, "sem_wait") == 0)
         return opSemWait;
+    if (strcmp(operation, "mem_read") == 0)
+        return opMemRead;
+    if (strcmp(operation, "mem_write") == 0)
+        return opMemWrite;
     assert(0);
 }
 
@@ -300,10 +306,15 @@ int main(int argc, char ** argv)
 
     //int gettimeofday(struct timeval *tv, struct timezone *tz);
 
+    void* buffer = NULL;
+    if (operation == opMemRead || operation == opMemWrite)
+        buffer = malloc(4*mbox_size);
+
     // init mailboxes
     mbox_init(&mb_start, simulation_steps);
     mbox_init(&mb_stop,  simulation_steps);
-    mbox_init(&mb_test,  mbox_size);
+    if (operation == opMboxPut || operation == opMboxGet)
+        mbox_init(&mb_test,  mbox_size);
 
     // init semaphore
     sem_init(&sem_test, 0, 0);
@@ -411,6 +422,12 @@ int main(int argc, char ** argv)
                     for (; count > 0; count--) {
                         sem_post(&sem_test);
                     }
+                break;
+
+                case opMemRead:
+                case opMemWrite:
+                    mbox_put(&mb_start, buffer);
+                    mbox_put(&mb_start, mbox_size);
                 break;
             }
         }

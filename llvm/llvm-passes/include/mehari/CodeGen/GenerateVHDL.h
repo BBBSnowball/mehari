@@ -11,6 +11,7 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <set>
 
 class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   std::string name;
@@ -26,6 +27,7 @@ class VHDLBackend : public CodeGeneratorBackend, private PhiNodeSink {
   boost::scoped_ptr<class ValueStorageFactory> vs_factory;
   boost::scoped_ptr<class ReadySignals> ready_signals;
   std::ostringstream interface_ccode;
+  std::set<std::string> read_values;
 
   bool generateForTest;
 public:

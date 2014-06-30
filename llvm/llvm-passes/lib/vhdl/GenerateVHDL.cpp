@@ -60,6 +60,7 @@ void VHDLBackend::init(SimpleCCodeGenerator* generator, std::ostream& stream) {
   usedVariableNames.reset();
   ready_signals->clear();
   interface_ccode.str("");
+  read_values.clear();
 
   op.reset(new MyOperator());
   op->setName(name);
@@ -371,44 +372,44 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
     case FCmpInst::FCMP_OEQ:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00010100'";
+      code = "\"00010100\"";
       break;
     case FCmpInst::FCMP_OGT:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00100100'";
+      code = "\"00100100\"";
       break;
     case FCmpInst::FCMP_OGE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00110100'";
+      code = "\"00110100\"";
       break;
     case FCmpInst::FCMP_OLT:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00001100'";
+      code = "\"00001100\"";
       break;
     case FCmpInst::FCMP_OLE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00011100'";
+      code = "\"00011100\"";
       break;
     case FCmpInst::FCMP_ONE:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00101100'";
+      code = "\"00101100\"";
       break;
     case FCmpInst::FCMP_ORD:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00000100'";
+      code = "\"00000100\"";
       negate = true;  // not supported
       assert(false);
       break;
     case FCmpInst::FCMP_UNO:
       name = "float_cmp";
       is_floating_point = true;
-      code = "'00000100'";
+      code = "\"00000100\"";
       break;
     case FCmpInst::FCMP_UEQ:
       ignore("isnan || ==");
@@ -501,7 +502,7 @@ OperatorInfo getComparisonOperator(FCmpInst::Predicate comparePredicate, unsigne
   op->addPort  ("aclk",1,1,1,0,0,0,0,0,0,0,0);
   op->addInput (input_prefix  + "a"      + data_suffix, width, true);
   op->addInput (input_prefix  + "b"      + data_suffix, width, true);
-  op->addOutput(output_prefix + "result" + data_suffix, 1, 1, true);
+  op->addOutput(output_prefix + "result" + data_suffix, (is_floating_point ? 8 : 1), 1, true);
   op->addInput (input_prefix  + "a"      + valid_suffix);
   op->addInput (input_prefix  + "b"      + valid_suffix);
   op->addOutput(output_prefix + "result" + valid_suffix);
@@ -542,7 +543,19 @@ void VHDLBackend::generateComparison(std::string tmpVar, Value *op1, Value *op2,
 
   input1->connectToOutput(read(vs_factory->get(op1)),     op.get(), usedVariableNames, *ready_signals);
   input2->connectToOutput(read(vs_factory->get(op2)),     op.get(), usedVariableNames, *ready_signals);
-  output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  if (output->width == 1) {
+    output->connectToInput (tmp->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+  } else {
+    ValueStorageP tmp_8bit = vs_factory->makeAnonymousTemporaryVariable(IntegerType::get(tmp->type->getContext(), 8));
+    output->connectToInput (tmp_8bit->getWriteChannel(op.get()), op.get(), usedVariableNames, *ready_signals);
+
+    ChannelP tmp_write = tmp->getWriteChannel(op.get());
+    ChannelP tmp_8bit_read = tmp_8bit->getReadChannel(op.get());
+
+    *op << "   " << tmp_write->data_signal  << "(0) <= " << tmp_8bit_read->data_signal << "(0);\n";
+    *op << "   " << tmp_write->valid_signal << " <= " << tmp_8bit_read->valid_signal << ";\n";
+    ready_signals->addConsumer(tmp_8bit_read->ready_signal, tmp_write->ready_signal);
+  }
 
   this->op->inPortMap(op_info.op, "aclk", "aclk");
 
@@ -776,7 +789,10 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
   ChannelP read_channel = value->getReadChannel(op.get());
 
   if (value->kind == ValueStorage::GLOBAL_VARIABLE || value->kind == ValueStorage::FUNCTION_PARAMETER) {
-    mboxGet(0, read_channel, value);
+    if (!value->hasBeenWrittenTo()) {
+      ChannelP external_channel = read_channel;
+      mboxGet(0, external_channel, value);
+    }
   }
 
   return read_channel;
@@ -784,6 +800,12 @@ ChannelP VHDLBackend::read(ValueStorageP value) {
 
 void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
   mboxGetWithoutInterface(mbox, channel_of_op);
+
+  std::string key = channel_of_op->data_signal;
+  if (contains(read_values, key))
+    return;
+  else
+    read_values.insert(key);
 
   std::string type;
   switch (value->width()) {
@@ -794,7 +816,12 @@ void VHDLBackend::mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorag
     default: std::cerr << "width: " << value->width() << "\n"; assert(false);
   }
 
-  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << value->ccode << ");\n";
+  //TODO Why do we need this special case? The variable should have pointer type!
+  std::string ccode = value->ccode;
+  if (ccode == "status")
+    ccode = "*" + ccode;
+
+  interface_ccode << "_put_" << type << "(" << toString(mbox) << ", " << ccode << ");\n";
 }
 
 void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value) {
@@ -809,7 +836,12 @@ void VHDLBackend::mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorag
     default: assert(false);
   }
 
-  interface_ccode << value->ccode << " = _get_" << type << "(" << mbox << ");\n";
+  //TODO Why do we need this special case? The variable should have pointer type!
+  std::string ccode = value->ccode;
+  if (ccode == "status")
+    ccode = "*" + ccode;
+
+  interface_ccode << ccode << " = _get_" << type << "(" << mbox << ");\n";
 }
 
 void VHDLBackend::mboxGetWithoutInterface(unsigned int mbox, ChannelP channel_of_op) {

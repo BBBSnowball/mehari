@@ -16,7 +16,7 @@ check_environment
 
 # determine which tests we should run
 if [ -z "$1" -o "$1" == "*" -o "$1" == "work.all" ] ; then
-	TESTS="ReturnValueReconOSTest GlobalArrayTest DoubleCommunicationTest IntCommunicationTest"
+	TESTS="ReturnValueReconOSTest GlobalArrayTest DoubleCommunicationTest IntCommunicationTest BoolCommunicationTest SemaphoreTest"
 else
 	TESTS="$*"
 fi
@@ -33,7 +33,7 @@ ReturnValueReconOSTest() {
 	runTest $test.prj "work.$test"
 }
 
-GlobalArrayTest() {
+default_test() {
 	createProjectFile $test.prj           \
 		project.prj                       \
 		$test/calculation.vhdl            \
@@ -41,46 +41,26 @@ GlobalArrayTest() {
 		CodeGen_data/${test}ReconOS.vhdl  \
 		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
 	runTest $test.prj "work.$test"
+}
+
+GlobalArrayTest() {
+	default_test
 }
 
 DoubleCommunicationTest() {
-	createProjectFile $test.prj           \
-		project.prj                       \
-		$test/calculation.vhdl            \
-		$test/reconos.vhdl                \
-		CodeGen_data/${test}ReconOS.vhdl  \
-		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
-	runTest $test.prj "work.$test"
+	default_test
 }
 
 IntCommunicationTest() {
-	createProjectFile $test.prj           \
-		project.prj                       \
-		$test/calculation.vhdl            \
-		$test/reconos.vhdl                \
-		CodeGen_data/${test}ReconOS.vhdl  \
-		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
-	runTest $test.prj "work.$test"
+	default_test
 }
 
 BoolCommunicationTest() {
-	createProjectFile $test.prj           \
-		project.prj                       \
-		$test/calculation.vhdl            \
-		$test/reconos.vhdl                \
-		CodeGen_data/${test}ReconOS.vhdl  \
-		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
-	runTest $test.prj "work.$test"
+	default_test
 }
 
 SemaphoreTest() {
-	createProjectFile $test.prj           \
-		project.prj                       \
-		$test/calculation.vhdl            \
-		$test/reconos.vhdl                \
-		CodeGen_data/${test}ReconOS.vhdl  \
-		"$RECONOS/pcores/reconos_test_v3_01_a/hdl/vhdl/test_helpers.vhd"
-	runTest $test.prj "work.$test"
+	default_test
 }
 
 for test in $TESTS ; do

@@ -118,6 +118,34 @@ ChannelP ValueStorage::getWriteChannel(MyOperator* op) {
 }
 
 
+ChannelP ValueStorage::getExternalWriteChannel() {
+  switch (kind) {
+    case FUNCTION_PARAMETER:
+    case GLOBAL_VARIABLE:
+      return Channel::make_output(name + "_out", width());
+      break;
+    case TEMPORARY_VARIABLE:
+      assert(false);
+      break;
+    default:
+      assert(false);
+      break;
+  }
+
+  return ChannelP((Channel*)NULL);
+}
+
+
+bool ValueStorage::hasBeenWrittenTo() {
+  return channel_write != NULL;
+}
+
+
+void ValueStorage::markWrittenFromExternal() {
+  channel_write = getExternalWriteChannel();
+}
+
+
 std::ostream& operator <<(std::ostream& stream, ValueStorage::Kind kind) {
   switch (kind) {
     case ValueStorage::FUNCTION_PARAMETER:
@@ -161,6 +189,17 @@ ValueStorageP IfBranch::get(ValueStorageP vs) {
   if (ValueStorageP* x = getValueOrNull(temporaries, vs))
     return *x;
   else if (parent)
+    return parent->get(vs);
+  else
+    return vs;
+}
+
+ValueStorageP IfBranch::get(ValueStorageP vs, ValueStorageP ignore) {
+  if (ValueStorageP* x = getValueOrNull(temporaries, vs))
+    if (*x != ignore)
+      return *x;
+  
+  if (parent)
     return parent->get(vs);
   else
     return vs;
@@ -228,6 +267,10 @@ ValueStorageP ValueStorageFactory::makeAnonymousTemporaryVariable(Value* value) 
   return makeAnonymousTemporaryVariable(value->getType());
 }
 
+ValueStorageP ValueStorageFactory::makeAnonymousTemporaryVariable(ValueStorageP vs) {
+  return makeAnonymousTemporaryVariable(vs->type);
+}
+
 ValueStorageP ValueStorageFactory::makeAnonymousTemporaryVariable(Type* type) {
   ValueStorageP x(new ValueStorage());
   x->kind = ValueStorage::TEMPORARY_VARIABLE;
@@ -256,7 +299,7 @@ ValueStorageP ValueStorageFactory::getTemporaryVariable(const std::string& name)
 ValueStorageP ValueStorageFactory::get(Value* value) {
   ValueStorageP vs = getWithoutIf(value);
   if (current_if_branch)
-    vs = current_if_branch->get(vs);
+    vs = current_if_branch->get(vs, ignore);
   debug_print("ValueStorageFactory::get(" << value << ") -> " << vs);
   assert(vs);
   return vs;
@@ -268,13 +311,11 @@ void ValueStorageFactory::set(Value* target, ValueStorageP source) {
   by_llvm_value[target] = source;
 }
 
-ValueStorageP ValueStorageFactory::getForWriting(Value* value) {
-  ValueStorageP vs = getWithoutIf(value);
-
-  if (!current_if_branch)
+ValueStorageP ValueStorageFactory::getForWriting(ValueStorageP vs, IfBranchP if_branch) {
+  if (!if_branch)
     return vs;
 
-  if (ValueStorageP* x = getValueOrNull(current_if_branch->temporaries, vs)) {
+  if (ValueStorageP* x = getValueOrNull(if_branch->temporaries, vs)) {
     // There already is a variable for this ValueStorage, which
     // means that we are setting it twice. I think, this shouldn't
     // happen.
@@ -282,10 +323,23 @@ ValueStorageP ValueStorageFactory::getForWriting(Value* value) {
 
     return *x;
   } else {
-    ValueStorageP vs_for_branch = makeAnonymousTemporaryVariable(value);
-    current_if_branch->temporaries[vs] = vs_for_branch;
+    ValueStorageP vs_for_branch = makeAnonymousTemporaryVariable(vs);
+    if_branch->temporaries[vs] = vs_for_branch;
     return vs_for_branch;
   }
+}
+
+ValueStorageP ValueStorageFactory::getForWriting(Value* value, IfBranchP if_branch) {
+  ValueStorageP vs = getWithoutIf(value);
+
+  if (!if_branch)
+    return vs;
+
+  return getForWriting(vs, if_branch);
+}
+
+ValueStorageP ValueStorageFactory::getForWriting(Value* value) {
+  return getForWriting(value, current_if_branch);
 }
 
 
@@ -311,8 +365,12 @@ void ValueStorageFactory::makeSelect(ValueStorageP target, Value *condition, Val
   //addIfBranchFor(target, branchTrue);
   //addIfBranchFor(target, branchFalse);
 
+  this->ignore = target;
+
   branchTrue ->temporaries[target] = get(trueValue);
   branchFalse->temporaries[target] = get(falseValue);
+
+  this->ignore.reset();
 
   combineIfBranches(branchTrue, branchFalse, sink);
 }
@@ -372,6 +430,11 @@ void ValueStorageFactory::combineIfBranches(std::vector<IfBranchP>& branches,
 
 void ValueStorageFactory::combineIfBranches(IfBranchP a, IfBranchP b,
     PhiNodeSink* sink) {
+  //if (!a)
+  //  a = IfBranchP(new IfBranch(b->condition, !b->whichBranch, IfBranchP((IfBranch*)NULL), NULL));
+  //if (!b)
+  //  b = IfBranchP(new IfBranch(a->condition, !a->whichBranch, IfBranchP((IfBranch*)NULL), NULL));
+
   assert(a->condition   == b->condition);
   assert(a->whichBranch != b->whichBranch);
   assert(a->parent      == b->parent);
@@ -395,15 +458,15 @@ void ValueStorageFactory::combineIfBranches(IfBranchP a, IfBranchP b,
   BOOST_FOREACH(ValueStorageP var, vars) {
     ValueStorageP trueValue, falseValue, valueInParent;
 
-    valueInParent = var;
-    if (parent)
-      valueInParent = parent->get(valueInParent);
-
     trueValue  = trueBranch->get(var);
     falseValue = falseBranch->get(var);
 
+    valueInParent = getForWriting(var, a->parent);
+
     sink->generatePhiNode(valueInParent, a->condition, trueValue, falseValue);
   }
+
+  current_if_branch = a->parent;
 }
 
 void ValueStorageFactory::handlePhiNodes(BasicBlock* bb, std::vector<IfBranchP>& branches, PhiNodeSink* sink) {
