@@ -17,6 +17,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include <sstream>
+#include <fstream>
 #include <ctime>
 
 #include <boost/algorithm/string.hpp>
@@ -120,8 +121,10 @@ bool Partitioning::runOnModule(Module &M) {
 		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
+		std::string methodsListString;
 		for (std::vector<std::string>::iterator it = partitioningMethods.begin(); it != partitioningMethods.end(); ++it) {
 			std::string pMethod = *it;
+			methodsListString += " " + pMethod;
 			// if the first algorithm that should be executed is an iterative algorithm that needs a starting point,
 			// create an random partitioning before
 			if ((it-partitioningMethods.begin() == 0) && (pMethod == "sa" || pMethod == "k-lin")) {
@@ -164,7 +167,12 @@ bool Partitioning::runOnModule(Module &M) {
 		}
 
 		// print critical path of partitioning graph to evaluate the partitioning result
-		errs() << "Critical path of the partitioning result: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
+		std::ofstream criticalPathFile;
+		std::string criticalPathFileName = OutputDir + "/critical_path.txt";
+		criticalPathFile.open(criticalPathFileName.c_str());
+		criticalPathFile << "Critical path length for using [" << methodsListString
+		<< " ]: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
+		criticalPathFile.close();
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
