@@ -47,7 +47,7 @@ static cl::opt<std::string> TemplateDir("template-dir",
 
 
 // Use data dependencies for all communication with the FPGA
-static bool useDataDepForAllFPGACom = true;
+static bool useDataDepForAllFPGACom = false;
 
 
 Partitioning::Partitioning() : ModulePass(ID) {
@@ -345,10 +345,22 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 					LLVMContext &context = tgtInstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
+					
+					// insert instruction: if we are inside an if statement we should insert the get method 
+					// at the beginning of the statement, otherwise we can insert it directly before the target instruction
+					std::vector<Instruction*>::iterator insertTarget = instrIt;
+					bool containsBranch = false;
+					for (std::vector<Instruction*>::iterator it = tgtInstrList.begin(); it != tgtInstrList.end(); ++it)
+						if (isa<BranchInst>(*it)) 
+							containsBranch = true;
+					if (containsBranch)
+						insertTarget = tgtInstrList.begin();
+
 					// add instruction to function
-					tgtInstr->getParent()->getInstList().insert(tgtInstr, newInstr);
+					Instruction *tgt = *insertTarget;
+					tgt->getParent()->getInstList().insert(tgt, newInstr);
 					// add instruction to vertex instruction list
-					tgtInstrList.insert(instrIt, newInstr);
+					tgtInstrList.insert(insertTarget, newInstr);
 					pGraph.setInstructions(instrVertex, tgtInstrList);
 				}
 
@@ -385,10 +397,22 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						}
 						depNumberUsed = true;
 					}
+					
+					// insert instruction: if we are inside an if statement we should insert the put method 
+					// at the end of the statement, otherwise we can insert it directly after the target instruction
+					std::vector<Instruction*>::iterator insertTarget = depIt;
+					bool containsBranch = false;
+					for (std::vector<Instruction*>::iterator it = depInstrList.begin(); it != depInstrList.end(); ++it)
+						if (isa<BranchInst>(*it)) 
+							containsBranch = true;
+					if (containsBranch)
+						insertTarget = depInstrList.end()-1;
+
 					// add instruction to function
-					depInstr->getParent()->getInstList().insertAfter(depInstr, newInstr);
+					Instruction *tgt = *insertTarget;
+					depInstr->getParent()->getInstList().insertAfter(tgt, newInstr);
 					// add instruction to vertex instruction list
-					depInstrList.insert(depIt+1, newInstr);
+					depInstrList.insert(insertTarget+1, newInstr);
 					pGraph.setInstructions(depVertex, depInstrList);
 				}
 				if (depNumberUsed)
