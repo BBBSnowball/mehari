@@ -223,10 +223,24 @@ def examples = fileTree(EXAMPLE_DIR) {
 	include "*.c"
 }
 
+partitioningTasks = [:]
 examples.each { File example ->
+	partitioningTasks[example] = [:]
 	PARTITIONING_METHODS.each { String pMethod ->
-		partitioningProcessing(example, pMethod)
+		partitioningTasks[example][pMethod] = partitioningProcessing(example, pMethod)
 	}
+}
+
+task compileAllNopSoftware()
+partitioningTasks.each { tasksByPartMethod ->
+	if (tasksByPartMethod.key.name != "Halbachse.c")
+		compileAllNopSoftware.dependsOn tasksByPartMethod.value["nop"].compileResult
+}
+
+task compileAllKLinSoftware()
+partitioningTasks.each { tasksByPartMethod ->
+	if (tasksByPartMethod.key.name != "Halbachse.c")
+		compileAllKLinSoftware.dependsOn tasksByPartMethod.value["k-lin"].compileResult
 }
 
 
