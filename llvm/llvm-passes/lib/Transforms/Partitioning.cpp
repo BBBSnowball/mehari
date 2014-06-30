@@ -631,6 +631,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 					"FUNCTION_BODY", functionBody);
 			} else {
 				VHDLBackend *backend = new VHDLBackend("calculation");
+				backend->setDataDependencyCount(dataDependencies.size());
 				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 

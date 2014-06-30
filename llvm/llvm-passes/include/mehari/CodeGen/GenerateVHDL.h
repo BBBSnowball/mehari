@@ -63,6 +63,7 @@ public:
   void copyVariable(Value *source, Value *target);
   void addIndexToVariable(Value *source, Value *target, std::string index);
   void addDataDependency(Value *valueFromOtherThread, const std::string& isSavedHere);
+  void setDataDependencyCount(unsigned int dataDepCount);
 
 private:
   boost::shared_ptr<Channel> getChannel(Value* addr, ChannelDirection::Direction direction);
@@ -73,6 +74,8 @@ private:
   ValueStorageP remember(ValueStorageP value);
 
   ChannelP read(ValueStorageP value);
+
+  unsigned int dataDependencyCount;
 
   void mboxGet(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value);
   void mboxPut(unsigned int mbox, ChannelP channel_of_op, ValueStorageP value);
