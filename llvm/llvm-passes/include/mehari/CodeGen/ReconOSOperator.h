@@ -64,6 +64,7 @@ public:
   void outputVHDL(std::ostream& o, std::string name);
 
   static void splitAccessIntoWords(const std::string& data_signal, unsigned width, std::vector<std::string>& parts);
+  void splitAccessIntoWordsForWriting(const std::string& data_signal, unsigned width, std::vector<std::string>& parts);
 
 protected:
   void outputStateDeclarations(std::ostream& o);

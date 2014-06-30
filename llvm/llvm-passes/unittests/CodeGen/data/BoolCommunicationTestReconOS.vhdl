@@ -237,16 +237,16 @@ begin
 		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(44, 32));
 
 		report "mbox_get for a_in";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(37, 32));
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, MBOX_RECV, CONV_STD_LOGIC_VECTOR(0, 32));
 
-		report "_put_real(a, 1)";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, communication_mbox(1), CONV_STD_LOGIC_VECTOR(37, 32));
+		report "_put_bool(a, 7)";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, communication_mbox(7), CONV_STD_LOGIC_VECTOR(0, 32));
 
-		report "_get_real(0)";
-		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, communication_mbox(0), CONV_STD_LOGIC_VECTOR(42, 32));
+		report "_get_bool(3)";
+		expect_osif_mbox_get(clk, i_osif_test, o_osif_test, communication_mbox(3), CONV_STD_LOGIC_VECTOR(42, 32));
 
-		report "mbox_put for a_out";
-		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(42, 32));
+		report "mbox_put for b_out";
+		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(7, 32));
 
 		report "Reading 'done' message from slave...";
 		expect_osif_mbox_put(clk, i_osif_test, o_osif_test, MBOX_SEND, CONV_STD_LOGIC_VECTOR(44, 32));

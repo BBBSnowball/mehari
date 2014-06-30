@@ -463,7 +463,7 @@ void BasicReconOSOperator::readMbox(const std::string& state_name, unsigned int 
 
   unsigned width = channel->width;
   std::vector<std::string> parts;
-  splitAccessIntoWords(channel->data_signal, width, parts);
+  splitAccessIntoWordsForWriting(channel->data_signal, width, parts);
 
   BOOST_FOREACH(const std::string& part, parts) {
     State& state = addSequentialState(getUniqueStateName(state_name));
@@ -527,6 +527,28 @@ void BasicReconOSOperator::splitAccessIntoWords(const std::string& data_signal, 
       s << '"';
       if (width > 0)
         s << " & " << data_signal << "(" << (width-1) << " downto " << i << ")";
+    }
+
+    parts.push_back(s.str());
+  }
+}
+
+void BasicReconOSOperator::splitAccessIntoWordsForWriting(const std::string& data_signal, unsigned width, std::vector<std::string>& parts) {
+  for (unsigned i=0;i<width || i==0;i+=32) {
+    std::ostringstream s;
+    if (width - i >= 32) {
+      s << data_signal << "(" << (i+31) << " downto " << i << ")";
+    } else {
+      // miss-use getUniqueStateName to get a unique variable name
+      std::string tmp = getUniqueStateName(data_signal + "_tmp");
+      declare(tmp, 32);
+
+      *this << "   " << data_signal << "(" << (width-1) << " downto " << i << ")"
+        << " <= " << tmp << "(" << (width-1) << " downto " << i << ");\n";
+
+      //s << tmp << "(" << (32-(width-i)-1) << " downto 0) & "
+      //  << data_signal << "(" << (width-1) << " downto " << i << ")";
+      s << tmp;
     }
 
     parts.push_back(s.str());

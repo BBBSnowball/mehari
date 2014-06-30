@@ -555,13 +555,42 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
 
 
 TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
-  ParseC(
-    "void _put_bool(unsigned int, unsigned int);"
-    "int _get_bool(unsigned int);"
+  // 1-bit integers can only be used int IR code.
+  /*ParseC(
+    "void _put_bool(unsigned int, bool);"
+    "int _get_bool(bool);"
     "void test(int a) {"
     "  _put_bool(1, a);"
     "  a = _get_bool(0);"
-    "}");
+    "}");*/
+  ParseAssembly(
+    "declare i1 @_get_bool(i32)\n"
+    "declare void @_put_bool(i32, i1)\n"
+    "define void @test(i32 %a, i32 %b) #0 {\n"
+    "entry:\n"
+    "  %a.addr = alloca i32, align 4\n"
+    "  %b.addr = alloca i32, align 4\n"
+    "  store i32 %a, i32* %a.addr, align 4\n"
+    "  store i32 %b, i32* %b.addr, align 4\n"
+    "  %0 = load i32* %a.addr, align 4\n"
+    "  %tobool449 = icmp ne i32 %0, 0\n"
+    "  call void @_put_bool(i32 7, i1 %tobool449)\n"
+    "  %call = call i1 @_get_bool(i32 3)\n"
+    "  br i1 %tobool449, label %if.else451, label %if.then450\n"
+    "if.then450:\n"
+    //"  store i32 1337, i32* %b.addr, align 4\n"
+    "  br label %if.end452\n"
+    "if.else451:\n"
+    "  br label %if.end452\n"
+    "if.end452:\n"
+    "  %cond = phi i32 [ 7, %if.then450 ], [ 42, %if.else451 ]"
+    "  store i32 %cond, i32* %b.addr, align 4\n"
+    "  ret void\n"
+    "}\n");
+
+  //%data7 = call i1 @_get_bool(i32 7), !targetop !34
+  //br i1 %tobool449, label %if.end451, label %if.then450*/
+
   std::string code = GenerateCode();
 
   mkdir(getCurrentTestName().c_str(), 0755);
@@ -571,7 +600,7 @@ TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
 
   EXPECT_EQ(
     "mbox_put_int(&mbox_start, a);\n"
-    "a = mbox_get_int(&mbox_stop);\n",
+    "b = mbox_get_int(&mbox_stop);\n",
     getInterfaceCode());
 }
 
