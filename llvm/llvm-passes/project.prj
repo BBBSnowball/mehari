@@ -13,6 +13,8 @@ vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_sub.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_mul.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_div.vhd"
 vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/ipcore_dir/float_cmp.vhd"
+vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/reconos/hw/float_library_v1_00_a/hdl/vhdl/sin.vhd"
+vhdl work "SOURCE_DIR/../../single-pendulum-vhdl/reconos/hw/float_library_v1_00_a/hdl/vhdl/cos.vhd"
 
 vhdl reconos_v3_01_a "SOURCE_DIR/../../reconos/reconos/pcores/reconos_v3_01_a/hdl/vhdl/reconos_pkg.vhd"
 

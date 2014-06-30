@@ -455,6 +455,31 @@ TEST_F(SimpleVHDLGeneratorTest, IntegerExtensionTest) {
 }
 
 
+TEST_F(SimpleVHDLGeneratorTest, SinTest) {
+  ParseC(
+    "double sin(double);"
+    "double test(double a) {"
+    "  return sin(a);"
+    "}");
+  CheckResultFromFile();
+
+
+  TestOperator* test = makeTestOperator();
+
+  test->beginStimulusProcess();
+
+  test->waitUntilReady();
+  test->startDataInput();
+  test->setSignedIntegerInput("a_in", M_PI);
+  test->endDataInput();
+  test->waitForAndCheckFloatResult("return", "0.0");
+
+  test->endStimulusProcess();
+
+  saveTestOperator();
+}
+
+
 class ReconOSVHDLGeneratorTest : public SimpleVHDLGeneratorTest {
 
 };

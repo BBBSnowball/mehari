@@ -16,6 +16,8 @@ lib float_library_v1_00_a float_pkg_c_min vhdl
 lib float_library_v1_00_a float_neg vhdl
 lib float_library_v1_00_a float_sin vhdl
 lib float_library_v1_00_a float_cos vhdl
+lib float_library_v1_00_a sin vhdl
+lib float_library_v1_00_a cos vhdl
 
 # other cores
 lib float_library_v1_00_a add vhdl
