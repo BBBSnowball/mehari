@@ -243,6 +243,12 @@ partitioningTasks.each { tasksByPartMethod ->
 		compileAllKLinSoftware.dependsOn tasksByPartMethod.value["k-lin"].compileResult
 }
 
+task compileAllClusteringSoftware()
+partitioningTasks.each { tasksByPartMethod ->
+	if (tasksByPartMethod.key.name != "Halbachse.c")
+		compileAllClusteringSoftware.dependsOn tasksByPartMethod.value["clustering"].compileResult
+}
+
 
 task testOptimizationPasses(type: Exec) {
 	dependsOn buildLLVMPasses

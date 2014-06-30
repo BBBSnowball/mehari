@@ -502,10 +502,10 @@ TEST_F(ReconOSVHDLGeneratorTest, GlobalArrayTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_real(0, a);\n"
-    "x[2] = _get_real(1);\n"
-    "_put_real(0, x[1]);\n"
-    "return _get_real(1);\n",
+    "mbox_put_real(&mbox_start, a);\n"
+    "x[2] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, x[1]);\n"
+    "return mbox_get_real(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -526,8 +526,8 @@ TEST_F(ReconOSVHDLGeneratorTest, DoubleCommunicationTest) {
   writeFile(getCurrentTestName() + "/reconos.vhdl", reconos_code);
 
   EXPECT_EQ(
-    "_put_real(0, a);\n"
-    "a = _get_real(1);\n",
+    "mbox_put_real(&mbox_start, a);\n"
+    "a = mbox_get_real(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -548,8 +548,8 @@ TEST_F(ReconOSVHDLGeneratorTest, IntCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, a);\n"
-    "a = _get_int(1);\n",
+    "mbox_put_int(&mbox_start, a);\n"
+    "a = mbox_get_int(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -570,8 +570,8 @@ TEST_F(ReconOSVHDLGeneratorTest, BoolCommunicationTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, a);\n"
-    "a = _get_int(1);\n",
+    "mbox_put_int(&mbox_start, a);\n"
+    "a = mbox_get_int(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -610,7 +610,7 @@ TEST_F(ReconOSVHDLGeneratorTest, StatusPointerTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, *status);\n*status = _get_int(1);\n",
+    "mbox_put_int(&mbox_start, *status);\n*status = mbox_get_int(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -639,25 +639,25 @@ TEST_F(ReconOSVHDLGeneratorTest, DCMotorTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_real(0, Vp[0]);\n"
-    "Vp[14] = _get_real(1);\n"
-    "_put_real(0, Vp[1]);\n"
-    "Vp[15] = _get_real(1);\n"
-    "Vu[4] = _get_real(1);\n"
-    "_put_real(0, t);\n"
-    "_put_real(0, Vp[10]);\n"
-    "_put_real(0, Vp[11]);\n"
-    "Vq[14] = _get_real(1);\n"
-    "_put_real(0, x[0]);\n"
-    "Vx[0] = _get_real(1);\n"
-    "_put_real(0, x[1]);\n"
-    "Vx[1] = _get_real(1);\n"
-    "_put_real(0, x[2]);\n"
-    "Vx[2] = _get_real(1);\n"
-    "_put_real(0, Vp[12]);\n"
-    "Vs[4] = _get_int(1);\n"
-    "x[0] = _get_real(1);\n"
-    "Vy[4] = _get_real(1);\n",
+    "mbox_put_real(&mbox_start, Vp[0]);\n"
+    "Vp[14] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, Vp[1]);\n"
+    "Vp[15] = mbox_get_real(&mbox_stop);\n"
+    "Vu[4] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, t);\n"
+    "mbox_put_real(&mbox_start, Vp[10]);\n"
+    "mbox_put_real(&mbox_start, Vp[11]);\n"
+    "Vq[14] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, x[0]);\n"
+    "Vx[0] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, x[1]);\n"
+    "Vx[1] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, x[2]);\n"
+    "Vx[2] = mbox_get_real(&mbox_stop);\n"
+    "mbox_put_real(&mbox_start, Vp[12]);\n"
+    "Vs[4] = mbox_get_int(&mbox_stop);\n"
+    "x[0] = mbox_get_real(&mbox_stop);\n"
+    "Vy[4] = mbox_get_real(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -675,11 +675,11 @@ TEST_F(ReconOSVHDLGeneratorTest, NestedIf) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, Vs[6]);\n"
-    "_put_int(0, Vs[7]);\n"
-    "_put_real(0, Vq[63]);\n"
-    "_put_real(0, Vq[65]);\n"
-    "Vq[65] = _get_real(1);\n",
+    "mbox_put_int(&mbox_start, Vs[6]);\n"
+    "mbox_put_int(&mbox_start, Vs[7]);\n"
+    "mbox_put_real(&mbox_start, Vq[63]);\n"
+    "mbox_put_real(&mbox_start, Vq[65]);\n"
+    "Vq[65] = mbox_get_real(&mbox_stop);\n",
     getInterfaceCode());
 }
 
@@ -722,9 +722,9 @@ TEST_F(ReconOSVHDLGeneratorTest, TwoMassesBouncingTest) {
   saveOperator(getCurrentTestName() + "/reconos.vhdl", getGeneratedReconOSOperator());
 
   EXPECT_EQ(
-    "_put_int(0, Vs[6]);\n"
-    "_put_real(0, Vq[52]);\n"
-    "Vq[53] = _get_real(1);\n",
+    "mbox_put_int(&mbox_start, Vs[6]);\n"
+    "mbox_put_real(&mbox_start, Vq[52]);\n"
+    "Vq[53] = mbox_get_real(&mbox_stop);\n",
     getInterfaceCode());
 }
 */
