@@ -47,7 +47,7 @@ static cl::opt<std::string> TemplateDir("template-dir",
 
 
 // Use data dependencies for all communication with the FPGA
-static bool useDataDepForAllFPGACom = true;
+static bool useDataDepForAllFPGACom = false;
 
 
 Partitioning::Partitioning() : ModulePass(ID) {
