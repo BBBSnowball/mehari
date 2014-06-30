@@ -17,6 +17,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include <sstream>
+#include <fstream>
 #include <ctime>
 
 #include <boost/algorithm/string.hpp>
@@ -120,8 +121,10 @@ bool Partitioning::runOnModule(Module &M) {
 		pGraph->create(worklist, dependencies);
 		
 		// create partitioning
+		std::string methodsListString;
 		for (std::vector<std::string>::iterator it = partitioningMethods.begin(); it != partitioningMethods.end(); ++it) {
 			std::string pMethod = *it;
+			methodsListString += " " + pMethod;
 			// if the first algorithm that should be executed is an iterative algorithm that needs a starting point,
 			// create an random partitioning before
 			if ((it-partitioningMethods.begin() == 0) && (pMethod == "sa" || pMethod == "k-lin")) {
@@ -164,7 +167,12 @@ bool Partitioning::runOnModule(Module &M) {
 		}
 
 		// print critical path of partitioning graph to evaluate the partitioning result
-		errs() << "Critical path of the partitioning result: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
+		std::ofstream criticalPathFile;
+		std::string criticalPathFileName = OutputDir + "/critical_path.txt";
+		criticalPathFile.open(criticalPathFileName.c_str());
+		criticalPathFile << "Critical path length for using [" << methodsListString
+		<< " ]: " << pGraph->getCriticalPathCost(partitioningDevices) << "\n";
+		criticalPathFile.close();
 
 		// handle data and control dependencies between partitions
 		// by adding appropriate function calls
@@ -345,10 +353,22 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 					LLVMContext &context = tgtInstr->getContext();
 					MDNode* mdn = MDNode::get(context, MDString::get(context, ss.str()));
 					newInstr->setMetadata("targetop", mdn);
+					
+					// insert instruction: if we are inside an if statement we should insert the get method 
+					// at the beginning of the statement, otherwise we can insert it directly before the target instruction
+					std::vector<Instruction*>::iterator insertTarget = instrIt;
+					bool containsBranch = false;
+					for (std::vector<Instruction*>::iterator it = tgtInstrList.begin(); it != tgtInstrList.end(); ++it)
+						if (isa<BranchInst>(*it)) 
+							containsBranch = true;
+					if (containsBranch)
+						insertTarget = tgtInstrList.begin();
+
 					// add instruction to function
-					tgtInstr->getParent()->getInstList().insert(tgtInstr, newInstr);
+					Instruction *tgt = *insertTarget;
+					tgt->getParent()->getInstList().insert(tgt, newInstr);
 					// add instruction to vertex instruction list
-					tgtInstrList.insert(instrIt, newInstr);
+					tgtInstrList.insert(insertTarget, newInstr);
 					pGraph.setInstructions(instrVertex, tgtInstrList);
 				}
 
@@ -385,10 +405,22 @@ void Partitioning::handleDependencies(Module &M, Function &F, PartitioningGraph 
 						}
 						depNumberUsed = true;
 					}
+					
+					// insert instruction: if we are inside an if statement we should insert the put method 
+					// at the end of the statement, otherwise we can insert it directly after the target instruction
+					std::vector<Instruction*>::iterator insertTarget = depIt;
+					bool containsBranch = false;
+					for (std::vector<Instruction*>::iterator it = depInstrList.begin(); it != depInstrList.end(); ++it)
+						if (isa<BranchInst>(*it)) 
+							containsBranch = true;
+					if (containsBranch)
+						insertTarget = depInstrList.end()-1;
+
 					// add instruction to function
-					depInstr->getParent()->getInstList().insertAfter(depInstr, newInstr);
+					Instruction *tgt = *insertTarget;
+					depInstr->getParent()->getInstList().insertAfter(tgt, newInstr);
 					// add instruction to vertex instruction list
-					depInstrList.insert(depIt+1, newInstr);
+					depInstrList.insert(insertTarget+1, newInstr);
 					pGraph.setInstructions(depVertex, depInstrList);
 				}
 				if (depNumberUsed)
@@ -599,6 +631,7 @@ void Partitioning::savePartitioning(std::map<std::string, Function*> &functions,
 					"FUNCTION_BODY", functionBody);
 			} else {
 				VHDLBackend *backend = new VHDLBackend("calculation");
+				backend->setDataDependencyCount(dataDependencies.size());
 				SimpleCCodeGenerator codeGen(backend);
 				std::string vhdl_calculation = codeGen.createCCode(*func, instructionsForPartition[i]);
 

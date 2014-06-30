@@ -31,7 +31,8 @@ VHDLBackend::VHDLBackend(const std::string& name)
     instanceNameGenerator("inst"),
     vs_factory(new ValueStorageFactory()),
     ready_signals(new ReadySignals()),
-    generateForTest(false)
+    generateForTest(false),
+    dataDependencyCount(0)
 { }
 
 MyOperator* VHDLBackend::getOperator() {
@@ -226,6 +227,10 @@ void VHDLBackend::addDataDependency(Value *valueFromOtherThread, const std::stri
   vs_factory->set(valueFromOtherThread, vs_factory->getTemporaryVariable(isSavedHere));
 }
 
+void VHDLBackend::setDataDependencyCount(unsigned int dataDepCount) {
+  dataDependencyCount = dataDepCount;
+}
+
 void VHDLBackend::generateCall(std::string funcName,
     std::string tmpVar, std::vector<Value*> args) {
   debug_print("generateCall(" << funcName << ", " << tmpVar << ", args)");
@@ -279,7 +284,7 @@ void VHDLBackend::generateCall(std::string funcName,
 
     const llvm::APInt& sem_apint = cast<llvm::ConstantInt>(args[0])->getValue();
     assert(sem_apint.isIntN(32));
-    unsigned int sem = 2 + (unsigned int)sem_apint.getZExtValue();
+    unsigned int sem = 2 + dataDependencyCount + (unsigned int)sem_apint.getZExtValue();
 
     r_op->semWait("sem" + toString(sem) + "_wait", sem);
 
@@ -291,7 +296,7 @@ void VHDLBackend::generateCall(std::string funcName,
 
     const llvm::APInt& sem_apint = cast<llvm::ConstantInt>(args[0])->getValue();
     assert(sem_apint.isIntN(32));
-    unsigned int sem = 2 + (unsigned int)sem_apint.getZExtValue();
+    unsigned int sem = 2 + dataDependencyCount + (unsigned int)sem_apint.getZExtValue();
 
     r_op->semPost("sem" + toString(sem) + "_post", sem);
 
