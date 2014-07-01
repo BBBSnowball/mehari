@@ -8,6 +8,7 @@
 // DEBUG
 #include "llvm/Support/raw_ostream.h"
 
+#include "mehari/utils/ContainerUtils.h"
 
 
 AbstractPartitioningMethod::~AbstractPartitioningMethod() {}
@@ -50,7 +51,7 @@ void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
 // -----------------------------------
 
 unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
-	bool alwaysUseMaxPartitions = contains(targetDevices, "xc7z020-1");
+	bool alwaysUseMaxPartitions = contains(targetDevices, std::string("xc7z020-1"));
 
 	partitioningGraph = pGraph;
 	devices = targetDevices;
@@ -109,8 +110,10 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 	unsigned int newPartitionCount;
 	if (!alwaysUseMaxPartitions)
 		boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCountMax);
-	else
+	else {
 		newPartitionCount = partitionCountMax;
+		pGraph = partitioningResults.back();
+	}
 
 
 	return newPartitionCount;
