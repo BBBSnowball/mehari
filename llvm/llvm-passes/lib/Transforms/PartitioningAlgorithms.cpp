@@ -50,6 +50,8 @@ void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
 // -----------------------------------
 
 unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
+	bool alwaysUseMaxPartitions = contains(targetDevices, "xc7z020-1");
+
 	partitioningGraph = pGraph;
 	devices = targetDevices;
 	unsigned int partitionCountMax = targetDevices.size();
@@ -83,7 +85,7 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 
 	// finally perform clustering and save all partitioning results that does not exceed the partitioning count
 	std::vector<PartitioningGraph> partitioningResults;
-	while (boost::num_vertices(clusteringGraph) > 1) {
+	while (boost::num_vertices(clusteringGraph) > (alwaysUseMaxPartitions ? partitionCountMax : 1)) {
 		VertexDescriptor vd1, vd2, vdnew;
 		// find best pair of vertices given by closeness
 		boost::tie(vd1, vd2) = getPairMaxCloseness();
@@ -105,7 +107,10 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 	// determine the result with the minimum cost and save it in the original partitioning graph
 	// also set the new partition count
 	unsigned int newPartitionCount;
-	boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCountMax);
+	if (!alwaysUseMaxPartitions)
+		boost::tie(pGraph, newPartitionCount) = getFinalResult(partitioningResults, partitionCountMax);
+	else
+		newPartitionCount = partitionCountMax;
 
 
 	return newPartitionCount;
