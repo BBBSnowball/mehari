@@ -137,10 +137,6 @@ void SimpleCCodeGenerator::createCCode(std::ostream& stream, Function &func, con
     else
       nextInstr = NULL;
 
-    errs() << "current instruction: ";
-    errs() << *(llvm::Value*)instr;
-    errs() << "\n";
-
     // insert a label for branch targets if the current instruction is one
     backend->generateBranchTargetIfNecessary(instr);
 
