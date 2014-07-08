@@ -8,7 +8,7 @@
 *.pyc
 .tmp-*
 
-# build/test results
+# build/test/profiling results
 _install
 _build
 /buildSrc/build
@@ -17,6 +17,7 @@ _build
 *.o
 *.d
 *.so
+callgrind.out.*
 
 # llvm optimization results
 /llvm-optimizations-application/graph

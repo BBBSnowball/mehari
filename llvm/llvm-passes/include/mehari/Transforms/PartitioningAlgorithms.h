@@ -32,7 +32,8 @@ public:
 private:
 	typedef std::vector<PartitioningGraph::VertexDescriptor> FunctionalUnitList;
 	struct Vertex { FunctionalUnitList funcUnits; };
-	struct Edge { 
+	struct Edge {
+		unsigned int comCostSum;
 		float closeness; 
 		unsigned int pSizeProduct;
 		bool operator> (const Edge &) const;
@@ -58,8 +59,9 @@ private:
 
 	std::vector<std::string> devices;
 
-	boost::tuple<float, unsigned int> closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2);
-	boost::tuple<float, unsigned int> ratioCutCloseness(VertexDescriptor vd1, VertexDescriptor vd2);
+	boost::tuple<float, unsigned int> closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed);
+	bool initCloseness(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed);
+	void mergeCloseness(EdgeDescriptor ed1, EdgeDescriptor ed2, EdgeDescriptor edNew);
 
 	enum closenessMetric {
 		ratioCut
@@ -71,7 +73,6 @@ private:
 	VertexDescriptor mergeVertices(VertexDescriptor vd1, VertexDescriptor vd2);
 	void updateEdges(VertexDescriptor vd1, VertexDescriptor vd2, VertexDescriptor vdnew);
 	void removeOutdatedVertices(VertexDescriptor vd1, VertexDescriptor vd2);
-	void updateCloseness(void);
 
 	void applyClusteringOnPartitioningGraph(PartitioningGraph &pGraph);
 	boost::tuple<PartitioningGraph, unsigned int> getFinalResult(
