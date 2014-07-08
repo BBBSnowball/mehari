@@ -60,7 +60,7 @@ private:
 	std::vector<std::string> devices;
 
 	boost::tuple<float, unsigned int> closenessFunction(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed);
-	void initCloseness(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed);
+	bool initCloseness(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed);
 	void mergeCloseness(EdgeDescriptor ed1, EdgeDescriptor ed2, EdgeDescriptor edNew);
 
 	enum closenessMetric {

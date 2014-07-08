@@ -77,7 +77,8 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 			EdgeDescriptor ed;
 			bool inserted;
 			boost::tie(ed, inserted) = boost::add_edge(vd1, vd2, clusteringGraph);
-			initCloseness(vd1, vd2, ed);
+			if (!initCloseness(vd1, vd2, ed))
+				boost::remove_edge(ed, clusteringGraph);
 		}
 	}
 
@@ -135,7 +136,7 @@ boost::tuple<float, unsigned int> HierarchicalClustering::closenessFunction(Vert
 }
 
 
-void HierarchicalClustering::initCloseness(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed) {
+bool HierarchicalClustering::initCloseness(VertexDescriptor vd1, VertexDescriptor vd2, EdgeDescriptor ed) {
 	unsigned int comCost = 0;
 
 	FunctionalUnitList funits1 = clusteringGraph[vd1].funcUnits;
@@ -143,9 +144,11 @@ void HierarchicalClustering::initCloseness(VertexDescriptor vd1, VertexDescripto
 	for (FunctionalUnitList::iterator it1 = funits1.begin(); it1 != funits1.end(); ++it1)
 		for (FunctionalUnitList::iterator it2 = funits2.begin(); it2 != funits2.end(); ++it2)
 			comCost += partitioningGraph.getDeviceIndependentCommunicationCost(*it1, *it2);
-	
+
 	clusteringGraph[ed].comCostSum = comCost;
 	boost::tie(clusteringGraph[ed].closeness, clusteringGraph[ed].pSizeProduct) = closenessFunction(vd1, vd2, ed);
+
+	return (comCost > 0);
 }
 
 
@@ -158,6 +161,22 @@ void HierarchicalClustering::mergeCloseness(EdgeDescriptor ed1, EdgeDescriptor e
 
 boost::tuple<HierarchicalClustering::VertexDescriptor, HierarchicalClustering::VertexDescriptor> 
 HierarchicalClustering::getPairMaxCloseness(void) {
+	if (boost::num_edges(clusteringGraph) == 0) {
+		VertexIterator vIt1, vIt2, vBegin, vEnd;
+		boost::tie(vBegin, vEnd) = boost::vertices(clusteringGraph);
+		for (vIt1 = vBegin; vIt1 != vEnd; ++vIt1) {
+			VertexDescriptor vd1 = *vIt1;
+			for (vIt2 = vIt1; vIt2 != vEnd; ++vIt2) {
+				if (vIt2 == vIt1)
+					continue; // we do not want edge from a vertex to itself
+				VertexDescriptor vd2 = *vIt2;
+				EdgeDescriptor ed;
+				bool inserted;
+				boost::tie(ed, inserted) = boost::add_edge(vd1, vd2, clusteringGraph);
+				initCloseness(vd1, vd2, ed);
+			}
+		}
+	}
 	// find edge with maximum weight (closeness value)
 	EdgeIterator edgeIt, edgeEnd;
 	boost::tie(edgeIt, edgeEnd) = boost::edges(clusteringGraph);
@@ -196,12 +215,28 @@ void HierarchicalClustering::updateEdges(VertexDescriptor vd1, VertexDescriptor 
 		if (vd == vd1 || vd == vd2 || vd == vdnew)
 			continue;
 		// create new edge between current vertex and new vertex, merge closeness
-		EdgeDescriptor ed1 = boost::edge(vd, vd1, clusteringGraph).first;
-		EdgeDescriptor ed2 = boost::edge(vd, vd2, clusteringGraph).first;
+		bool exists1, exists2;
+		EdgeDescriptor ed1, ed2;
+		boost::tie(ed1, exists1) = boost::edge(vd, vd1, clusteringGraph);
+		boost::tie(ed2, exists2) = boost::edge(vd, vd2, clusteringGraph);
+		if (!exists1 && !exists2)
+			continue;
+
 		EdgeDescriptor ed;
 		bool inserted;
 		boost::tie(ed, inserted) = boost::add_edge(vd, vdnew, clusteringGraph);
-		mergeCloseness(ed1, ed2, ed);
+		if (exists1 && exists2)
+			mergeCloseness(ed1, ed2, ed);
+		else if (exists1) {
+			clusteringGraph[ed].comCostSum = clusteringGraph[ed1].comCostSum;
+			boost::tie(clusteringGraph[ed].closeness, clusteringGraph[ed].pSizeProduct) = 
+				closenessFunction(boost::source(ed, clusteringGraph), boost::target(ed, clusteringGraph), ed);
+		}
+		else if (exists2) {
+			clusteringGraph[ed].comCostSum = clusteringGraph[ed2].comCostSum;
+			boost::tie(clusteringGraph[ed].closeness, clusteringGraph[ed].pSizeProduct) = 
+				closenessFunction(boost::source(ed, clusteringGraph), boost::target(ed, clusteringGraph), ed);
+		}
 	}
 }
 
