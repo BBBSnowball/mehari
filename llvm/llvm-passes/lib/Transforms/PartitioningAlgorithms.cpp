@@ -93,7 +93,7 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 		updateEdges(vd1, vd2, vdnew);
 		removeOutdatedVertices(vd1, vd2);
 		// update the closeness values
-		updateCloseness();
+		updateCloseness(vdnew);
 		// save the current partitioning result if it does not exceed the partitioning count
 		if (boost::num_vertices(clusteringGraph) <= partitionCountMax) {
 			PartitioningGraph tmpPartitioningResult = partitioningGraph;
@@ -207,12 +207,20 @@ void HierarchicalClustering::removeOutdatedVertices(VertexDescriptor vd1, Vertex
 }
 
 
-void HierarchicalClustering::updateCloseness(void) {
-	EdgeIterator edgeIt, edgeEnd;
-	for (boost::tie(edgeIt, edgeEnd) = boost::edges(clusteringGraph); edgeIt != edgeEnd; ++edgeIt) {
-		VertexDescriptor u = boost::source(*edgeIt, clusteringGraph); 
-		VertexDescriptor v = boost::target(*edgeIt, clusteringGraph);
-		boost::tie(clusteringGraph[*edgeIt].closeness, clusteringGraph[*edgeIt].pSizeProduct) = closenessFunction(u, v);
+void HierarchicalClustering::updateCloseness(VertexDescriptor vdnew) {
+	Graph::out_edge_iterator oeIt, oeEnd;
+	Graph::in_edge_iterator ieIt, ieEnd;
+	boost::tie(oeIt, oeEnd) = boost::out_edges(vdnew, clusteringGraph);
+	boost::tie(ieIt, ieEnd) = boost::in_edges(vdnew, clusteringGraph);
+	for (; oeIt != oeEnd; ++oeIt) {
+		VertexDescriptor u = boost::source(*oeIt, clusteringGraph); 
+		VertexDescriptor v = boost::target(*oeIt, clusteringGraph);
+		boost::tie(clusteringGraph[*oeIt].closeness, clusteringGraph[*oeIt].pSizeProduct) = closenessFunction(u, v);
+	}
+	for (; ieIt != ieEnd; ++ieIt) {
+		VertexDescriptor u = boost::source(*ieIt, clusteringGraph); 
+		VertexDescriptor v = boost::target(*ieIt, clusteringGraph);
+		boost::tie(clusteringGraph[*ieIt].closeness, clusteringGraph[*ieIt].pSizeProduct) = closenessFunction(u, v);
 	}
 }
 

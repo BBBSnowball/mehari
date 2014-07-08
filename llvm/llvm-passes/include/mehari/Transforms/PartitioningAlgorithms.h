@@ -71,7 +71,7 @@ private:
 	VertexDescriptor mergeVertices(VertexDescriptor vd1, VertexDescriptor vd2);
 	void updateEdges(VertexDescriptor vd1, VertexDescriptor vd2, VertexDescriptor vdnew);
 	void removeOutdatedVertices(VertexDescriptor vd1, VertexDescriptor vd2);
-	void updateCloseness(void);
+	void updateCloseness(VertexDescriptor vdnew);
 
 	void applyClusteringOnPartitioningGraph(PartitioningGraph &pGraph);
 	boost::tuple<PartitioningGraph, unsigned int> getFinalResult(
