@@ -163,7 +163,7 @@ bool Partitioning::runOnModule(Module &M) {
 			}
 
 			// print partitioning graph results
-			pGraph->printGraphviz(*func, functionName + "_" + pMethod, GraphOutputDir);
+			//pGraph->printGraphviz(*func, functionName + "_" + pMethod, GraphOutputDir);
 		}
 
 		// print critical path of partitioning graph to evaluate the partitioning result

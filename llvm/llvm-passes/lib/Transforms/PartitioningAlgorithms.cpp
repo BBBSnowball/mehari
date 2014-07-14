@@ -7,6 +7,7 @@
 
 // DEBUG
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Format.h"
 
 #include "mehari/utils/ContainerUtils.h"
 
@@ -53,6 +54,8 @@ void RandomPartitioning::balancedBiPartitioning(PartitioningGraph &pGraph) {
 unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vector<std::string> &targetDevices) {
 	bool alwaysUseMaxPartitions = contains(targetDevices, std::string("xc7z020-1"));
 
+	errs() << "Starting HierarchicalClustering...\n";
+
 	partitioningGraph = pGraph;
 	devices = targetDevices;
 	unsigned int partitionCountMax = targetDevices.size();
@@ -67,6 +70,8 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 		VertexDescriptor newVertex = boost::add_vertex(clusteringGraph);
 		clusteringGraph[newVertex].funcUnits = fuList;
 	}
+
+	errs() << "Created " << boost::num_vertices(clusteringGraph) << " vertices in clustering graph\n";
 
 	// second add edges between all of the vertices of the clustering graph and set initial closeness
 	VertexIterator vIt1, vIt2, vBegin, vEnd;
@@ -85,8 +90,12 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 		}
 	}
 
+	errs() << "Created " << boost::num_edges(clusteringGraph) << " edges in (sparse) clustering graph\n";
+
 	// finally perform clustering and save all partitioning results that does not exceed the partitioning count
 	std::vector<PartitioningGraph> partitioningResults;
+	clock_t start = std::clock();
+	unsigned int iteration = 0;
 	while (boost::num_vertices(clusteringGraph) > (alwaysUseMaxPartitions ? partitionCountMax : 1)) {
 		VertexDescriptor vd1, vd2, vdnew;
 		// find best pair of vertices given by closeness
@@ -102,6 +111,12 @@ unsigned int HierarchicalClustering::apply(PartitioningGraph &pGraph, std::vecto
 			applyClusteringOnPartitioningGraph(tmpPartitioningResult);
 			partitioningResults.push_back(tmpPartitioningResult);
 		}
+
+		//TODO only print, if sufficient time has passed
+		clock_t current = std::clock();
+		iteration++;
+		errs() << "End of iteration " << iteration << " after "
+			<< format("%4.4f", (current-start) / (double)CLOCKS_PER_SEC * 1000) << " ms\n";
 	}
 
 	// determine the result with the minimum cost and save it in the original partitioning graph

@@ -4,6 +4,8 @@
 #include <map>
 #include <set>
 #include <iterator>
+#include <vector>
+#include <boost/foreach.hpp>
 
 template<typename KEY, typename VALUE>
 inline static bool contains(const std::map<KEY, VALUE>& map, const KEY& key) {
@@ -15,6 +17,15 @@ template<typename VALUE>
 inline static bool contains(const std::set<VALUE>& set, const VALUE& value) {
   typename std::set<VALUE>::const_iterator found = set.find(value);
   return (found != set.end());
+}
+
+template<typename VALUE>
+inline static bool contains(const std::vector<VALUE>& vector, const VALUE& value) {
+  BOOST_FOREACH(const VALUE& x, vector)
+    if (x == value)
+      return true;
+
+  return false;
 }
 
 template<typename KEY, typename VALUE>
